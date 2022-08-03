@@ -1,1 +1,2 @@
+dca_frustratometer/_version.py export-subst
 *.mat filter=lfs diff=lfs merge=lfs -text
