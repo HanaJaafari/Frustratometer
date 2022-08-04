@@ -37,6 +37,19 @@ jobs:
         df -h
         ulimit -a
 
+    - name: checkout source
+      uses: actions/checkout@v2
+    - name: Generate lfs file list
+      run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
+    - name: Restore lfs cache
+      uses: actions/cache@v2
+      id: lfs-cache
+      with:
+        path: .git/lfs
+        key: ${{ runner.os }}-lfs-${{ hashFiles('.lfs-assets-id') }}-v1
+    - name: Pull lfs files
+      run: git lfs pull
+
 
     # More info on options: https://github.com/conda-incubator/setup-miniconda
     - uses: conda-incubator/setup-miniconda@v2
