@@ -31,8 +31,8 @@ def get_protein_sequence_from_pdb(pdb: str,
                    'LEU': 'L', 'LYS': 'K', 'MET': 'M', 'PHE': 'F', 'PRO': 'P',
                    'SER': 'S', 'THR': 'T', 'TRP': 'W', 'TYR': 'Y', 'VAL': 'V'}
     residues = [residue for residue in structure.get_residues() if (
-                residue.has_id('CA') and residue.get_parent().get_id() == str(chain) and residue.resname not in [' CA',
-                                                                                                                 'PBC'])]
+            residue.has_id('CA') and residue.get_parent().get_id() == str(chain) and residue.resname not in [' CA',
+                                                                                                             'PBC'])]
     sequence = ''.join([Letter_code[r.resname] for r in residues])
     return sequence
 
@@ -80,13 +80,11 @@ def load_potts_model(potts_model_file):
 
 
 def compute_native_energy(seq: str,
-                          potts_model_file: str,
+                          potts_model: str,
                           distance_matrix: np.array,
                           distance_cutoff: typing.Union[float, None] = None,
                           sequence_distance_cutoff: typing.Union[int, None] = None) -> float:
     AA = '-ACDEFGHIKLMNPQRSTVWY'
-
-    potts_model = load_potts_model(potts_model_file)
 
     seq_index = np.array([AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
@@ -106,13 +104,11 @@ def compute_native_energy(seq: str,
 
 
 def compute_singleresidue_decoy_energy(seq: str,
-                         potts_model_file: str,
-                         distance_matrix: np.array,
-                         distance_cutoff: typing.Union[float, None] = None,
-                         sequence_distance_cutoff: typing.Union[int, None] = None) -> np.array:
+                                       potts_model: str,
+                                       distance_matrix: np.array,
+                                       distance_cutoff: typing.Union[float, None] = None,
+                                       sequence_distance_cutoff: typing.Union[int, None] = None) -> np.array:
     AA = '-ACDEFGHIKLMNPQRSTVWY'
-
-    potts_model = load_potts_model(potts_model_file)
 
     seq_index = np.array([AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
@@ -138,8 +134,11 @@ def compute_singleresidue_decoy_energy(seq: str,
     return decoy_energy
 
 
-def compute_aa_freq(seq_index):
+def compute_aa_freq(sequence):
+    AA = '-ACDEFGHIKLMNPQRSTVWY'
+    seq_index = np.array([AA.find(aa) for aa in sequence])
     return np.array([(seq_index == i).sum() for i in range(21)])
+
 
 def compute_singleresidue_frustration(decoy_energy, native_energy, aa_freq=None):
     if aa_freq is None:
@@ -172,10 +171,47 @@ def compute_mutational_frustration():
         quote += "\n\t- Adapted from Henry David Thoreau"
     return quote
 
+
+# Class wrapper
+class PottsModel:
+    def __init__(self,
+             pdb_file: str,
+             chain: str,
+             potts_model_file: str,
+             sequence_cutoff: typing.Union[float, None],
+             distance_cutoff: typing.Union[float, None],
+             distance_matrix_method='minimum'
+             ):
+        self.pdb = pdb_file
+        self.chain = chain
+        self.potts_model_file = potts_model_file
+        self.sequence = get_protein_sequence_from_pdb(self.pdb, self.chain)
+        self.distance_matrix = get_distance_matrix_from_pdb(self.pdb, self.chain, distance_matrix_method)
+        self.potts_model = load_potts_model(potts_model_file)
+        self.sequence_cutoff = sequence_cutoff
+        self.distance_cutoff = distance_cutoff
+        self.aa_freq = compute_aa_freq(self.sequence)
+
+    def native_energy(self):
+        return compute_native_energy(self.sequence, self.potts_model, self.distance_matrix,
+                                     self.distance_cutoff, self.sequence_cutoff)
+
+    def decoy_energy(self, type='singleresidue'):
+        if type == 'singleresidue':
+            return compute_singleresidue_decoy_energy(self.seq, self.potts_model, self.distance_matrix,
+                                                      self.distance_cutoff, self.sequence_cutoff)
+
+    def frustration(self, type='singleresidue'):
+        native_energy = self.native_energy()
+        decoy_energy = self.decoy_energy(type)
+        if type == 'singleresidue':
+            return compute_singleresidue_frustration(decoy_energy, native_energy, self.aa_freq)
+
 # Function if script invoked on its own
 def main():
     seq = get_protein_sequence_from_pdb('examples/data/1l63.pdb', 'A')
     distance_matrix = get_distance_matrix_from_pdb('examples/data/1l63.pdb', 'A')
+    potts_model=load_potts_model('examples/data/PottsModel1l63A.mat')
     e = compute_native_energy(seq, 'examples/data/PottsModel1l63A.mat', distance_matrix,
                               distance_cutoff=4, sequence_distance_cutoff=0)
     print(e)
