@@ -119,8 +119,8 @@ def pseudofam_retrieve_and_filter_alignment(protein_family):
     output_handle.close()
 
 
-def generate_protein_sequence_alignments(protein_family,pdb_name,
-                                         dca_frustratometer_directory):
+def generate_protein_sequence_alignments(protein_family,pdb_name,build_msa_files,
+                                         database_name,dca_frustratometer_directory):
     
     if not os.path.exists(f"{protein_family}_full.aln"):
         if build_msa_files:
@@ -128,7 +128,7 @@ def generate_protein_sequence_alignments(protein_family,pdb_name,
                     database_file=f"{dca_frustratometer_directory}/uniparc_active.fasta"
                 else:
                     database_file=f"{dca_frustratometer_directory}/Uniprot_Sequence_Database_Files/uniprot_sprot.fasta"
-                os.system(f"jackhmmer -A {protein_family}_full.aln -N 1 --popen 0 --pextend 0 --chkhmm {protein_family}_{pdb_name} --chkali {protein_family}_{pdb_name} {protein_family}_{pdb_name}_sequences.fasta {database_file}")
+                os.system(f"jackhmmer -A {protein_family}_full.aln -N 1 --popen 0 --pextend 0 --chkhmm {protein_family}_{pdb_name}_{chain_name} --chkali {protein_family}_{pdb_name}_{chain_name} {protein_family}_{pdb_name}_{chain_name}_sequences.fasta {database_file}")
         else:
             pseudofam_pfam_download_alignments([protein_family],alignment_type="both",
                                                    pfam_alignment_path=f"{os.getcwd()}/")
@@ -312,9 +312,12 @@ def main(pdb_name,chain_name,atom_type,build_msa_files,database_name,
     
     if not os.path.exists(alignment_dca_files_directory):
         os.mkdir(alignment_dca_files_directory)    
+    
+    os.system(f"cp ./{protein_family}_{pdb_name}_{chain_name}_sequences.fasta {alignment_dca_files_directory}")
     os.chdir(alignment_dca_files_directory)
     
-    generate_protein_sequence_alignments(protein_family,pdb_name,
+    generate_protein_sequence_alignments(protein_family,pdb_name,build_msa_files,
+                                         database_name,
                                          dca_frustratometer_directory)
     generate_potts_model(protein_family,gap_threshold,dca_frustratometer_directory)
     
