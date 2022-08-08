@@ -7,6 +7,9 @@ import scipy.spatial.distance as sdist
 import pandas as pd
 import numpy as np
 import itertools
+from datetime import datetime
+import os
+import urllib.request
 import scipy.io
 
 
@@ -208,9 +211,33 @@ class PottsModel:
             return compute_singleresidue_frustration(decoy_energy, native_energy, self.aa_freq)
 
 # Function if script invoked on its own
-def main():
-    seq = get_protein_sequence_from_pdb('examples/data/1l63.pdb', 'A')
-    distance_matrix = get_distance_matrix_from_pdb('examples/data/1l63.pdb', 'A')
+def main(pdb_name,chain_name,atom_type,PFAM_version,build_msa_files,database_name,
+         gap_threshold,dca_frustratometer_directory):
+    #PDB DCA frustration analysis directory
+    protein_dca_frustration_directory=f"{os.getcwd()}/{datetime.today().strftime('%m_%d_%Y')}_{pdb_name}_{chain_name}_DCA_Frustration_Analysis"
+    if not os.path.exists(protein_dca_frustration_directory):
+        os.mkdir(protein_dca_frustration_directory)
+    os.chdir(protein_dca_frustration_directory)
+    ###
+    #Importing PDB structure
+    if not os.path.exists(f"./{pdb_name[:4]}.pdb"):
+        urllib.request.urlretrieve(f"https://files.rcsb.org/download/{pdb_name[:4]}.pdb", f"./{pdb_name[:4]}.pdb")
+    
+    pdb_sequence = get_protein_sequence_from_pdb(f"./{pdb_name[:4]}.pdb", chain_name)
+    
+    #Identify PDB's protein family
+    pdb_pfam_mapping_dataframe=pd.read_csv(f"{dca_frustratometer_directory}/pdb_chain_pfam.csv",header=1,sep=",")
+    protein_family=pdb_pfam_mapping_dataframe.loc[((pdb_pfam_mapping_dataframe["PDB"]==pdb_name.lower()) 
+                                                  & (pdb_pfam_mapping_dataframe["CHAIN"]==chain_name)),"PFAM_ID"].values[0]
+    
+    #Save PDB sequence
+    with open(f"./{protein_family}_{pdb_name}_{chain_name}_sequences.fasta","w") as f:
+        f.write(">{}_{}\n{}\n".format(pdb_name,chain_name,pdb_sequence))
+    
+    #Generate PDB contact distance matrix
+    distance_matrix = get_distance_matrix_from_pdb(f"./{pdb_name[:4]}.pdb", chain_name)
+
+    #Generate PDB alignment files
     potts_model=load_potts_model('examples/data/PottsModel1l63A.mat')
     e = compute_native_energy(seq, 'examples/data/PottsModel1l63A.mat', distance_matrix,
                               distance_cutoff=4, sequence_distance_cutoff=0)
@@ -218,4 +245,28 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--pdb_name", type=str, required=True,help="PDB Name")
+    parser.add_argument("--chain_name", type=str, required=True,help="Chain Name")
+    parser.add_argument("--atom_type", type=str, default="CB",help="Atom Type Used for Residue Contact Map")
+    parser.add_argument("--PFAM_version", action="store_true",default=27, help="PFAM version for DCA Files (Default is PFAM 27)")
+    parser.add_argument("--build_msa_files",action='store_false',help="Build MSA with Full Coverage of PDB")
+    parser.add_argument("--database_name", default="Uniprot",help="Database used in seed msa (options are Uniparc or Uniprot)")
+    parser.add_argument("--gap_threshold",type=float,default=0.2,help="Continguous gap threshold applied to MSA")
+    parser.add_argument("--dca_frustratometer_directory",type=str,help="Directory of DCA Frustratometer Scripts")
+    
+    args = parser.parse_args()
+    
+    pdb_name=args.pdb_name
+    chain_name=args.chain_name
+    atom_type=args.atom_type
+    PFAM_version=args.PFAM_version
+    build_msa_files=args.build_msa_files
+    database_name=args.database_name
+    gap_threshold=args.gap_threshold
+    dca_frustratometer_directory=args.dca_frustratometer_directory
+    
+    main(pdb_name,chain_name,atom_type,PFAM_version,build_msa_files,database_name,
+         gap_threshold,dca_frustratometer_directory)
