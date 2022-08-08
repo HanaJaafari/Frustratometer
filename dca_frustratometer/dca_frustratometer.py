@@ -2,6 +2,7 @@
 import typing
 
 from Bio.PDB import PDBParser
+from Bio import AlignIO
 import prody
 import scipy.spatial.distance as sdist
 import pandas as pd
@@ -76,6 +77,73 @@ def get_distance_matrix_from_pdb(pdb: str,
             D[i, j] = d
             D[j, i] = d
         return D
+
+
+def pseudofam_pfam_download_alignments(protein_family, alignment_type):
+    if alignment_type=="both":
+        all_alignment_types=["seed","full"]
+    else:
+        all_alignment_types=[alignment_type]
+        
+    for category in all_alignment_types:
+        alignment_file_name = "%s_%s.aln" % (protein_family,category)
+        os.system(f"wget -O {alignment_file_name} http://pfam.xfam.org/family/{protein_family}/alignment/{category}")
+
+
+def pseudofam_retrieve_and_filter_alignment(protein_family):
+    
+    #Convert full MSA in stockholm format to fasta format
+    input_handle = open(f"{protein_family}_full.aln", "rU")
+    output_handle = open(f"{protein_family}_msa.fasta", "w")
+    alignments = AlignIO.parse(input_handle, "stockholm")
+    AlignIO.write(alignments, output_handle, "fasta")
+    output_handle.close()
+    input_handle.close()
+    
+    #Remove inserts and columns that are completely composed of gaps from MSA
+    alignment = AlignIO.read(open(f"{protein_family}_msa.fasta"), "fasta")
+    output_handle = open(f"{protein_family}_gap_filtered_msa.fasta", "w")
+
+    index_mask = []
+    for i, record in enumerate(alignment):
+        index_mask += [i for i, x in enumerate(list(record.seq)) if x != x.upper()]
+    for i in range(len(alignment[0].seq)):
+        if alignment[:,i] == ''.join(["-"]*len(alignment)):
+            index_mask.append(i)
+    index_mask = sorted(list(set(index_mask)))
+    
+    for i, record in enumerate(alignment):
+        aligned_sequence = [list(record.seq)[i] for i in range(len(list(record.seq))) if i not in index_mask]
+        
+        output_handle.write(">%s\n" % record.id + "".join(aligned_sequence)+'\n')
+    output_handle.close()
+
+
+def generate_protein_sequence_alignments(protein_family,pdb_name,
+                                         dca_frustratometer_directory):
+    
+    if not os.path.exists(f"{protein_family}_full.aln"):
+        if build_msa_files:
+                if database_name=="Uniparc":
+                    database_file=f"{dca_frustratometer_directory}/uniparc_active.fasta"
+                else:
+                    database_file=f"{dca_frustratometer_directory}/Uniprot_Sequence_Database_Files/uniprot_sprot.fasta"
+                os.system(f"jackhmmer -A {protein_family}_full.aln -N 1 --popen 0 --pextend 0 --chkhmm {protein_family}_{pdb_name} --chkali {protein_family}_{pdb_name} {protein_family}_{pdb_name}_sequences.fasta {database_file}")
+        else:
+            pseudofam_pfam_download_alignments([protein_family],alignment_type="both",
+                                                   pfam_alignment_path=f"{os.getcwd()}/")
+    #Reformat and filter MSA file
+    pseudofam_retrieve_and_filter_alignment(protein_family)
+        
+    
+def generate_potts_model(protein_family,gap_threshold,dca_frustratometer_directory):
+    if not os.path.exists(f"{protein_family}_dca_gap_threshold_{gap_threshold}.mat"):
+        import matlab.engine
+        eng = matlab.engine.start_matlab()
+        
+        os.system(f"cp {dca_frustratometer_directory}/DCA_Algorithms/DCAparameters.m .")
+        eng.DCAparameters(f"{protein_family}_gap_filtered_msa.fasta",1,1.0)
+        os.system(f"mv dca.mat {protein_family}_msa_dca_gap_threshold_{gap_threshold}.mat")
 
 
 def load_potts_model(potts_model_file):
@@ -211,7 +279,7 @@ class PottsModel:
             return compute_singleresidue_frustration(decoy_energy, native_energy, self.aa_freq)
 
 # Function if script invoked on its own
-def main(pdb_name,chain_name,atom_type,PFAM_version,build_msa_files,database_name,
+def main(pdb_name,chain_name,atom_type,build_msa_files,database_name,
          gap_threshold,dca_frustratometer_directory):
     #PDB DCA frustration analysis directory
     protein_dca_frustration_directory=f"{os.getcwd()}/{datetime.today().strftime('%m_%d_%Y')}_{pdb_name}_{chain_name}_DCA_Frustration_Analysis"
@@ -238,6 +306,21 @@ def main(pdb_name,chain_name,atom_type,PFAM_version,build_msa_files,database_nam
     distance_matrix = get_distance_matrix_from_pdb(f"./{pdb_name[:4]}.pdb", chain_name)
 
     #Generate PDB alignment files
+    alignment_dca_files_directory=f"{protein_dca_frustration_directory}/{datetime.today().strftime('%m_%d_%Y')}_{protein_family}_PFAM_Alignment_DCA_Files"
+    if build_msa_files:
+        alignment_dca_files_directory=f"{protein_dca_frustration_directory}/{datetime.today().strftime('%m_%d_%Y')}_{protein_family}_{pdb_name}_Jackhmmer_Alignment_DCA_Files"
+    
+    if not os.path.exists(alignment_dca_files_directory):
+        os.mkdir(alignment_dca_files_directory)    
+    os.chdir(alignment_dca_files_directory)
+    
+    generate_protein_sequence_alignments(protein_family,pdb_name,
+                                         dca_frustratometer_directory)
+    generate_potts_model(protein_family,gap_threshold,dca_frustratometer_directory)
+    
+    #Compute PDB sequence native DCA energy
+    os.chdir(protein_dca_frustration_directory)
+        
     potts_model=load_potts_model('examples/data/PottsModel1l63A.mat')
     e = compute_native_energy(seq, 'examples/data/PottsModel1l63A.mat', distance_matrix,
                               distance_cutoff=4, sequence_distance_cutoff=0)
@@ -251,7 +334,6 @@ if __name__ == "__main__":
     parser.add_argument("--pdb_name", type=str, required=True,help="PDB Name")
     parser.add_argument("--chain_name", type=str, required=True,help="Chain Name")
     parser.add_argument("--atom_type", type=str, default="CB",help="Atom Type Used for Residue Contact Map")
-    parser.add_argument("--PFAM_version", action="store_true",default=27, help="PFAM version for DCA Files (Default is PFAM 27)")
     parser.add_argument("--build_msa_files",action='store_false',help="Build MSA with Full Coverage of PDB")
     parser.add_argument("--database_name", default="Uniprot",help="Database used in seed msa (options are Uniparc or Uniprot)")
     parser.add_argument("--gap_threshold",type=float,default=0.2,help="Continguous gap threshold applied to MSA")
@@ -262,11 +344,10 @@ if __name__ == "__main__":
     pdb_name=args.pdb_name
     chain_name=args.chain_name
     atom_type=args.atom_type
-    PFAM_version=args.PFAM_version
     build_msa_files=args.build_msa_files
     database_name=args.database_name
     gap_threshold=args.gap_threshold
     dca_frustratometer_directory=args.dca_frustratometer_directory
     
-    main(pdb_name,chain_name,atom_type,PFAM_version,build_msa_files,database_name,
+    main(pdb_name,chain_name,atom_type,build_msa_files,database_name,
          gap_threshold,dca_frustratometer_directory)
