@@ -138,13 +138,22 @@ def generate_protein_sequence_alignments(protein_family,pdb_name,build_msa_files
     pseudofam_retrieve_and_filter_alignment(file_name)
     
     
-def generate_potts_model(file_name,gap_threshold,dca_frustratometer_directory):
+def generate_potts_model(file_name,gap_threshold,DCA_Algorithm,alignment_dca_files_directory,
+                         dca_frustratometer_directory):
     if not os.path.exists(f"{file_name}_msa_dca_gap_threshold_{gap_threshold}.mat"):
         import matlab.engine
         eng = matlab.engine.start_matlab()
         
-        os.system(f"cp {dca_frustratometer_directory}/DCA_Algorithms/DCAparameters.m .")
-        eng.DCAparameters(f"{file_name}_gap_filtered_msa.fasta",1,1.0)
+        if DCA_Algorithm=="mfDCA":
+            os.system(f"cp {dca_frustratometer_directory}/DCA_Algorithms/mfDCA/DCAparameters.m .")
+            eng.DCAparameters(f"{file_name}_gap_filtered_msa.fasta",1,1.0)
+        else:
+            os.chdir(f"{dca_frustratometer_directory}/DCA_Algorithms/plmDCA-master/plmDCA_asymmetric_v2")
+            eng.plmDCA_asymmetric(f"{alignment_dca_files_directory}/{file_name}_gap_filtered_msa.fasta",
+                                  f"{alignment_dca_files_directory}/dca.mat",
+                                  0.2,1)
+            os.chdir(alignment_dca_files_directory)
+            
         os.system(f"mv dca.mat {file_name}_msa_dca_gap_threshold_{gap_threshold}.mat")
 
 
@@ -161,8 +170,12 @@ def compute_native_energy(seq: str,
 
     seq_index = np.array([AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
-
-    h = -potts_model['h'][range(seq_len), seq_index]
+    
+    h_sum=0
+    for i in range(seq_len):
+        h = -(potts_model['h'].T)[i, seq_index[i]]
+        h_sum+=h
+#    h = -potts_model['h'][range(seq_len), seq_index]
     j = -potts_model['J'][range(seq_len), :, seq_index, :][:, range(seq_len), seq_index]
 
     mask = np.ones([seq_len, seq_len])
@@ -172,7 +185,7 @@ def compute_native_energy(seq: str,
     if distance_cutoff is not None:
         mask *= distance_matrix <= distance_cutoff
     j_prime = j * mask
-    energy = h.sum() + j_prime.sum() / 2
+    energy = h_sum + j_prime.sum() / 2
     return energy
 
 
@@ -281,7 +294,7 @@ class PottsModel:
             return compute_singleresidue_frustration(decoy_energy, native_energy, self.aa_freq)
 
 # Function if script invoked on its own
-def main(pdb_name,chain_name,atom_type,build_msa_files,database_name,
+def main(pdb_name,chain_name,atom_type,DCA_Algorithm,build_msa_files,database_name,
          gap_threshold,dca_frustratometer_directory):
     #PDB DCA frustration analysis directory
     protein_dca_frustration_directory=f"{os.getcwd()}/{datetime.today().strftime('%m_%d_%Y')}_{pdb_name}_{chain_name}_DCA_Frustration_Analysis"
@@ -324,7 +337,8 @@ def main(pdb_name,chain_name,atom_type,build_msa_files,database_name,
                                          database_name,
                                          dca_frustratometer_directory)
     
-    generate_potts_model(file_name,gap_threshold,dca_frustratometer_directory)
+    generate_potts_model(file_name,gap_threshold,DCA_Algorithm,
+                         alignment_dca_files_directory,dca_frustratometer_directory)
     
     #Compute PDB sequence native DCA energy
     os.chdir(protein_dca_frustration_directory)
@@ -342,6 +356,7 @@ if __name__ == "__main__":
     parser.add_argument("--pdb_name", type=str, required=True,help="PDB Name")
     parser.add_argument("--chain_name", type=str, required=True,help="Chain Name")
     parser.add_argument("--atom_type", type=str, default="CB",help="Atom Type Used for Residue Contact Map")
+    parser.add_argument("--DCA_Algorithm",type=str,default="mfDCA",help="DCA Algorithm Used (options=mfDCA or plmDCA)")
     parser.add_argument("--build_msa_files",action='store_false',help="Build MSA with Full Coverage of PDB")
     parser.add_argument("--database_name", default="Uniprot",help="Database used in seed msa (options are Uniparc or Uniprot)")
     parser.add_argument("--gap_threshold",type=float,default=0.2,help="Continguous gap threshold applied to MSA")
@@ -352,10 +367,11 @@ if __name__ == "__main__":
     pdb_name=args.pdb_name
     chain_name=args.chain_name
     atom_type=args.atom_type
+    DCA_Algorithm=args.DCA_Algorithm
     build_msa_files=args.build_msa_files
     database_name=args.database_name
     gap_threshold=args.gap_threshold
     dca_frustratometer_directory=args.dca_frustratometer_directory
     
-    main(pdb_name,chain_name,atom_type,build_msa_files,database_name,
+    main(pdb_name,chain_name,atom_type,DCA_Algorithm,build_msa_files,database_name,
          gap_threshold,dca_frustratometer_directory)
