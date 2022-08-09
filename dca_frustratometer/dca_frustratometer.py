@@ -171,11 +171,11 @@ def compute_native_energy(seq: str,
     seq_index = np.array([AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
     
-    h_sum=0
-    for i in range(seq_len):
-        h = -(potts_model['h'].T)[i, seq_index[i]]
-        h_sum+=h
-#    h = -potts_model['h'][range(seq_len), seq_index]
+#    h_sum=0
+#    for i in range(seq_len):
+#        h = -(potts_model['h'].T)[i, seq_index[i]]
+#        h_sum+=h
+    h = -potts_model['h'][range(seq_len), seq_index]
     j = -potts_model['J'][range(seq_len), :, seq_index, :][:, range(seq_len), seq_index]
 
     mask = np.ones([seq_len, seq_len])
@@ -185,7 +185,7 @@ def compute_native_energy(seq: str,
     if distance_cutoff is not None:
         mask *= distance_matrix <= distance_cutoff
     j_prime = j * mask
-    energy = h_sum + j_prime.sum() / 2
+    energy = h.sum() + j_prime.sum() / 2
     return energy
 
 
