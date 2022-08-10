@@ -240,26 +240,27 @@ def compute_mutational_decoy_energy(seq: str,
     pos1, pos2, aa1, aa2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), np.arange(21), np.arange(21),
                                        indexing='ij', sparse=True)
 
-    decoy_energy = np.ones([seq_len, seq_len, 21, 21]) * native_energy
+    decoy_energy = np.zeros([seq_len, seq_len, 21, 21]) + native_energy
     decoy_energy -= (potts_model['h'][pos1, aa1] - potts_model['h'][pos1, seq_index[pos1]])  # h correction aa1
     decoy_energy -= (potts_model['h'][pos2, aa2] - potts_model['h'][pos2, seq_index[pos2]])  # h correction aa2
 
     # temp_pos = np.array(range(seq_len))[:, np.newaxis, np.newaxis, np.newaxis, np.newaxis]
     # temp_index = seq_index[:, np.newaxis, np.newaxis, np.newaxis, np.newaxis]
 
-    j_correction = np.zeros([seq_len, seq_len, seq_len, 21, 21])
+    j_correction = np.zeros([seq_len, seq_len, seq_len, 21, 21], dtype=np.float32)
     # J correction interactions with other aminoacids
     # j_correction += potts_model['J'][temp_pos, pos1[np.newaxis], temp_index, seq_index[pos1]] * mask[:, pos1]
     # j_correction -= potts_model['J'][temp_pos, pos1[np.newaxis], temp_index, aa1] * mask[:, pos1]
     # j_correction += potts_model['J'][temp_pos, pos2[np.newaxis], temp_index, seq_index[pos2]] * mask[:, pos2]
     # j_correction -= potts_model['J'][temp_pos, pos2[np.newaxis], temp_index, aa2] * mask[:, pos2]
-    reduced_j = potts_model['J'][range(seq_len), :, seq_index, :]
+    reduced_j = potts_model['J'][range(seq_len), :, seq_index, :].astype(np.float32)
+    mask = mask.astype(np.bool8)
 
     j_correction += reduced_j[:, pos1, seq_index[pos1]] * mask[:, pos1]
     j_correction -= reduced_j[:, pos1, aa1] * mask[:, pos1]
     j_correction += reduced_j[:, pos2, seq_index[pos2]] * mask[:, pos2]
     j_correction -= reduced_j[:, pos2, aa2] * mask[:, pos2]
-    j_correction = j_correction.sum(axis=0)
+    j_correction = j_correction.sum(axis=0).astype(np.float64)
     # J correction, interaction with self aminoacids
     j_correction -= potts_model['J'][pos1, pos2, seq_index[pos1], seq_index[pos2]] * mask[pos1, pos2]  # Taken two times
     j_correction += potts_model['J'][pos1, pos2, aa1, seq_index[pos2]] * mask[pos1, pos2]  # Added mistakenly
