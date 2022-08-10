@@ -237,22 +237,25 @@ def compute_mutational_decoy_energy(seq: str,
     if distance_cutoff is not None:
         mask *= distance_matrix <= distance_cutoff
 
+    #Create decoys
     pos1, pos2, aa1, aa2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), np.arange(21), np.arange(21),
                                        indexing='ij')
 
     decoy_energy = native_energy
-    decoy_energy -= (PottsModel['h'][pos1, aa1] - PottsModel['h'][pos1, seq_index[pos1]])
-    decoy_energy -= (PottsModel['h'][pos2, aa2] - PottsModel['h'][pos2, seq_index[pos2]])
+    decoy_energy -= (potts_model['h'][pos1, aa1] - potts_model['h'][pos1, seq_index[pos1]]) # h correction aa1
+    decoy_energy -= (potts_model['h'][pos2, aa2] - potts_model['h'][pos2, seq_index[pos2]]) # h correction aa2
     j_correction = 0
-    j_correction += PottsModel['J'][range(seq_len), :, seq_index, :][:, pos1, seq_index[pos1]] * mask[:, pos1]
-    j_correction -= PottsModel['J'][range(seq_len), :, seq_index, :][:, pos1, aa1] * mask[:, pos1]
-    j_correction += PottsModel['J'][range(seq_len), :, seq_index, :][:, pos2, seq_index[pos2]] * mask[:, pos2]
-    j_correction -= PottsModel['J'][range(seq_len), :, seq_index, :][:, pos2, aa2] * mask[:, pos2]
+    # J correction interactions with other aminoacids
+    j_correction += potts_model['J'][range(seq_len), :, seq_index, :][:, pos1, seq_index[pos1]] * mask[:, pos1]
+    j_correction -= potts_model['J'][range(seq_len), :, seq_index, :][:, pos1, aa1] * mask[:, pos1]
+    j_correction += potts_model['J'][range(seq_len), :, seq_index, :][:, pos2, seq_index[pos2]] * mask[:, pos2]
+    j_correction -= potts_model['J'][range(seq_len), :, seq_index, :][:, pos2, aa2] * mask[:, pos2]
     j_correction = j_correction.sum(axis=0)
-    j_correction -= PottsModel['J'][pos1, pos2, seq_index[pos1], seq_index[pos2]] * mask[pos1, pos2]  # Taken two times
-    j_correction += PottsModel['J'][pos1, pos2, aa1, seq_index[pos2]] * mask[pos1, pos2]  # Added mistakenly
-    j_correction += PottsModel['J'][pos1, pos2, seq_index[pos1], aa2] * mask[pos1, pos2]  # Added mistakenly
-    j_correction -= PottsModel['J'][pos1, pos2, aa1, aa2] * mask[pos1, pos2]  # Correct combination
+    # J correction, interaction with self aminoacids
+    j_correction -= potts_model['J'][pos1, pos2, seq_index[pos1], seq_index[pos2]] * mask[pos1, pos2]  # Taken two times
+    j_correction += potts_model['J'][pos1, pos2, aa1, seq_index[pos2]] * mask[pos1, pos2]  # Added mistakenly
+    j_correction += potts_model['J'][pos1, pos2, seq_index[pos1], aa2] * mask[pos1, pos2]  # Added mistakenly
+    j_correction -= potts_model['J'][pos1, pos2, aa1, aa2] * mask[pos1, pos2]  # Correct combination
     decoy_energy += j_correction
 
     return decoy_energy
@@ -296,7 +299,7 @@ def compute_mutational_frustration():
 
 
 # Class wrapper
-class PottsModel:
+class potts_model:
     def __init__(self,
              pdb_file: str,
              chain: str,
