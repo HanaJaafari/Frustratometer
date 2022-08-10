@@ -219,6 +219,43 @@ def compute_singleresidue_decoy_energy(seq: str,
     decoy_energy = h_decoy.sum(axis=-1) + j_decoy_prime.sum(axis=-1).sum(axis=-1) / 2
     return decoy_energy
 
+def compute_mutational_decoy_energy(seq: str,
+                                       potts_model: str,
+                                       distance_matrix: np.array,
+                                       distance_cutoff: typing.Union[float, None] = None,
+                                       sequence_distance_cutoff: typing.Union[int, None] = None) -> np.array:
+
+    AA = '-ACDEFGHIKLMNPQRSTVWY'
+
+    seq_index = np.array([AA.find(aa) for aa in seq])
+    seq_len = len(seq_index)
+    native_energy=compute_native_energy(seq,potts_model,distance_matrix,distance_cutoff,sequence_distance_cutoff)
+    mask = np.ones([seq_len, seq_len])
+    if sequence_distance_cutoff is not None:
+        sequence_distance = sdist.squareform(sdist.pdist(np.arange(seq_len)[:, np.newaxis]))
+        mask *= sequence_distance > sequence_distance_cutoff
+    if distance_cutoff is not None:
+        mask *= distance_matrix <= distance_cutoff
+
+    pos1, pos2, aa1, aa2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), np.arange(21), np.arange(21),
+                                       indexing='ij')
+
+    decoy_energy = native_energy
+    decoy_energy -= (PottsModel['h'][pos1, aa1] - PottsModel['h'][pos1, seq_index[pos1]])
+    decoy_energy -= (PottsModel['h'][pos2, aa2] - PottsModel['h'][pos2, seq_index[pos2]])
+    j_correction = 0
+    j_correction += PottsModel['J'][range(seq_len), :, seq_index, :][:, pos1, seq_index[pos1]] * mask[:, pos1]
+    j_correction -= PottsModel['J'][range(seq_len), :, seq_index, :][:, pos1, aa1] * mask[:, pos1]
+    j_correction += PottsModel['J'][range(seq_len), :, seq_index, :][:, pos2, seq_index[pos2]] * mask[:, pos2]
+    j_correction -= PottsModel['J'][range(seq_len), :, seq_index, :][:, pos2, aa2] * mask[:, pos2]
+    j_correction = j_correction.sum(axis=0)
+    j_correction -= PottsModel['J'][pos1, pos2, seq_index[pos1], seq_index[pos2]] * mask[pos1, pos2]  # Taken two times
+    j_correction += PottsModel['J'][pos1, pos2, aa1, seq_index[pos2]] * mask[pos1, pos2]  # Added mistakenly
+    j_correction += PottsModel['J'][pos1, pos2, seq_index[pos1], aa2] * mask[pos1, pos2]  # Added mistakenly
+    j_correction -= PottsModel['J'][pos1, pos2, aa1, aa2] * mask[pos1, pos2]  # Correct combination
+    decoy_energy += j_correction
+
+    return decoy_energy
 
 def compute_aa_freq(sequence):
     AA = '-ACDEFGHIKLMNPQRSTVWY'
