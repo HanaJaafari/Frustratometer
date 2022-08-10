@@ -299,7 +299,7 @@ def compute_mutational_frustration():
 
 
 # Class wrapper
-class potts_model:
+class PottsModel:
     def __init__(self,
              pdb_file: str,
              chain: str,
