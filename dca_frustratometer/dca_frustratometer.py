@@ -209,48 +209,50 @@ def compute_native_energy(seq: str,
     return energy
 
 
-def compute_singleresidue_decoy_energy(seq: str,
-                                       potts_model: dict,
-                                       mask: np.array) -> np.array:
+def compute_singleresidue_decoy_energy_fluctuation(seq: str,
+                                                   potts_model: dict,
+                                                   mask: np.array) -> np.array:
     AA = '-ACDEFGHIKLMNPQRSTVWY'
 
     seq_index = np.array([AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
 
     # Create decoys
-    decoys = np.repeat(np.repeat(np.array(seq_index)[np.newaxis, np.newaxis, :], 21, 1), seq_len, 0)
-    for i in range(21):
-        decoys[range(seq_len), i, range(seq_len)] = i
-    # Position of mutation, Mutation, position in sequence
-    mut_pos, mut_aa, seq_pos = np.meshgrid(range(seq_len), range(21), range(seq_len), indexing='ij')
+    pos1, aa1 = np.meshgrid(np.arange(seq_len), np.arange(21), indexing='ij', sparse=True)
 
-    # Compute energy
-    h_decoy = -potts_model['h'][seq_pos, decoys]
-    j_decoy = -potts_model['J'][seq_pos, :, decoys, :][mut_pos, mut_aa, :, seq_pos, decoys]
-    j_decoy_prime = j_decoy * mask
-    decoy_energy = h_decoy.sum(axis=-1) + j_decoy_prime.sum(axis=-1).sum(axis=-1) / 2
+    decoy_energy = np.zeros([seq_len, 21])
+    decoy_energy -= (potts_model['h'][pos1, aa1] - potts_model['h'][pos1, seq_index[pos1]])  # h correction aa1
+
+    j_correction = np.zeros([seq_len, seq_len, 21])
+    # J correction interactions with other aminoacids
+    reduced_j = potts_model['J'][range(seq_len), :, seq_index, :].astype(np.float32)
+    j_correction += reduced_j[:, pos1, seq_index[pos1]] * mask[:, pos1]
+    j_correction -= reduced_j[:, pos1, aa1] * mask[:, pos1]
+
+    # J correction, interaction with self aminoacids
+    decoy_energy += j_correction.sum(axis=0)
+
     return decoy_energy
 
 
-def compute_mutational_decoy_energy(seq: str,
-                                    potts_model: dict,
-                                    mask: np.array, ) -> np.array:
+def compute_mutational_decoy_energy_fluctuation(seq: str,
+                                                potts_model: dict,
+                                                mask: np.array, ) -> np.array:
     AA = '-ACDEFGHIKLMNPQRSTVWY'
 
     seq_index = np.array([AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
-    native_energy = compute_native_energy(seq, potts_model, mask)
 
     # Create decoys
     pos1, pos2, aa1, aa2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), np.arange(21), np.arange(21),
                                        indexing='ij', sparse=True)
 
-    decoy_energy = np.zeros([seq_len, seq_len, 21, 21]) + native_energy
+    decoy_energy = np.zeros([seq_len, seq_len, 21, 21])
     decoy_energy -= (potts_model['h'][pos1, aa1] - potts_model['h'][pos1, seq_index[pos1]])  # h correction aa1
     decoy_energy -= (potts_model['h'][pos2, aa2] - potts_model['h'][pos2, seq_index[pos2]])  # h correction aa2
 
     j_correction = np.zeros([seq_len, seq_len, 21, 21])
-    for pos,aa in enumerate(seq_index):
+    for pos, aa in enumerate(seq_index):
         # J correction interactions with other aminoacids
         reduced_j = potts_model['J'][pos, :, aa, :].astype(np.float32)
         j_correction += reduced_j[pos1, seq_index[pos1]] * mask[pos, pos1]
@@ -265,6 +267,22 @@ def compute_mutational_decoy_energy(seq: str,
     decoy_energy += j_correction
 
     return decoy_energy
+
+
+def compute_singleresidue_decoy_energy(seq: str,
+                                       potts_model: dict,
+                                       mask: np.array, ):
+    return compute_native_energy(seq, potts_model, mask) + compute_singleresidue_decoy_energy_fluctuation(seq,
+                                                                                                          potts_model,
+                                                                                                          mask)
+
+
+def compute_mutational_decoy_energy(seq: str,
+                                    potts_model: dict,
+                                    mask: np.array, ):
+    return compute_native_energy(seq, potts_model, mask) + compute_mutational_decoy_energy_fluctuation(seq,
+                                                                                                       potts_model,
+                                                                                                       mask)
 
 
 def compute_aa_freq(sequence):
@@ -361,7 +379,6 @@ class PottsModel:
         self.aa_freq = compute_aa_freq(self.sequence)
         self.contact_freq = compute_contact_freq(self.sequence)
 
-
     def native_energy(self):
         mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
         return compute_native_energy(self.sequence, self.potts_model, mask)
@@ -373,17 +390,18 @@ class PottsModel:
         elif type == 'mutational':
             return compute_mutational_decoy_energy(self.sequence, self.potts_model, mask)
 
-    def frustration(self, type='singleresidue',aa_freq=None):
+    def frustration(self, type='singleresidue', aa_freq=None):
         native_energy = self.native_energy()
         decoy_energy = self.decoy_energy(type)
         if type == 'singleresidue':
             if aa_freq is not None:
-                aa_freq=self.aa_freq
+                aa_freq = self.aa_freq
             return compute_singleresidue_frustration(decoy_energy, native_energy, aa_freq)
         elif type == 'mutational':
             if aa_freq is not None:
-                aa_freq=self.contact_freq
+                aa_freq = self.contact_freq
             return compute_mutational_frustration(decoy_energy, native_energy, aa_freq)
+
 
 # Function if script invoked on its own
 def main(pdb_name, chain_name, atom_type, DCA_Algorithm, build_msa_files, database_name,
