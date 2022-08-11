@@ -249,14 +249,14 @@ def compute_mutational_decoy_energy(seq: str,
     decoy_energy -= (potts_model['h'][pos1, aa1] - potts_model['h'][pos1, seq_index[pos1]])  # h correction aa1
     decoy_energy -= (potts_model['h'][pos2, aa2] - potts_model['h'][pos2, seq_index[pos2]])  # h correction aa2
 
-    j_correction = np.zeros([seq_len, seq_len, seq_len, 21, 21], dtype=np.float32)
-    # J correction interactions with other aminoacids
-    reduced_j = potts_model['J'][range(seq_len), :, seq_index, :].astype(np.float32)
-    j_correction += reduced_j[:, pos1, seq_index[pos1]] * mask[:, pos1]
-    j_correction -= reduced_j[:, pos1, aa1] * mask[:, pos1]
-    j_correction += reduced_j[:, pos2, seq_index[pos2]] * mask[:, pos2]
-    j_correction -= reduced_j[:, pos2, aa2] * mask[:, pos2]
-    j_correction = j_correction.sum(axis=0).astype(np.float64)
+    j_correction = np.zeros([seq_len, seq_len, 21, 21])
+    for pos,aa in enumerate(seq_index):
+        # J correction interactions with other aminoacids
+        reduced_j = potts_model['J'][pos, :, aa, :].astype(np.float32)
+        j_correction += reduced_j[pos1, seq_index[pos1]] * mask[pos, pos1]
+        j_correction -= reduced_j[pos1, aa1] * mask[pos, pos1]
+        j_correction += reduced_j[pos2, seq_index[pos2]] * mask[pos, pos2]
+        j_correction -= reduced_j[pos2, aa2] * mask[pos, pos2]
     # J correction, interaction with self aminoacids
     j_correction -= potts_model['J'][pos1, pos2, seq_index[pos1], seq_index[pos2]] * mask[pos1, pos2]  # Taken two times
     j_correction += potts_model['J'][pos1, pos2, aa1, seq_index[pos2]] * mask[pos1, pos2]  # Added mistakenly
