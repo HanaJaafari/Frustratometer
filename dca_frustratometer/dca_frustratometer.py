@@ -159,6 +159,7 @@ def generate_potts_model(file_name, gap_threshold, DCA_Algorithm, alignment_dca_
 def load_potts_model(potts_model_file):
     return scipy.io.loadmat(potts_model_file)
 
+
 def compute_mask(distance_matrix: np.array,
                  distance_cutoff: typing.Union[float, None] = None,
                  sequence_distance_cutoff: typing.Union[int, None] = None) -> np.array:
@@ -170,6 +171,7 @@ def compute_mask(distance_matrix: np.array,
     if distance_cutoff is not None:
         mask *= distance_matrix <= distance_cutoff
     return mask.astype(np.bool8)
+
 
 def compute_native_energy(seq: str,
                           potts_model: dict,
@@ -216,7 +218,7 @@ def compute_singleresidue_decoy_energy(seq: str,
 
 def compute_mutational_decoy_energy(seq: str,
                                     potts_model: dict,
-                                    mask: np.array,) -> np.array:
+                                    mask: np.array, ) -> np.array:
     AA = '-ACDEFGHIKLMNPQRSTVWY'
 
     seq_index = np.array([AA.find(aa) for aa in seq])
@@ -255,6 +257,15 @@ def compute_aa_freq(sequence):
     return np.array([(seq_index == i).sum() for i in range(21)])
 
 
+def compute_contact_freq(sequence):
+    AA = '-ACDEFGHIKLMNPQRSTVWY'
+    seq_index = np.array([AA.find(aa) for aa in sequence])
+    aa_freq = np.array([(seq_index == i).sum() for i in range(21)], dtype=np.float64)
+    aa_freq /= aa_freq.sum()
+    contact_freq = (aa_freq[:, np.newaxis] * aa_freq[np.newaxis, :])
+    return contact_freq
+
+
 def compute_singleresidue_frustration(decoy_energy, native_energy, aa_freq=None):
     if aa_freq is None:
         aa_freq = np.ones(21)
@@ -263,15 +274,34 @@ def compute_singleresidue_frustration(decoy_energy, native_energy, aa_freq=None)
     frustration = (native_energy - mean_energy) / std_energy
     return frustration
 
-def compute_mutational_frustration(decoy_energy, native_energy, aa_freq=None):
-    if aa_freq is None:
-        aa_freq = np.ones(21)
-    mean_energy = (aa_freq * decoy_energy).sum(axis=1) / aa_freq.sum()
-    std_energy = np.sqrt(((aa_freq * (decoy_energy - mean_energy[:, np.newaxis]) ** 2) / aa_freq.sum()).sum(axis=1))
+
+def compute_mutational_frustration(decoy_energy: np.array,
+                                   native_energy: float,
+                                   contact_freq: typing.Union[None, np.array]) -> np.array:
+    """
+    Computes mutational frustration
+    Parameters
+    ----------
+    :param decoy_energy:
+    :param native_energy:
+    :param contact_freq:
+    Returns
+    -------
+    :return:
+    """
+    if contact_freq is None:
+        contact_freq = np.ones([21, 21])
+    seq_len = decoy_energy.shape[0]
+    average = np.average(decoy_energy.reshape(seq_len * seq_len, 21 * 21), weights=contact_freq.flatten(), axis=-1)
+    variance = np.average((decoy_energy.reshape(seq_len * seq_len, 21 * 21) - average[:, np.newaxis]) ** 2,
+                          weights=contact_freq.flatten(), axis=-1)
+    mean_energy = average.reshape(seq_len, seq_len)
+    std_energy = np.sqrt(variance).reshape(seq_len, seq_len)
     frustration = (native_energy - mean_energy) / std_energy
     return frustration
 
-def compute_mutational_frustration():
+
+def canvas(with_attribution=True):
     """
     Placeholder function to show example docstring (NumPy format).
 
@@ -313,6 +343,8 @@ class PottsModel:
         self.sequence_cutoff = sequence_cutoff
         self.distance_cutoff = distance_cutoff
         self.aa_freq = compute_aa_freq(self.sequence)
+        self.contact_freq = compute_contact_freq(self.sequence)
+
 
     def native_energy(self):
         mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
@@ -322,7 +354,7 @@ class PottsModel:
         mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
         if type == 'singleresidue':
             return compute_singleresidue_decoy_energy(self.sequence, self.potts_model, mask)
-        if type == 'mutational':
+        elif type == 'mutational':
             return compute_mutational_decoy_energy(self.sequence, self.potts_model, mask)
 
     def frustration(self, type='singleresidue'):
@@ -330,7 +362,8 @@ class PottsModel:
         decoy_energy = self.decoy_energy(type)
         if type == 'singleresidue':
             return compute_singleresidue_frustration(decoy_energy, native_energy, self.aa_freq)
-
+        elif type == 'mutational':
+            return compute_mutational_frustration(decoy_energy, native_energy, self.contact_freq)
 
 # Function if script invoked on its own
 def main(pdb_name, chain_name, atom_type, DCA_Algorithm, build_msa_files, database_name,
