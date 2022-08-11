@@ -17,8 +17,8 @@ def test_functional_compute_native_energy():
     seq = dca_frustratometer.get_protein_sequence_from_pdb('examples/data/1l63.pdb', 'A')
     distance_matrix = dca_frustratometer.get_distance_matrix_from_pdb('examples/data/1l63.pdb', 'A')
     potts_model = dca_frustratometer.load_potts_model('examples/data/PottsModel1l63A.mat')
-    e = dca_frustratometer.compute_native_energy(seq, potts_model, distance_matrix,
-                                                 distance_cutoff=4, sequence_distance_cutoff=0)
+    mask = dca_frustratometer.compute_mask(distance_matrix, distance_cutoff=4, sequence_distance_cutoff=0)
+    e = dca_frustratometer.compute_native_energy(seq, potts_model, mask)
     assert np.round(e, 4) == -92.7688
 
 def test_OOP_compute_native_energy():
@@ -50,7 +50,8 @@ def test_compute_mutational_decoy_energy():
     test_J = -potts_model['J'][range(seq_len), :, test_seq, :][:, range(seq_len), test_seq]
     test_J_prime = test_J * (seq_distance > 0) * (distance_matrix <= distance_cutoff)
     test_energy = test_h.sum() + test_J_prime.sum() / 2
-    decoy_energy=dca_frustratometer.compute_mutational_decoy_energy(seq,potts_model,distance_matrix,distance_cutoff,0)
+    mask = dca_frustratometer.compute_mask(distance_matrix,distance_cutoff,0)
+    decoy_energy=dca_frustratometer.compute_mutational_decoy_energy(seq,potts_model,mask)
     assert (decoy_energy[pos_x,pos_y,aa_x,aa_y]-test_energy)**2 < 1E-16
 
 def test_compute_singleresidue_frustration():

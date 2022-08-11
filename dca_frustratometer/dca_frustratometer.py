@@ -159,12 +159,21 @@ def generate_potts_model(file_name, gap_threshold, DCA_Algorithm, alignment_dca_
 def load_potts_model(potts_model_file):
     return scipy.io.loadmat(potts_model_file)
 
+def compute_mask(distance_matrix: np.array,
+                 distance_cutoff: typing.Union[float, None] = None,
+                 sequence_distance_cutoff: typing.Union[int, None] = None) -> np.array:
+    seq_len = len(distance_matrix)
+    mask = np.ones([seq_len, seq_len])
+    if sequence_distance_cutoff is not None:
+        sequence_distance = sdist.squareform(sdist.pdist(np.arange(seq_len)[:, np.newaxis]))
+        mask *= sequence_distance > sequence_distance_cutoff
+    if distance_cutoff is not None:
+        mask *= distance_matrix <= distance_cutoff
+    return mask.astype(np.bool8)
 
 def compute_native_energy(seq: str,
-                          potts_model: str,
-                          distance_matrix: np.array,
-                          distance_cutoff: typing.Union[float, None] = None,
-                          sequence_distance_cutoff: typing.Union[int, None] = None) -> float:
+                          potts_model: dict,
+                          mask: np.array) -> float:
     AA = '-ACDEFGHIKLMNPQRSTVWY'
 
     seq_index = np.array([AA.find(aa) for aa in seq])
@@ -177,22 +186,14 @@ def compute_native_energy(seq: str,
     h = -potts_model['h'][range(seq_len), seq_index]
     j = -potts_model['J'][range(seq_len), :, seq_index, :][:, range(seq_len), seq_index]
 
-    mask = np.ones([seq_len, seq_len])
-    if sequence_distance_cutoff is not None:
-        sequence_distance = sdist.squareform(sdist.pdist(np.arange(seq_len)[:, np.newaxis]))
-        mask *= sequence_distance > sequence_distance_cutoff
-    if distance_cutoff is not None:
-        mask *= distance_matrix <= distance_cutoff
     j_prime = j * mask
     energy = h.sum() + j_prime.sum() / 2
     return energy
 
 
 def compute_singleresidue_decoy_energy(seq: str,
-                                       potts_model: str,
-                                       distance_matrix: np.array,
-                                       distance_cutoff: typing.Union[float, None] = None,
-                                       sequence_distance_cutoff: typing.Union[int, None] = None) -> np.array:
+                                       potts_model: dict,
+                                       mask: np.array) -> np.array:
     AA = '-ACDEFGHIKLMNPQRSTVWY'
 
     seq_index = np.array([AA.find(aa) for aa in seq])
@@ -208,33 +209,19 @@ def compute_singleresidue_decoy_energy(seq: str,
     # Compute energy
     h_decoy = -potts_model['h'][seq_pos, decoys]
     j_decoy = -potts_model['J'][seq_pos, :, decoys, :][mut_pos, mut_aa, :, seq_pos, decoys]
-    mask = np.ones([seq_len, seq_len])
-    if sequence_distance_cutoff is not None:
-        sequence_distance = sdist.squareform(sdist.pdist(np.arange(seq_len)[:, np.newaxis]))
-        mask *= sequence_distance > sequence_distance_cutoff
-    if distance_cutoff is not None:
-        mask *= distance_matrix <= distance_cutoff
     j_decoy_prime = j_decoy * mask
     decoy_energy = h_decoy.sum(axis=-1) + j_decoy_prime.sum(axis=-1).sum(axis=-1) / 2
     return decoy_energy
 
 
 def compute_mutational_decoy_energy(seq: str,
-                                    potts_model: str,
-                                    distance_matrix: np.array,
-                                    distance_cutoff: typing.Union[float, None] = None,
-                                    sequence_distance_cutoff: typing.Union[int, None] = None) -> np.array:
+                                    potts_model: dict,
+                                    mask: np.array,) -> np.array:
     AA = '-ACDEFGHIKLMNPQRSTVWY'
 
     seq_index = np.array([AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
-    native_energy = compute_native_energy(seq, potts_model, distance_matrix, distance_cutoff, sequence_distance_cutoff)
-    mask = np.ones([seq_len, seq_len])
-    if sequence_distance_cutoff is not None:
-        sequence_distance = sdist.squareform(sdist.pdist(np.arange(seq_len)[:, np.newaxis]))
-        mask *= sequence_distance > sequence_distance_cutoff
-    if distance_cutoff is not None:
-        mask *= distance_matrix <= distance_cutoff
+    native_energy = compute_native_energy(seq, potts_model, mask)
 
     # Create decoys
     pos1, pos2, aa1, aa2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), np.arange(21), np.arange(21),
@@ -244,18 +231,9 @@ def compute_mutational_decoy_energy(seq: str,
     decoy_energy -= (potts_model['h'][pos1, aa1] - potts_model['h'][pos1, seq_index[pos1]])  # h correction aa1
     decoy_energy -= (potts_model['h'][pos2, aa2] - potts_model['h'][pos2, seq_index[pos2]])  # h correction aa2
 
-    # temp_pos = np.array(range(seq_len))[:, np.newaxis, np.newaxis, np.newaxis, np.newaxis]
-    # temp_index = seq_index[:, np.newaxis, np.newaxis, np.newaxis, np.newaxis]
-
     j_correction = np.zeros([seq_len, seq_len, seq_len, 21, 21], dtype=np.float32)
     # J correction interactions with other aminoacids
-    # j_correction += potts_model['J'][temp_pos, pos1[np.newaxis], temp_index, seq_index[pos1]] * mask[:, pos1]
-    # j_correction -= potts_model['J'][temp_pos, pos1[np.newaxis], temp_index, aa1] * mask[:, pos1]
-    # j_correction += potts_model['J'][temp_pos, pos2[np.newaxis], temp_index, seq_index[pos2]] * mask[:, pos2]
-    # j_correction -= potts_model['J'][temp_pos, pos2[np.newaxis], temp_index, aa2] * mask[:, pos2]
     reduced_j = potts_model['J'][range(seq_len), :, seq_index, :].astype(np.float32)
-    mask = mask.astype(np.bool8)
-
     j_correction += reduced_j[:, pos1, seq_index[pos1]] * mask[:, pos1]
     j_correction -= reduced_j[:, pos1, aa1] * mask[:, pos1]
     j_correction += reduced_j[:, pos2, seq_index[pos2]] * mask[:, pos2]
@@ -285,6 +263,13 @@ def compute_singleresidue_frustration(decoy_energy, native_energy, aa_freq=None)
     frustration = (native_energy - mean_energy) / std_energy
     return frustration
 
+def compute_mutational_frustration(decoy_energy, native_energy, aa_freq=None):
+    if aa_freq is None:
+        aa_freq = np.ones(21)
+    mean_energy = (aa_freq * decoy_energy).sum(axis=1) / aa_freq.sum()
+    std_energy = np.sqrt(((aa_freq * (decoy_energy - mean_energy[:, np.newaxis]) ** 2) / aa_freq.sum()).sum(axis=1))
+    frustration = (native_energy - mean_energy) / std_energy
+    return frustration
 
 def compute_mutational_frustration():
     """
@@ -330,13 +315,15 @@ class PottsModel:
         self.aa_freq = compute_aa_freq(self.sequence)
 
     def native_energy(self):
-        return compute_native_energy(self.sequence, self.potts_model, self.distance_matrix,
-                                     self.distance_cutoff, self.sequence_cutoff)
+        mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        return compute_native_energy(self.sequence, self.potts_model, mask)
 
     def decoy_energy(self, type='singleresidue'):
+        mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
         if type == 'singleresidue':
-            return compute_singleresidue_decoy_energy(self.seq, self.potts_model, self.distance_matrix,
-                                                      self.distance_cutoff, self.sequence_cutoff)
+            return compute_singleresidue_decoy_energy(self.sequence, self.potts_model, mask)
+        if type == 'mutational':
+            return compute_mutational_decoy_energy(self.sequence, self.potts_model, mask)
 
     def frustration(self, type='singleresidue'):
         native_energy = self.native_energy()
@@ -398,8 +385,8 @@ def main(pdb_name, chain_name, atom_type, DCA_Algorithm, build_msa_files, databa
 
     potts_model = load_potts_model(
         f"{alignment_dca_files_directory}/{file_name}_msa_dca_gap_threshold_{gap_threshold}.mat")
-    e = compute_native_energy(pdb_sequence, potts_model, distance_matrix,
-                              distance_cutoff=4, sequence_distance_cutoff=0)
+    mask = compute_mask(distance_matrix, distance_cutoff=4, sequence_distance_cutoff=0)
+    e = compute_native_energy(pdb_sequence, potts_model, mask)
     print(e)
 
 
