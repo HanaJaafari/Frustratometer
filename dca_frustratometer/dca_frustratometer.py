@@ -373,13 +373,17 @@ class PottsModel:
         elif type == 'mutational':
             return compute_mutational_decoy_energy(self.sequence, self.potts_model, mask)
 
-    def frustration(self, type='singleresidue'):
+    def frustration(self, type='singleresidue',aa_freq=None):
         native_energy = self.native_energy()
         decoy_energy = self.decoy_energy(type)
         if type == 'singleresidue':
-            return compute_singleresidue_frustration(decoy_energy, native_energy, self.aa_freq)
+            if aa_freq is not None:
+                aa_freq=self.aa_freq
+            return compute_singleresidue_frustration(decoy_energy, native_energy, aa_freq)
         elif type == 'mutational':
-            return compute_mutational_frustration(decoy_energy, native_energy, self.contact_freq)
+            if aa_freq is not None:
+                aa_freq=self.contact_freq
+            return compute_mutational_frustration(decoy_energy, native_energy, aa_freq)
 
 # Function if script invoked on its own
 def main(pdb_name, chain_name, atom_type, DCA_Algorithm, build_msa_files, database_name,
