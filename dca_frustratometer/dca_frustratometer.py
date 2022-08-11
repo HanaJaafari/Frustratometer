@@ -18,7 +18,23 @@ def get_protein_sequence_from_pdb(pdb: str,
                                   chain: str
                                   ) -> str:
     """
+    Get a protein sequence from a pdb file
+
+    Parameters
+    ----------
+    pdb : str,
+        PDB file location.
+    chain: str,
+        Chain ID of the selected protein.
+
+    Returns
+    -------
+    sequence : str
+        Protein sequence.
+    """
+    """
     Get a protein sequence from a PDB file
+    
     :param pdb: PDB file location
     :param chain: chain name of PDB file to get sequence
     :return: protein sequence
