@@ -369,6 +369,18 @@ def compute_scores(potts_model: dict) -> np.array:
     corr_norm[np.diag_indices(n)] = np.nan
     return corr_norm
 
+def plot_singleresidue_decoy_energy(decoy_energy,native_energy):
+    import seaborn as sns
+    g = sns.clustermap(decoy_energy, cmap='RdBu_r',
+                       vmin=native_energy - decoy_energy.std() * 3,
+                       vmax=native_energy + decoy_energy.std() * 3)
+    AA = '-ACDEFGHIKLMNPQRSTVWY'
+    AA_dict = {str(i): AA[i] for i in range(len(AA))}
+    new_ticklabels = []
+    for t in g.ax_heatmap.get_xticklabels():
+        t.set_text(AA_dict[t.get_text()])
+        new_ticklabels += [t]
+    g.ax_heatmap.set_xticklabels(new_ticklabels)
 
 def canvas(with_attribution=True):
     """
@@ -439,6 +451,12 @@ class PottsModel:
             if aa_freq is not None:
                 aa_freq = self.contact_freq
             return compute_mutational_frustration(decoy_energy, native_energy, aa_freq)
+
+    def plot_decoy_energy(self,type='singleresidue'):
+        native_energy = self.native_energy()
+        decoy_energy = self.decoy_energy(type)
+        if type == 'singleresidue':
+           plot_singleresidue_decoy_energy(decoy_energy, native_energy)
 
 
 # Function if script invoked on its own
