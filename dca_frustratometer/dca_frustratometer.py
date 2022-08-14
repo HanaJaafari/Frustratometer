@@ -57,13 +57,13 @@ def get_protein_sequence_from_pdb(pdb: str,
     return sequence
 
 
-def get_distance_matrix_from_pdb(pdb: str,
+def get_distance_matrix_from_pdb(pdb_file: str,
                                  chain: str,
                                  method: str = 'minimum'
                                  ) -> np.array:
     """
     Get a residue distance matrix from a pdb protein
-    :param pdb: PDB file location
+    :param pdb_file: PDB file location
     :param chain: chain name of PDB file to get sequence
     :param method: method to calculate the distance between residue [minimum, CA, CB]
     :return: distance matrix
@@ -76,7 +76,7 @@ def get_distance_matrix_from_pdb(pdb: str,
         distance_matrix = sdist.squareform(sdist.pdist(selection.getCoords()))
         return distance_matrix
     elif method == 'CB':
-        selection = structure.select('protein and name CB', chain=chain)
+        selection = structure.select('protein and (name CB) or (resname GLY and name CA)', chain=chain)
         distance_matrix = sdist.squareform(sdist.pdist(selection.getCoords()))
         return distance_matrix
     elif method == 'minimum':
@@ -333,6 +333,32 @@ def compute_mutational_frustration(decoy_energy: np.array,
     return frustration
 
 
+def compute_scores(potts_model: dict) -> np.array:
+    """
+    Computes contact scores based on the Frobenius norm
+
+    CN[i,j] = F[i,j] - F[i,:] * F[:,j] / F[:,:]
+
+    Parameters
+    ----------
+    potts_model :  dict
+        Potts model containing the couplings in the "J" key
+
+    Returns
+    -------
+    scores : np.array
+        Score matrix (N x N)
+    """
+    j = potts_model['J']
+    n, _, __, q = j.shape
+    norm = np.linalg.norm(j.reshape(n * n, q * q), axis=1).reshape(n, n)  # Frobenius norm
+    norm_mean = np.mean(norm, axis=0) / (n - 1) * n
+    norm_mean_all = np.mean(norm) / (n - 1) * n
+    corr_norm = norm - norm_mean[:, np.newaxis] * norm_mean[np.newaxis, :] / norm_mean_all
+    corr_norm[np.diag_indices(n)] = np.nan
+    return corr_norm
+
+
 def canvas(with_attribution=True):
     """
     Placeholder function to show example docstring (NumPy format).
@@ -387,6 +413,9 @@ class PottsModel:
             return compute_singleresidue_decoy_energy(self.sequence, self.potts_model, mask)
         elif type == 'mutational':
             return compute_mutational_decoy_energy(self.sequence, self.potts_model, mask)
+
+    def scores(self):
+        return compute_scores(self.potts_model)
 
     def frustration(self, type='singleresidue', aa_freq=None):
         native_energy = self.native_energy()
