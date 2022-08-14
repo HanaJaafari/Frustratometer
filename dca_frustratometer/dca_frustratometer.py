@@ -70,7 +70,7 @@ def get_distance_matrix_from_pdb(pdb_file: str,
     """
     '''Returns the distance matrix of the aminoacids on a sequence. The distance used is
     the minimum distance between two residues (for example the distance of the atoms on a H-bond)'''
-    structure = prody.parsePDB(pdb)
+    structure = prody.parsePDB(pdb_file)
     if method == 'CA':
         selection = structure.select('protein and name CA', chain=chain)
         distance_matrix = sdist.squareform(sdist.pdist(selection.getCoords()))
@@ -82,14 +82,12 @@ def get_distance_matrix_from_pdb(pdb_file: str,
     elif method == 'minimum':
         selection = structure.select('protein', chain=chain)
         distance_matrix = sdist.squareform(sdist.pdist(selection.getCoords()))
-        distance_matrix = pd.DataFrame(data=distance_matrix, columns=range(len(distance_matrix)),
-                                       index=range(len(distance_matrix)), dtype=float)
-        residues = pd.Series(selection.getResindices()).unique()
+        resids = selection.getResindices()
+        residues = pd.Series(resids).unique()
+        selections = np.array([resids == a for a in residues])
         D = np.zeros((len(residues), len(residues))) + 1000
-        for ij, ab in zip(itertools.combinations(range(len(residues)), 2), itertools.combinations(residues, 2)):
-            i, j = ij
-            a, b = ab
-            d = distance_matrix.iloc[selection.getResindices() == a, selection.getResindices() == b].values.min()
+        for i, j in itertools.combinations(range(len(residues)), 2):
+            d = distance_matrix[selections[i]][:, selections[j]].min()
             D[i, j] = d
             D[j, i] = d
         return D
