@@ -196,13 +196,11 @@ def compute_native_energy(seq: str,
 
     seq_index = np.array([AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
+    pos1, pos2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), indexing='ij', sparse=True)
+    aa1, aa2 = np.meshgrid(seq_index, seq_index, indexing='ij', sparse=True)
 
-    #    h_sum=0
-    #    for i in range(seq_len):
-    #        h = -(potts_model['h'].T)[i, seq_index[i]]
-    #        h_sum+=h
     h = -potts_model['h'][range(seq_len), seq_index]
-    j = -potts_model['J'][range(seq_len), :, seq_index, :][:, range(seq_len), seq_index]
+    j = -potts_model['J'][pos1, pos2, aa1, aa2]
 
     j_prime = j * mask
     energy = h.sum() + j_prime.sum() / 2
