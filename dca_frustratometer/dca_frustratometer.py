@@ -86,12 +86,12 @@ def get_distance_matrix_from_pdb(pdb_file: str,
         resids = selection.getResindices()
         residues = pd.Series(resids).unique()
         selections = np.array([resids == a for a in residues])
-        D = np.zeros((len(residues), len(residues))) + 1000
+        dm = np.zeros((len(residues), len(residues)))
         for i, j in itertools.combinations(range(len(residues)), 2):
             d = distance_matrix[selections[i]][:, selections[j]].min()
-            D[i, j] = d
-            D[j, i] = d
-        return D
+            dm[i, j] = d
+            dm[j, i] = d
+        return dm
 
 def pseudofam_pfam_download_alignments(protein_family, alignment_type,
                                        alignment_dca_files_directory):
@@ -366,8 +366,35 @@ def compute_scores(potts_model: dict) -> np.array:
     norm_mean = np.mean(norm, axis=0) / (n - 1) * n
     norm_mean_all = np.mean(norm) / (n - 1) * n
     corr_norm = norm - norm_mean[:, np.newaxis] * norm_mean[np.newaxis, :] / norm_mean_all
-    corr_norm[np.diag_indices(n)] = np.nan
+    corr_norm[np.diag_indices(n)] = 0
+    corr_norm = np.mean([corr_norm, corr_norm.T], axis=0) # Symmetrize matrix
     return corr_norm
+
+def compute_roc(scores,distance_matrix,cutoff):
+    scores = sdist.squareform(scores)
+    distance = sdist.squareform(distance_matrix)
+    results = np.array([scores, distance])
+    results = results[:, results[0, :].argsort()[::-1]]  # Sort results by score
+    contacts = results[1] <= cutoff
+    not_contacts = ~contacts
+    tpr = np.concatenate([[0], contacts.cumsum() / contacts.sum()])
+    fpr = np.concatenate([[0], not_contacts.cumsum() / not_contacts.sum()])
+    return np.array([fpr, tpr])
+
+def compute_auc(roc):
+    fpr, tpr = roc
+    auc = np.sum(tpr[:-1] * (fpr[1:] - fpr[:-1]))
+    return auc
+
+def plot_roc(roc):
+    import matplotlib.pyplot as plt
+    plt.plot(roc[0], roc[1])
+    plt.xlabel('False positive rate (1-specificity)')
+    plt.ylabel('True positive rate (sensiticity)')
+    plt.suptitle('Receiver operating characteristic')
+    plt.xlim(0, 1)
+    plt.ylim(0, 1)
+    plt.plot([0, 1], [0, 1], '--')
 
 def plot_singleresidue_decoy_energy(decoy_energy,native_energy):
     import seaborn as sns
@@ -403,6 +430,9 @@ def canvas(with_attribution=True):
     if with_attribution:
         quote += "\n\t- Adapted from Henry David Thoreau"
     return quote
+
+def calculate_AUC(potts_model,istance_cutoff=4):
+    pass
 
 
 # Class wrapper
@@ -457,6 +487,17 @@ class PottsModel:
         decoy_energy = self.decoy_energy(type)
         if type == 'singleresidue':
            plot_singleresidue_decoy_energy(decoy_energy, native_energy)
+
+    def roc(self):
+        return compute_roc(self.scores(), self.distance_matrix, self.distance_cutoff)
+
+    def plot_roc(self):
+        plot_roc(self.roc())
+
+    def auc(self):
+        """Computes area under the curve of the receiver-operating characteristic.
+           Function intended"""
+        return compute_auc(self.roc())
 
 
 # Function if script invoked on its own
