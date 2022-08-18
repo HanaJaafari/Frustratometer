@@ -93,6 +93,7 @@ def get_distance_matrix_from_pdb(pdb_file: str,
             dm[j, i] = d
         return dm
 
+
 def pseudofam_pfam_download_alignments(protein_family, alignment_type,
                                        alignment_dca_files_directory):
     if alignment_type == "both":
@@ -102,10 +103,11 @@ def pseudofam_pfam_download_alignments(protein_family, alignment_type,
 
     for category in all_alignment_types:
         alignment_file_name = f"{alignment_dca_files_directory}/{protein_family}_{category}.aln"
-        subprocess.call(["wget", "-O", alignment_file_name, 
+        subprocess.call(["wget", "-O", alignment_file_name,
                          f"http://pfam.xfam.org/family/{protein_family}/alignment/{category}"])
 
-def pseudofam_retrieve_and_filter_alignment(file_name,alignment_dca_files_directory):
+
+def pseudofam_retrieve_and_filter_alignment(file_name, alignment_dca_files_directory):
     # Convert full MSA in stockholm format to fasta format
     input_handle = open(f"{alignment_dca_files_directory}/{file_name}_full.aln", "rU")
     output_handle = open(f"{alignment_dca_files_directory}/{file_name}_msa.fasta", "w")
@@ -114,11 +116,10 @@ def pseudofam_retrieve_and_filter_alignment(file_name,alignment_dca_files_direct
     AlignIO.write(alignments, output_handle, "fasta")
     output_handle.close()
     input_handle.close()
-    
-    #Remove inserts and columns that are completely composed of gaps from MSA
+
+    # Remove inserts and columns that are completely composed of gaps from MSA
     alignment = AlignIO.read(open(f"{alignment_dca_files_directory}/{file_name}_msa.fasta"), "fasta")
     output_handle = open(f"{alignment_dca_files_directory}/{file_name}_gap_filtered_msa.fasta", "w")
-
 
     index_mask = []
     for i, record in enumerate(alignment):
@@ -135,51 +136,51 @@ def pseudofam_retrieve_and_filter_alignment(file_name,alignment_dca_files_direct
     output_handle.close()
 
 
-def generate_protein_sequence_alignments(protein_family,pdb_name,build_msa_files,
-                                         database_name,alignment_dca_files_directory,
+def generate_protein_sequence_alignments(protein_family, pdb_name, build_msa_files,
+                                         database_name, alignment_dca_files_directory,
                                          dca_frustratometer_directory):
-    
     if not os.path.exists(f"{alignment_dca_files_directory}/{protein_family}_full.aln"):
         if build_msa_files:
             if database_name == "Uniparc":
                 database_file = f"{dca_frustratometer_directory}/uniparc_active.fasta"
             else:
-                database_file=f"{dca_frustratometer_directory}/Uniprot_Sequence_Database_Files/uniprot_sprot.fasta"
-            subprocess.call(["jackhmmer", "-A", 
-                             f"{alignment_dca_files_directory}/{protein_family}_{pdb_name}_{chain_name}_full.aln", 
+                database_file = f"{dca_frustratometer_directory}/Uniprot_Sequence_Database_Files/uniprot_sprot.fasta"
+            subprocess.call(["jackhmmer", "-A",
+                             f"{alignment_dca_files_directory}/{protein_family}_{pdb_name}_{chain_name}_full.aln",
                              "-N", "1", "--popen", "0", "--pextend", "0", "--chkhmm",
                              f"{protein_family}_{pdb_name}_{chain_name}", "--chkali",
                              f"{protein_family}_{pdb_name}_{chain_name}",
                              f"{alignment_dca_files_directory}/{protein_family}_{pdb_name}_{chain_name}_sequences.fasta",
                              database_file])
-            file_name=f"{protein_family}_{pdb_name}_{chain_name}"
+            file_name = f"{protein_family}_{pdb_name}_{chain_name}"
         else:
-            alignment_type="both"
-            pseudofam_pfam_download_alignments(protein_family,alignment_type,
+            alignment_type = "both"
+            pseudofam_pfam_download_alignments(protein_family, alignment_type,
                                                alignment_dca_files_directory)
-            file_name=protein_family
-        #Reformat and filter MSA file
-        pseudofam_retrieve_and_filter_alignment(file_name,alignment_dca_files_directory)
-    
+            file_name = protein_family
+        # Reformat and filter MSA file
+        pseudofam_retrieve_and_filter_alignment(file_name, alignment_dca_files_directory)
+
+
 def generate_potts_model(file_name, gap_threshold, DCA_Algorithm, alignment_dca_files_directory,
                          dca_frustratometer_directory):
     if not os.path.exists(f"{alignment_dca_files_directory}/{file_name}_msa_dca_gap_threshold_{gap_threshold}.mat"):
         import matlab.engine
         eng = matlab.engine.start_matlab()
-        
-        if DCA_Algorithm=="mfDCA":
-            subprocess.call(["cp", 
-                             f"{dca_frustratometer_directory}/DCA_Algorithms/mfDCA/DCAparameters.m", 
+
+        if DCA_Algorithm == "mfDCA":
+            subprocess.call(["cp",
+                             f"{dca_frustratometer_directory}/DCA_Algorithms/mfDCA/DCAparameters.m",
                              alignment_dca_files_directory])
             os.chdir(alignment_dca_files_directory)
-            eng.DCAparameters(f"{alignment_dca_files_directory}/{file_name}_gap_filtered_msa.fasta",1,1.0)
+            eng.DCAparameters(f"{alignment_dca_files_directory}/{file_name}_gap_filtered_msa.fasta", 1, 1.0)
         else:
             os.chdir(f"{dca_frustratometer_directory}/DCA_Algorithms/plmDCA-master/plmDCA_asymmetric_v2")
             eng.plmDCA_asymmetric(f"{alignment_dca_files_directory}/{file_name}_gap_filtered_msa.fasta",
                                   f"{alignment_dca_files_directory}/dca.mat",
-                                  0.2,1)
-            
-        subprocess.call(["mv", f"{alignment_dca_files_directory}/dca.mat", 
+                                  0.2, 1)
+
+        subprocess.call(["mv", f"{alignment_dca_files_directory}/dca.mat",
                          f"{alignment_dca_files_directory}/{file_name}_msa_dca_gap_threshold_{gap_threshold}.mat"])
 
 
@@ -278,6 +279,14 @@ def compute_mutational_decoy_energy_fluctuation(seq: str,
     return decoy_energy
 
 
+def compute_contact_decoy_energy_fluctuation(single_fluctuation: np.array,
+                                             pair_fluctuation: np.array) -> np.array:
+    expected_fluctuation = single_fluctuation[:, np.newaxis, :, np.newaxis] + \
+                           single_fluctuation[np.newaxis, :, np.newaxis, :]
+    contact_fluctuation = (pair_fluctuation - expected_fluctuation)
+    return contact_fluctuation
+
+
 def compute_singleresidue_decoy_energy(seq: str,
                                        potts_model: dict,
                                        mask: np.array, ):
@@ -309,39 +318,34 @@ def compute_contact_freq(sequence):
     return contact_freq
 
 
-def compute_singleresidue_frustration(decoy_energy, native_energy, aa_freq=None):
+def compute_single_frustration(decoy_fluctuation,
+                               aa_freq=None,
+                               correction=0):
     if aa_freq is None:
         aa_freq = np.ones(21)
-    mean_energy = (aa_freq * decoy_energy).sum(axis=1) / aa_freq.sum()
-    std_energy = np.sqrt(((aa_freq * (decoy_energy - mean_energy[:, np.newaxis]) ** 2) / aa_freq.sum()).sum(axis=1))
-    frustration = (native_energy - mean_energy) / std_energy
+    mean_energy = (aa_freq * decoy_fluctuation).sum(axis=1) / aa_freq.sum()
+    std_energy = np.sqrt(
+        ((aa_freq * (decoy_fluctuation - mean_energy[:, np.newaxis]) ** 2) / aa_freq.sum()).sum(axis=1))
+    frustration = -mean_energy / (std_energy + correction)
     return frustration
 
 
-def compute_mutational_frustration(decoy_energy: np.array,
-                                   native_energy: float,
-                                   contact_freq: typing.Union[None, np.array]) -> np.array:
-    """
-    Computes mutational frustration
-    Parameters
-    ----------
-    :param decoy_energy:
-    :param native_energy:
-    :param contact_freq:
-    Returns
-    -------
-    :return:
-    """
+
+def compute_pair_frustration(decoy_fluctuation,
+                             contact_freq: typing.Union[None, np.array],
+                             correction=0) -> np.array:
     if contact_freq is None:
         contact_freq = np.ones([21, 21])
-    seq_len = decoy_energy.shape[0]
+    decoy_energy = decoy_fluctuation
+    contact_freq = np.ones([21, 21])
+    seq_len = decoy_fluctuation.shape[0]
     average = np.average(decoy_energy.reshape(seq_len * seq_len, 21 * 21), weights=contact_freq.flatten(), axis=-1)
     variance = np.average((decoy_energy.reshape(seq_len * seq_len, 21 * 21) - average[:, np.newaxis]) ** 2,
                           weights=contact_freq.flatten(), axis=-1)
     mean_energy = average.reshape(seq_len, seq_len)
     std_energy = np.sqrt(variance).reshape(seq_len, seq_len)
-    frustration = (native_energy - mean_energy) / std_energy
-    return frustration
+    contact_frustration = -mean_energy / (std_energy + correction)
+    return contact_frustration
 
 
 def compute_scores(potts_model: dict) -> np.array:
@@ -367,10 +371,11 @@ def compute_scores(potts_model: dict) -> np.array:
     norm_mean_all = np.mean(norm) / (n - 1) * n
     corr_norm = norm - norm_mean[:, np.newaxis] * norm_mean[np.newaxis, :] / norm_mean_all
     corr_norm[np.diag_indices(n)] = 0
-    corr_norm = np.mean([corr_norm, corr_norm.T], axis=0) # Symmetrize matrix
+    corr_norm = np.mean([corr_norm, corr_norm.T], axis=0)  # Symmetrize matrix
     return corr_norm
 
-def compute_roc(scores,distance_matrix,cutoff):
+
+def compute_roc(scores, distance_matrix, cutoff):
     scores = sdist.squareform(scores)
     distance = sdist.squareform(distance_matrix)
     results = np.array([scores, distance])
@@ -381,10 +386,12 @@ def compute_roc(scores,distance_matrix,cutoff):
     fpr = np.concatenate([[0], not_contacts.cumsum() / not_contacts.sum()])
     return np.array([fpr, tpr])
 
+
 def compute_auc(roc):
     fpr, tpr = roc
     auc = np.sum(tpr[:-1] * (fpr[1:] - fpr[:-1]))
     return auc
+
 
 def plot_roc(roc):
     import matplotlib.pyplot as plt
@@ -396,7 +403,8 @@ def plot_roc(roc):
     plt.ylim(0, 1)
     plt.plot([0, 1], [0, 1], '--')
 
-def plot_singleresidue_decoy_energy(decoy_energy,native_energy):
+
+def plot_singleresidue_decoy_energy(decoy_energy, native_energy):
     import seaborn as sns
     g = sns.clustermap(decoy_energy, cmap='RdBu_r',
                        vmin=native_energy - decoy_energy.std() * 3,
@@ -408,6 +416,57 @@ def plot_singleresidue_decoy_energy(decoy_energy,native_energy):
         t.set_text(AA_dict[t.get_text()])
         new_ticklabels += [t]
     g.ax_heatmap.set_xticklabels(new_ticklabels)
+
+
+def write_tcl_script(pdb_file, chain, single_frustration, pair_frustration, tcl_script='frustration.tcl',
+                     max_conections=100):
+    fo = open(tcl_script, 'w+')
+    structure = prody.parsePDB(pdb_file)
+    selection = structure.select('protein', chain=chain)
+    residues = np.unique(selection.getResindices())
+
+    fo.write(f'[atomselect top all] set beta 0\n')
+    # Single residue frustration
+    for r, f in zip(residues, single_frustration):
+        # print(f)
+        fo.write(f'[atomselect top "chain {chain} and residue {r}"] set beta {f}\n')
+
+    # Mutational frustration:
+    r1, r2 = np.meshgrid(residues, residues, indexing='ij')
+    sel_frustration = np.array([r1.ravel(), r2.ravel(), pair_frustration.ravel()]).T
+    minimally_frustrated = sel_frustration[sel_frustration[:, -1] < -0.78]
+    s = np.argsort(minimally_frustrated[:, -1])
+    minimally_frustrated = minimally_frustrated[s][:max_conections]
+    fo.write('draw color green\n')
+    for r1, r2, f in minimally_frustrated:
+        fo.write(f'lassign [[atomselect top "resid {r1} and name CA and chain {chain}"] get {{x y z}}] pos1\n')
+        fo.write(f'lassign [[atomselect top "resid {r2} and name CA and chain {chain}"] get {{x y z}}] pos2\n')
+        fo.write(f'draw line $pos1 $pos2 style solid width 2\n')
+
+    frustrated = sel_frustration[sel_frustration[:, -1] > 1]
+    s = np.argsort(frustrated[:, -1])[::-1]
+    frustrated = frustrated[s][:max_conections]
+    fo.write('draw color red\n')
+    for r1, r2, f in frustrated:
+        fo.write(f'lassign [[atomselect top "resid {r1} and name CA and chain {chain}"] get {{x y z}}] pos1\n')
+        fo.write(f'lassign [[atomselect top "resid {r2} and name CA and chain {chain}"] get {{x y z}}] pos2\n')
+        fo.write('draw line $pos1 $pos2 style solid width 2\n')
+    fo.write('''mol delrep top 0
+            mol color Beta
+            mol representation NewCartoon 0.300000 10.000000 4.100000 0
+            mol selection all
+            mol material Opaque
+            mol addrep top
+            color scale method GWR
+            ''')
+    fo.close()
+    return tcl_script
+
+
+def call_vmd(pdb_file, tcl_script):
+    import subprocess
+    return subprocess.Popen(['vmd', '-e', tcl_script, pdb_file], stdin=subprocess.PIPE)
+
 
 def canvas(with_attribution=True):
     """
@@ -431,9 +490,6 @@ def canvas(with_attribution=True):
         quote += "\n\t- Adapted from Henry David Thoreau"
     return quote
 
-def calculate_AUC(potts_model,istance_cutoff=4):
-    pass
-
 
 # Class wrapper
 class PottsModel:
@@ -445,11 +501,11 @@ class PottsModel:
                  distance_cutoff: typing.Union[float, None],
                  distance_matrix_method='minimum'
                  ):
-        self.pdb = pdb_file
+        self.pdb_file = pdb_file
         self.chain = chain
         self.potts_model_file = potts_model_file
-        self.sequence = get_protein_sequence_from_pdb(self.pdb, self.chain)
-        self.distance_matrix = get_distance_matrix_from_pdb(self.pdb, self.chain, distance_matrix_method)
+        self.sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
+        self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, distance_matrix_method)
         self.potts_model = load_potts_model(potts_model_file)
         self.sequence_cutoff = sequence_cutoff
         self.distance_cutoff = distance_cutoff
@@ -460,33 +516,38 @@ class PottsModel:
         mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
         return compute_native_energy(self.sequence, self.potts_model, mask)
 
-    def decoy_energy(self, type='singleresidue'):
+    def decoy_fluctuation(self, kind='singleresidue'):
         mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
-        if type == 'singleresidue':
-            return compute_singleresidue_decoy_energy(self.sequence, self.potts_model, mask)
-        elif type == 'mutational':
-            return compute_mutational_decoy_energy(self.sequence, self.potts_model, mask)
+        if kind == 'singleresidue':
+            return compute_singleresidue_decoy_energy_fluctuation(self.sequence, self.potts_model, mask)
+        elif kind == 'mutational':
+            return compute_mutational_decoy_energy_fluctuation(self.sequence, self.potts_model, mask)
+        elif kind == 'contact':
+            return compute_contact_decoy_energy_fluctuation(self.decoy_fluctuation('singleresidue'),
+                                                            self.decoy_fluctuation('mutational'))
+
+    def decoy_energy(self, kind='singleresidue'):
+        return self.native_energy() + self.decoy_fluctuation(kind)
 
     def scores(self):
         return compute_scores(self.potts_model)
 
-    def frustration(self, type='singleresidue', aa_freq=None):
-        native_energy = self.native_energy()
-        decoy_energy = self.decoy_energy(type)
-        if type == 'singleresidue':
+    def frustration(self, kind='singleresidue', aa_freq=None, correction=0):
+        decoy_fluctuation = self.decoy_fluctuation(kind)
+        if kind == 'singleresidue':
             if aa_freq is not None:
                 aa_freq = self.aa_freq
-            return compute_singleresidue_frustration(decoy_energy, native_energy, aa_freq)
-        elif type == 'mutational':
+            return compute_single_frustration(decoy_fluctuation, aa_freq, correction)
+        elif kind in ['mutational', 'contact']:
             if aa_freq is not None:
                 aa_freq = self.contact_freq
-            return compute_mutational_frustration(decoy_energy, native_energy, aa_freq)
+            return compute_pair_frustration(decoy_fluctuation, aa_freq, correction)
 
-    def plot_decoy_energy(self,type='singleresidue'):
+    def plot_decoy_energy(self, kind='singleresidue'):
         native_energy = self.native_energy()
-        decoy_energy = self.decoy_energy(type)
-        if type == 'singleresidue':
-           plot_singleresidue_decoy_energy(decoy_energy, native_energy)
+        decoy_energy = self.decoy_energy(kind)
+        if kind == 'singleresidue':
+            plot_singleresidue_decoy_energy(decoy_energy, native_energy)
 
     def roc(self):
         return compute_roc(self.scores(), self.distance_matrix, self.distance_cutoff)
@@ -499,6 +560,12 @@ class PottsModel:
            Function intended"""
         return compute_auc(self.roc())
 
+    def vmd(self, single='singleresidue', pair='mutational', aa_freq=None, correction=0):
+        tcl_script = write_tcl_script(self.pdb_file, self.chain,
+                                      self.frustration(single, aa_freq=aa_freq, correction=correction),
+                                      self.frustration(pair, aa_freq=aa_freq, correction=correction))
+        call_vmd(self.pdb_file, tcl_script)
+
 
 # Function if script invoked on its own
 def main(pdb_name, chain_name, atom_type, DCA_Algorithm, build_msa_files, database_name,
@@ -508,25 +575,30 @@ def main(pdb_name, chain_name, atom_type, DCA_Algorithm, build_msa_files, databa
     if not os.path.exists(protein_dca_frustration_calculation_directory):
         os.mkdir(protein_dca_frustration_calculation_directory)
     ###
-    #Importing PDB structure
+    # Importing PDB structure
     if not os.path.exists(f"{protein_dca_frustration_calculation_directory}/{pdb_name[:4]}.pdb"):
-        urllib.request.urlretrieve(f"https://files.rcsb.org/download/{pdb_name[:4]}.pdb",f"{protein_dca_frustration_calculation_directory}/{pdb_name[:4]}.pdb")
-    
+        urllib.request.urlretrieve(f"https://files.rcsb.org/download/{pdb_name[:4]}.pdb",
+                                   f"{protein_dca_frustration_calculation_directory}/{pdb_name[:4]}.pdb")
+
     pdb_sequence = get_protein_sequence_from_pdb(f"{protein_dca_frustration_calculation_directory}/{pdb_name[:4]}.pdb",
                                                  chain_name)
-    
-    #Identify PDB's protein family
-    pdb_pfam_mapping_dataframe=pd.read_csv(f"{dca_frustratometer_directory}/pdb_chain_pfam.csv",header=1,sep=",")
-    protein_family=pdb_pfam_mapping_dataframe.loc[((pdb_pfam_mapping_dataframe["PDB"]==pdb_name.lower()) 
-                                                  & (pdb_pfam_mapping_dataframe["CHAIN"]==chain_name)),"PFAM_ID"].values[0]
-    
-    #Save PDB sequence
-    with open(f"{protein_dca_frustration_calculation_directory}/{protein_family}_{pdb_name}_{chain_name}_sequences.fasta","w") as f:
-        f.write(">{}_{}\n{}\n".format(pdb_name,chain_name,pdb_sequence))
-    
-    #Generate PDB contact distance matrix
-    distance_matrix = get_distance_matrix_from_pdb(f"{protein_dca_frustration_calculation_directory}/{pdb_name[:4]}.pdb",
-                                                   chain_name)
+
+    # Identify PDB's protein family
+    pdb_pfam_mapping_dataframe = pd.read_csv(f"{dca_frustratometer_directory}/pdb_chain_pfam.csv", header=1, sep=",")
+    protein_family = pdb_pfam_mapping_dataframe.loc[((pdb_pfam_mapping_dataframe["PDB"] == pdb_name.lower())
+                                                     & (pdb_pfam_mapping_dataframe[
+                                                            "CHAIN"] == chain_name)), "PFAM_ID"].values[0]
+
+    # Save PDB sequence
+    with open(
+            f"{protein_dca_frustration_calculation_directory}/{protein_family}_{pdb_name}_{chain_name}_sequences.fasta",
+            "w") as f:
+        f.write(">{}_{}\n{}\n".format(pdb_name, chain_name, pdb_sequence))
+
+    # Generate PDB contact distance matrix
+    distance_matrix = get_distance_matrix_from_pdb(
+        f"{protein_dca_frustration_calculation_directory}/{pdb_name[:4]}.pdb",
+        chain_name)
     # Generate PDB alignment files
     alignment_dca_files_directory = f"{protein_dca_frustration_calculation_directory}/{datetime.today().strftime('%m_%d_%Y')}_{protein_family}_PFAM_Alignment_DCA_Files"
     file_name = protein_family
@@ -535,21 +607,23 @@ def main(pdb_name, chain_name, atom_type, DCA_Algorithm, build_msa_files, databa
         file_name = f"{protein_family}_{pdb_name}_{chain_name}"
 
     if not os.path.exists(alignment_dca_files_directory):
-        os.mkdir(alignment_dca_files_directory)    
-    
-    subprocess.call(["cp", f"{protein_dca_frustration_calculation_directory}/{protein_family}_{pdb_name}_{chain_name}_sequences.fasta",
+        os.mkdir(alignment_dca_files_directory)
+
+    subprocess.call(["cp",
+                     f"{protein_dca_frustration_calculation_directory}/{protein_family}_{pdb_name}_{chain_name}_sequences.fasta",
                      alignment_dca_files_directory])
-    
-    generate_protein_sequence_alignments(protein_family,pdb_name,build_msa_files,
-                                         database_name,alignment_dca_files_directory,
+
+    generate_protein_sequence_alignments(protein_family, pdb_name, build_msa_files,
+                                         database_name, alignment_dca_files_directory,
                                          dca_frustratometer_directory)
     ###
-    generate_potts_model(file_name,gap_threshold,DCA_Algorithm,
-                         alignment_dca_files_directory,dca_frustratometer_directory)
+    generate_potts_model(file_name, gap_threshold, DCA_Algorithm,
+                         alignment_dca_files_directory, dca_frustratometer_directory)
     os.chdir(protein_dca_frustration_calculation_directory)
-    
-    #Compute PDB sequence native DCA energy
-    potts_model=load_potts_model(f"{alignment_dca_files_directory}/{file_name}_msa_dca_gap_threshold_{gap_threshold}.mat")
+
+    # Compute PDB sequence native DCA energy
+    potts_model = load_potts_model(
+        f"{alignment_dca_files_directory}/{file_name}_msa_dca_gap_threshold_{gap_threshold}.mat")
     e = compute_native_energy(pdb_sequence, potts_model, distance_matrix,
                               distance_cutoff=4, sequence_distance_cutoff=0)
     print(e)
