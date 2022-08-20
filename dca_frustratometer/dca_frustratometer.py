@@ -13,8 +13,12 @@ import os
 import urllib.request
 import scipy.io
 import subprocess
+from pathlib import Path
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
+_path = Path(__file__).parent.absolute()
+
+
 def get_protein_sequence_from_pdb(pdb: str,
                                   chain: str
                                   ) -> str:
@@ -92,6 +96,52 @@ def get_distance_matrix_from_pdb(pdb_file: str,
             dm[i, j] = d
             dm[j, i] = d
         return dm
+
+
+def create_alignment_jackhmmer(fasta_file,
+                               database=f'{_path}/Databases/uniparc_active.fasta',
+                               output='results.sto'
+                               ):
+    # jackhmmer and databases required
+    import subprocess
+    subprocess.call(['jackhmmer', '-A', output, '--noali', '-E', '1E-8', '--incE', '1E-10',
+                     fasta_file, database])
+
+
+def remove_gaps():
+    pass
+
+
+def sto2fasta():
+    pass
+
+
+def compute_plm(fasta_alignment,
+                outputfile,
+                lambda_h=0.01,
+                lambda_J=0.01,
+                reweighting_threshold=0.1,
+                nr_of_cores=1,
+                outputDistribution="Distribution.txt",
+                outputMatrix='matrix.mat'
+                ):
+    # MATLAB needs Bioinfomatics toolbox and Image processing toolbox to parse the sequences
+    # Functions need to be compiled with 'matlab -nodisplay -r "mexAll"'
+    try:
+        import matlab.engine
+    except ImportError:
+        subprocess.call(['matlab', '-nodisplay', '-r',
+                         "plmDCA_symmetric_mod7('3ks3A_nogaps20.fa','scores_3ks3A.txt',0.01,0.01,0.1,1,'PottsModel3ks3A.mat');quit"])
+        return outputMatrix
+    eng = matlab.engine.start_matlab()
+    eng.addpath('%s/plm' % _path, nargout=0)
+    eng.addpath('%s/plm/functions' % _path, nargout=0)
+    eng.addpath('%s/plm/3rd_party_code/minFunc' % _path, nargout=0)
+    print('plmDCA_symmetric_mod7', fasta_alignment, outputfile, lambda_h, lambda_J, reweighting_threshold, nr_of_cores,
+          outputDistribution, outputMatrix)
+    eng.plmDCA_symmetric_mod7(fasta_alignment, outputfile, lambda_h, lambda_J, reweighting_threshold, nr_of_cores,
+                              outputDistribution, outputMatrix, nargout=0)  # , stdout=out )
+    return outputMatrix
 
 
 def pseudofam_pfam_download_alignments(protein_family, alignment_type,
@@ -357,7 +407,6 @@ def compute_single_frustration(decoy_fluctuation,
     return frustration
 
 
-
 def compute_pair_frustration(decoy_fluctuation,
                              contact_freq: typing.Union[None, np.array],
                              correction=0) -> np.array:
@@ -615,7 +664,6 @@ class PottsModel:
             raise Exception("Wrong kind of decoy generation selected")
         self._decoy_fluctuation[kind] = fluctuation
         return self._decoy_fluctuation[kind]
-
 
     def decoy_energy(self, kind='singleresidue'):
         return self.native_energy() + self.decoy_fluctuation(kind)
