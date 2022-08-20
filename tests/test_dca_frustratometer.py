@@ -37,8 +37,8 @@ def test_scores():
     assert np.round(model.scores()[30, 40], 5) == -0.03384
 
 def test_compute_singleresidue_decoy_energy():
-    aa_x = 12
-    pos_x = 126
+    aa_x = 5
+    pos_x = 30
     distance_cutoff = 4
     sequence_cutoff = 0
     distance_matrix = dca_frustratometer.get_distance_matrix_from_pdb('examples/data/1l63.pdb', 'A')
@@ -54,10 +54,10 @@ def test_compute_singleresidue_decoy_energy():
     assert (decoy_energy[pos_x, aa_x] - test_energy) ** 2 < 1E-16
 
 def test_compute_mutational_decoy_energy():
-    aa_x = 12
-    pos_x = 126
-    aa_y = 18
-    pos_y = 47
+    aa_x = 5
+    pos_x = 30
+    aa_y = 7
+    pos_y = 69
     distance_cutoff = 4
     sequence_cutoff = 0
     distance_matrix = dca_frustratometer.get_distance_matrix_from_pdb('examples/data/1l63.pdb', 'A')
