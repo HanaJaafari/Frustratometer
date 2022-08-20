@@ -14,7 +14,7 @@ import urllib.request
 import scipy.io
 import subprocess
 
-
+_AA = '-ACDEFGHIKLMNPQRSTVWY'
 def get_protein_sequence_from_pdb(pdb: str,
                                   chain: str
                                   ) -> str:
@@ -204,9 +204,7 @@ def compute_mask(distance_matrix: np.array,
 def compute_native_energy(seq: str,
                           potts_model: dict,
                           mask: np.array) -> float:
-    AA = '-ACDEFGHIKLMNPQRSTVWY'
-
-    seq_index = np.array([AA.find(aa) for aa in seq])
+    seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
     pos1, pos2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), indexing='ij', sparse=True)
     aa1, aa2 = np.meshgrid(seq_index, seq_index, indexing='ij', sparse=True)
@@ -222,9 +220,15 @@ def compute_native_energy(seq: str,
 def compute_singleresidue_decoy_energy_fluctuation(seq: str,
                                                    potts_model: dict,
                                                    mask: np.array) -> np.array:
-    AA = '-ACDEFGHIKLMNPQRSTVWY'
+    """
+    $ \Delta H_i = \Delta h_i + \sum_k\Delta j_{ik} $
 
-    seq_index = np.array([AA.find(aa) for aa in seq])
+    :param seq:
+    :param potts_model:
+    :param mask:
+    :return:
+    """
+    seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
 
     # Create decoys
@@ -248,9 +252,17 @@ def compute_singleresidue_decoy_energy_fluctuation(seq: str,
 def compute_mutational_decoy_energy_fluctuation(seq: str,
                                                 potts_model: dict,
                                                 mask: np.array, ) -> np.array:
-    AA = '-ACDEFGHIKLMNPQRSTVWY'
-
-    seq_index = np.array([AA.find(aa) for aa in seq])
+    """
+    $$ \Delta DCA_{ij} = H_i - H_{i'} + H_{j}-H_{j'}
+    + J_{ij} -J_{ij'} + J_{i'j'} - J_{i'j}
+    + \sum_k {J_{ik} - J_{i'k} + J_{jk} -J_{j'k}}
+    $$
+    :param seq:
+    :param potts_model:
+    :param mask:
+    :return:
+    """
+    seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
 
     # Create decoys
@@ -279,12 +291,29 @@ def compute_mutational_decoy_energy_fluctuation(seq: str,
     return decoy_energy
 
 
-def compute_contact_decoy_energy_fluctuation(single_fluctuation: np.array,
-                                             pair_fluctuation: np.array) -> np.array:
-    expected_fluctuation = single_fluctuation[:, np.newaxis, :, np.newaxis] + \
-                           single_fluctuation[np.newaxis, :, np.newaxis, :]
-    contact_fluctuation = (pair_fluctuation - expected_fluctuation)
-    return contact_fluctuation
+def compute_contact_decoy_energy_fluctuation(seq: str,
+                                             potts_model: dict,
+                                             mask: np.array) -> np.array:
+    """
+    $$ \Delta DCA_{ij} = \Delta j_{ij} $$
+    :param seq:
+    :param potts_model:
+    :param mask:
+    :return:
+    """
+
+    seq_index = np.array([_AA.find(aa) for aa in seq])
+    seq_len = len(seq_index)
+
+    # Create decoys
+    pos1, pos2, aa1, aa2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), np.arange(21), np.arange(21),
+                                       indexing='ij', sparse=True)
+
+    decoy_energy = np.zeros([seq_len, seq_len, 21, 21])
+    decoy_energy += potts_model['J'][pos1, pos2, seq_index[pos1], seq_index[pos2]] * mask[pos1, pos2]  # Old coupling
+    decoy_energy -= potts_model['J'][pos1, pos2, aa1, aa2] * mask[pos1, pos2]  # New Coupling
+
+    return decoy_energy
 
 
 def compute_singleresidue_decoy_energy(seq: str,
@@ -304,14 +333,12 @@ def compute_mutational_decoy_energy(seq: str,
 
 
 def compute_aa_freq(sequence):
-    AA = '-ACDEFGHIKLMNPQRSTVWY'
-    seq_index = np.array([AA.find(aa) for aa in sequence])
+    seq_index = np.array([_AA.find(aa) for aa in sequence])
     return np.array([(seq_index == i).sum() for i in range(21)])
 
 
 def compute_contact_freq(sequence):
-    AA = '-ACDEFGHIKLMNPQRSTVWY'
-    seq_index = np.array([AA.find(aa) for aa in sequence])
+    seq_index = np.array([_AA.find(aa) for aa in sequence])
     aa_freq = np.array([(seq_index == i).sum() for i in range(21)], dtype=np.float64)
     aa_freq /= aa_freq.sum()
     contact_freq = (aa_freq[:, np.newaxis] * aa_freq[np.newaxis, :])
@@ -409,8 +436,7 @@ def plot_singleresidue_decoy_energy(decoy_energy, native_energy):
     g = sns.clustermap(decoy_energy, cmap='RdBu_r',
                        vmin=native_energy - decoy_energy.std() * 3,
                        vmax=native_energy + decoy_energy.std() * 3)
-    AA = '-ACDEFGHIKLMNPQRSTVWY'
-    AA_dict = {str(i): AA[i] for i in range(len(AA))}
+    AA_dict = {str(i): _AA[i] for i in range(len(_AA))}
     new_ticklabels = []
     for t in g.ax_heatmap.get_xticklabels():
         t.set_text(AA_dict[t.get_text()])
@@ -419,7 +445,7 @@ def plot_singleresidue_decoy_energy(decoy_energy, native_energy):
 
 
 def write_tcl_script(pdb_file, chain, single_frustration, pair_frustration, tcl_script='frustration.tcl',
-                     max_conections=100):
+                     max_connections=100):
     fo = open(tcl_script, 'w+')
     structure = prody.parsePDB(pdb_file)
     selection = structure.select('protein', chain=chain)
@@ -436,7 +462,7 @@ def write_tcl_script(pdb_file, chain, single_frustration, pair_frustration, tcl_
     sel_frustration = np.array([r1.ravel(), r2.ravel(), pair_frustration.ravel()]).T
     minimally_frustrated = sel_frustration[sel_frustration[:, -1] < -0.78]
     s = np.argsort(minimally_frustrated[:, -1])
-    minimally_frustrated = minimally_frustrated[s][:max_conections]
+    minimally_frustrated = minimally_frustrated[s][:max_connections]
     fo.write('draw color green\n')
     for r1, r2, f in minimally_frustrated:
         fo.write(f'lassign [[atomselect top "resid {r1} and name CA and chain {chain}"] get {{x y z}}] pos1\n')
@@ -445,7 +471,7 @@ def write_tcl_script(pdb_file, chain, single_frustration, pair_frustration, tcl_
 
     frustrated = sel_frustration[sel_frustration[:, -1] > 1]
     s = np.argsort(frustrated[:, -1])[::-1]
-    frustrated = frustrated[s][:max_conections]
+    frustrated = frustrated[s][:max_connections]
     fo.write('draw color red\n')
     for r1, r2, f in frustrated:
         fo.write(f'lassign [[atomselect top "resid {r1} and name CA and chain {chain}"] get {{x y z}}] pos1\n')
@@ -503,28 +529,93 @@ class PottsModel:
                  ):
         self.pdb_file = pdb_file
         self.chain = chain
-        self.potts_model_file = potts_model_file
         self.sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
-        self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, distance_matrix_method)
-        self.potts_model = load_potts_model(potts_model_file)
-        self.sequence_cutoff = sequence_cutoff
-        self.distance_cutoff = distance_cutoff
+
+        # Set parameters
+        self._potts_model_file = potts_model_file
+        self._sequence_cutoff = sequence_cutoff
+        self._distance_cutoff = distance_cutoff
+        self._distance_matrix_method = distance_matrix_method
+
+        # Compute fast properties
+        self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
+        self.potts_model = load_potts_model(self.potts_model_file)
         self.aa_freq = compute_aa_freq(self.sequence)
         self.contact_freq = compute_contact_freq(self.sequence)
+        self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
 
-    def native_energy(self):
-        mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
-        return compute_native_energy(self.sequence, self.potts_model, mask)
+        # Initialize slow properties
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+
+    @property
+    def sequence_cutoff(self):
+        return self._sequence_cutoff
+
+    @sequence_cutoff.setter
+    def sequence_cutoff(self, value):
+        self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        self._sequence_cutoff = value
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+
+    @property
+    def distance_cutoff(self):
+        return self._distance_cutoff
+
+    @distance_cutoff.setter
+    def distance_cutoff(self, value):
+        self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        self._distance_cutoff = value
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+
+    @property
+    def distance_matrix_method(self):
+        return self._distance_matrix_method
+
+    @distance_matrix_method.setter
+    def distance_matrix_method(self, value):
+        self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, value)
+        self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        self._distance_matrix_method = value
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+
+    @property
+    def potts_model_file(self):
+        return self._potts_model_file
+
+    @potts_model_file.setter
+    def potts_model_file(self, value):
+        self.potts_model = load_potts_model(value)
+        self._potts_model_file = value
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+
+    def native_energy(self, sequence=None):
+        if sequence is None:
+            if self._native_energy:
+                return self._native_energy
+            else:
+                return compute_native_energy(self.sequence, self.potts_model, self.mask)
+        else:
+            return compute_native_energy(sequence, self.potts_model, self.mask)
 
     def decoy_fluctuation(self, kind='singleresidue'):
-        mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        if kind in self._decoy_fluctuation:
+            return self._decoy_fluctuation[kind]
         if kind == 'singleresidue':
-            return compute_singleresidue_decoy_energy_fluctuation(self.sequence, self.potts_model, mask)
+            fluctuation = compute_singleresidue_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
         elif kind == 'mutational':
-            return compute_mutational_decoy_energy_fluctuation(self.sequence, self.potts_model, mask)
+            fluctuation = compute_mutational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
         elif kind == 'contact':
-            return compute_contact_decoy_energy_fluctuation(self.decoy_fluctuation('singleresidue'),
-                                                            self.decoy_fluctuation('mutational'))
+            fluctuation = compute_contact_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+        else:
+            raise Exception("Wrong kind of decoy generation selected")
+        self._decoy_fluctuation[kind] = fluctuation
+        return self._decoy_fluctuation[kind]
+
 
     def decoy_energy(self, kind='singleresidue'):
         return self.native_energy() + self.decoy_fluctuation(kind)
@@ -560,10 +651,11 @@ class PottsModel:
            Function intended"""
         return compute_auc(self.roc())
 
-    def vmd(self, single='singleresidue', pair='mutational', aa_freq=None, correction=0):
+    def vmd(self, single='singleresidue', pair='mutational', aa_freq=None, correction=0, max_connections=100):
         tcl_script = write_tcl_script(self.pdb_file, self.chain,
                                       self.frustration(single, aa_freq=aa_freq, correction=correction),
-                                      self.frustration(pair, aa_freq=aa_freq, correction=correction))
+                                      self.frustration(pair, aa_freq=aa_freq, correction=correction),
+                                      max_connections=max_connections)
         call_vmd(self.pdb_file, tcl_script)
 
 
