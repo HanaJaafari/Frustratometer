@@ -390,9 +390,12 @@ def compute_mutational_decoy_energy(seq: str,
                                                                                                        mask)
 
 
-def compute_aa_freq(sequence):
+def compute_aa_freq(sequence, include_gaps=True):
     seq_index = np.array([_AA.find(aa) for aa in sequence])
-    return np.array([(seq_index == i).sum() for i in range(21)])
+    aa_freq = np.array([(seq_index == i).sum() for i in range(21)])
+    if not include_gaps:
+        aa_freq[0] = 0
+    return aa_freq
 
 
 def compute_contact_freq(sequence):
