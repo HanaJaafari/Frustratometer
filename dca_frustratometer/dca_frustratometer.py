@@ -241,11 +241,19 @@ def load_potts_model(potts_model_file):
 def compute_mask(distance_matrix: np.array,
                  distance_cutoff: typing.Union[float, None] = None,
                  sequence_distance_cutoff: typing.Union[int, None] = None) -> np.array:
+    """
+    Computes mask for couplings based on maximum distance cutoff and minimum sequence separation.
+    The cutoffs are inclusive
+    :param distance_matrix:
+    :param distance_cutoff:
+    :param sequence_distance_cutoff:
+    :return:
+    """
     seq_len = len(distance_matrix)
     mask = np.ones([seq_len, seq_len])
     if sequence_distance_cutoff is not None:
         sequence_distance = sdist.squareform(sdist.pdist(np.arange(seq_len)[:, np.newaxis]))
-        mask *= sequence_distance > sequence_distance_cutoff
+        mask *= sequence_distance >= sequence_distance_cutoff
     if distance_cutoff is not None:
         mask *= distance_matrix <= distance_cutoff
     return mask.astype(np.bool8)
@@ -413,7 +421,6 @@ def compute_pair_frustration(decoy_fluctuation,
     if contact_freq is None:
         contact_freq = np.ones([21, 21])
     decoy_energy = decoy_fluctuation
-    contact_freq = np.ones([21, 21])
     seq_len = decoy_fluctuation.shape[0]
     average = np.average(decoy_energy.reshape(seq_len * seq_len, 21 * 21), weights=contact_freq.flatten(), axis=-1)
     variance = np.average((decoy_energy.reshape(seq_len * seq_len, 21 * 21) - average[:, np.newaxis]) ** 2,
