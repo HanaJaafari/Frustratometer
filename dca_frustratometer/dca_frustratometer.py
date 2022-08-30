@@ -1138,7 +1138,8 @@ class AWSEMFrustratometer(PottsModel):
 
 
 # Function if script invoked on its own
-def main(pdb_name, chain_name, atom_type, DCA_Algorithm, build_msa_files, database_name,
+def main(pdb_name, chain_name, protein_family,atom_type, DCA_Algorithm, 
+         build_msa_files, database_name,
          gap_threshold, dca_frustratometer_directory):
     # PDB DCA frustration analysis directory
     protein_dca_frustration_calculation_directory = f"{os.getcwd()}/{datetime.today().strftime('%m_%d_%Y')}_{pdb_name}_{chain_name}_DCA_Frustration_Analysis"
@@ -1152,12 +1153,6 @@ def main(pdb_name, chain_name, atom_type, DCA_Algorithm, build_msa_files, databa
 
     pdb_sequence = get_protein_sequence_from_pdb(f"{protein_dca_frustration_calculation_directory}/{pdb_name[:4]}.pdb",
                                                  chain_name)
-
-    # Identify PDB's protein family
-    pdb_pfam_mapping_dataframe = pd.read_csv(f"{dca_frustratometer_directory}/pdb_chain_pfam.csv", header=1, sep=",")
-    protein_family = pdb_pfam_mapping_dataframe.loc[((pdb_pfam_mapping_dataframe["PDB"] == pdb_name.lower())
-                                                     & (pdb_pfam_mapping_dataframe[
-                                                            "CHAIN"] == chain_name)), "PFAM_ID"].values[0]
 
     # Save PDB sequence
     with open(
@@ -1205,6 +1200,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--pdb_name", type=str, required=True, help="PDB Name")
     parser.add_argument("--chain_name", type=str, required=True, help="Chain Name")
+    parser.add_argument("--protein_family", type=str, default=None, help="Protein Family of PDB")
     parser.add_argument("--atom_type", type=str, default="CB", help="Atom Type Used for Residue Contact Map")
     parser.add_argument("--DCA_Algorithm", type=str, default="mfDCA",
                         help="DCA Algorithm Used (options=mfDCA or plmDCA)")
@@ -1219,11 +1215,12 @@ if __name__ == "__main__":
     pdb_name = args.pdb_name
     chain_name = args.chain_name
     atom_type = args.atom_type
+    protein_family=args.protein_family
     DCA_Algorithm = args.DCA_Algorithm
     build_msa_files = args.build_msa_files
     database_name = args.database_name
     gap_threshold = args.gap_threshold
     dca_frustratometer_directory = args.dca_frustratometer_directory
 
-    main(pdb_name, chain_name, atom_type, DCA_Algorithm, build_msa_files, database_name,
-         gap_threshold, dca_frustratometer_directory)
+    main(pdb_name, chain_name, atom_type, protein_family,DCA_Algorithm, 
+         build_msa_files, database_name,gap_threshold, dca_frustratometer_directory)
