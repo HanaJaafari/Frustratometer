@@ -205,9 +205,12 @@ def generate_protein_sequence_alignments(protein_family, pdb_name, build_msa_fil
             file_name = f"{protein_family}_{pdb_name}_{chain_name}"
         else:
             alignment_type = "both"
-            pseudofam_pfam_download_alignments(protein_family, alignment_type,
-                                               alignment_dca_files_directory)
-            file_name = protein_family
+            if protein_family!=None:
+                pseudofam_pfam_download_alignments(protein_family, alignment_type,
+                                                   alignment_dca_files_directory)
+                file_name = protein_family
+            else:
+                print("Must Provide Protein Family Name in '--protein_family' Argument")
         # Reformat and filter MSA file
         pseudofam_retrieve_and_filter_alignment(file_name, alignment_dca_files_directory)
 
