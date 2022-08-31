@@ -348,6 +348,47 @@ def compute_mutational_decoy_energy_fluctuation(seq: str,
 
     return decoy_energy
 
+def compute_configurational_decoy_energy_fluctuation(seq: str,
+                                                potts_model: dict,
+                                                mask: np.array, ) -> np.array:
+    """
+    $$ \Delta DCA_{ij} = H_i - H_{i'} + H_{j}-H_{j'}
+    + J_{ij} -J_{ij'} + J_{i'j'} - J_{i'j}
+    + \sum_k {J_{ik} - J_{i'k} + J_{jk} -J_{j'k}}
+    $$
+    :param seq:
+    :param potts_model:
+    :param mask:
+    :return:
+    """
+    seq_index = np.array([_AA.find(aa) for aa in seq])
+    seq_len = len(seq_index)
+
+    # Create decoys
+    pos1, pos2, aa1, aa2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), np.arange(21), np.arange(21),
+                                       indexing='ij', sparse=True)
+
+    decoy_energy = np.zeros([seq_len, seq_len, 21, 21])
+    decoy_energy -= (potts_model['h'][pos1, aa1] - potts_model['h'][pos1, seq_index[pos1]])  # h correction aa1
+    decoy_energy -= (potts_model['h'][pos2, aa2] - potts_model['h'][pos2, seq_index[pos2]])  # h correction aa2
+
+    j_correction = np.zeros([seq_len, seq_len, 21, 21])
+    for pos, aa in enumerate(seq_index):
+        # J correction interactions with other aminoacids
+        reduced_j = potts_model['J'][pos, :, aa, :].astype(np.float32)
+        j_correction += reduced_j[pos1, seq_index[pos1]] * mask[pos, pos1]
+        j_correction -= reduced_j[pos1, aa1] * mask.mean()
+        j_correction += reduced_j[pos2, seq_index[pos2]] * mask[pos, pos2]
+        j_correction -= reduced_j[pos2, aa2] * mask.mean()
+    # J correction, interaction with self aminoacids
+    j_correction -= potts_model['J'][pos1, pos2, seq_index[pos1], seq_index[pos2]] * mask[pos1, pos2]  # Taken two times
+    j_correction += potts_model['J'][pos1, pos2, aa1, seq_index[pos2]] * mask.mean()  # Added mistakenly
+    j_correction += potts_model['J'][pos1, pos2, seq_index[pos1], aa2] * mask.mean()  # Added mistakenly
+    j_correction -= potts_model['J'][pos1, pos2, aa1, aa2] * mask.mean()  # Correct combination
+    decoy_energy += j_correction
+
+    return decoy_energy
+
 
 def compute_contact_decoy_energy_fluctuation(seq: str,
                                              potts_model: dict,
@@ -388,7 +429,12 @@ def compute_mutational_decoy_energy(seq: str,
     return compute_native_energy(seq, potts_model, mask) + compute_mutational_decoy_energy_fluctuation(seq,
                                                                                                        potts_model,
                                                                                                        mask)
-
+def compute_configurational_decoy_energy(seq: str,
+                                    potts_model: dict,
+                                    mask: np.array, ):
+    return compute_native_energy(seq, potts_model, mask) + compute_configurational_decoy_energy_fluctuation(seq,
+                                                                                                       potts_model,
+                                                                                                       mask)
 
 def compute_aa_freq(sequence, include_gaps=True):
     seq_index = np.array([_AA.find(aa) for aa in sequence])
@@ -668,8 +714,11 @@ class PottsModel:
             fluctuation = compute_singleresidue_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
         elif kind == 'mutational':
             fluctuation = compute_mutational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+        elif kind == 'configurational':
+            fluctuation = compute_configurational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
         elif kind == 'contact':
             fluctuation = compute_contact_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+
         else:
             raise Exception("Wrong kind of decoy generation selected")
         self._decoy_fluctuation[kind] = fluctuation
@@ -687,7 +736,7 @@ class PottsModel:
             if aa_freq is not None:
                 aa_freq = self.aa_freq
             return compute_single_frustration(decoy_fluctuation, aa_freq, correction)
-        elif kind in ['mutational', 'contact']:
+        elif kind in ['mutational', 'configurational','contact']:
             if aa_freq is not None:
                 aa_freq = self.contact_freq
             return compute_pair_frustration(decoy_fluctuation, aa_freq, correction)
