@@ -98,15 +98,41 @@ def get_distance_matrix_from_pdb(pdb_file: str,
         return dm
 
 
-def create_alignment_jackhmmer(fasta_file,
+def create_alignment_jackhmmer(sequence,
                                database=f'{_path}/Databases/uniparc_active.fasta',
-                               output='results.sto'
-                               ):
+                               output_file=None,
+                               log_file=None):
+    """
+
+    :param sequence:
+    :param database:
+    :param output_file:
+    :param log_file:
+    :return:
+    """
+    # TODO: pass options for jackhmmer
     # jackhmmer and databases required
     import subprocess
-    subprocess.call(['jackhmmer', '-A', output, '--noali', '-E', '1E-8', '--incE', '1E-10',
-                     fasta_file, database])
+    import tempfile
 
+    database = '/home/cb/Databases/uniprot_sprot.fasta'
+    if output_file is None:
+        output = tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_alignment.sto')
+        output_file = output.name
+
+    with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_sequence.fa') as fasta_file:
+        fasta_file.write(f'>Seq\n{sequence}\n')
+        fasta_file.flush()
+        if log_file is None:
+            subprocess.call(
+                ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
+                 '--incE', '1E-10', fasta_file.name, database], stdout=subprocess.DEVNULL)
+        else:
+            with open(log_file, 'w') as log:
+                subprocess.call(
+                    ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
+                     '--incE', '1E-10', fasta_file.name, database], stdout=log)
+    return output_file
 
 def remove_gaps():
     pass
