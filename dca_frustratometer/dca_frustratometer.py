@@ -415,26 +415,26 @@ def compute_contact_decoy_energy_fluctuation(seq: str,
     return decoy_energy
 
 
-def compute_singleresidue_decoy_energy(seq: str,
-                                       potts_model: dict,
-                                       mask: np.array, ):
-    return compute_native_energy(seq, potts_model, mask) + compute_singleresidue_decoy_energy_fluctuation(seq,
-                                                                                                          potts_model,
-                                                                                                          mask)
+def compute_decoy_energy(seq: str, potts_model: dict, mask: np.array, kind='singleresidue'):
+    """
+    Calculates the decoy energy (Obsolete)
+    :param seq:
+    :param potts_model:
+    :param mask:
+    :param kind:
+    :return:
+    """
 
+    native_energy = compute_native_energy(seq, potts_model, mask)
+    if kind == 'singleresidue':
+        return native_energy + compute_singleresidue_decoy_energy_fluctuation(seq, potts_model, mask)
+    elif kind == 'mutational':
+        return native_energy + compute_mutational_decoy_energy_fluctuation(seq, potts_model, mask)
+    elif kind == 'configurational':
+        return native_energy + compute_configurational_decoy_energy_fluctuation(seq, potts_model, mask)
+    elif kind == 'contact':
+        return native_energy + compute_contact_decoy_energy_fluctuation(seq, potts_model, mask)
 
-def compute_mutational_decoy_energy(seq: str,
-                                    potts_model: dict,
-                                    mask: np.array, ):
-    return compute_native_energy(seq, potts_model, mask) + compute_mutational_decoy_energy_fluctuation(seq,
-                                                                                                       potts_model,
-                                                                                                       mask)
-def compute_configurational_decoy_energy(seq: str,
-                                    potts_model: dict,
-                                    mask: np.array, ):
-    return compute_native_energy(seq, potts_model, mask) + compute_configurational_decoy_energy_fluctuation(seq,
-                                                                                                       potts_model,
-                                                                                                       mask)
 
 def compute_aa_freq(sequence, include_gaps=True):
     seq_index = np.array([_AA.find(aa) for aa in sequence])

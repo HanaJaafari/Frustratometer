@@ -50,7 +50,7 @@ def test_compute_singleresidue_decoy_energy():
     seq[pos_x] = AA[aa_x]
     seq = ''.join(seq)
     test_energy = dca_frustratometer.compute_native_energy(seq, potts_model, mask)
-    decoy_energy = dca_frustratometer.compute_singleresidue_decoy_energy(seq, potts_model, mask)
+    decoy_energy = dca_frustratometer.compute_decoy_energy(seq, potts_model, mask, 'singleresidue')
     assert (decoy_energy[pos_x, aa_x] - test_energy) ** 2 < 1E-16
 
 def test_compute_mutational_decoy_energy():
@@ -70,5 +70,5 @@ def test_compute_mutational_decoy_energy():
     seq[pos_y] = AA[aa_y]
     seq=''.join(seq)
     test_energy= dca_frustratometer.compute_native_energy(seq, potts_model, mask)
-    decoy_energy = dca_frustratometer.compute_mutational_decoy_energy(seq, potts_model, mask)
+    decoy_energy = dca_frustratometer.compute_decoy_energy(seq, potts_model, mask,'mutational')
     assert (decoy_energy[pos_x, pos_y, aa_x, aa_y] - test_energy) ** 2 < 1E-16
