@@ -98,14 +98,40 @@ def get_distance_matrix_from_pdb(pdb_file: str,
         return dm
 
 
-def create_alignment_jackhmmer(fasta_file,
+def create_alignment_jackhmmer(sequence,
                                database=f'{_path}/Databases/uniparc_active.fasta',
-                               output='results.sto'
-                               ):
+                               output_file=None,
+                               log_file=None):
+    """
+
+    :param sequence:
+    :param database:
+    :param output_file:
+    :param log_file:
+    :return:
+    """
+    # TODO: pass options for jackhmmer
     # jackhmmer and databases required
     import subprocess
-    subprocess.call(['jackhmmer', '-A', output, '--noali', '-E', '1E-8', '--incE', '1E-10',
-                     fasta_file, database])
+    import tempfile
+
+    if output_file is None:
+        output = tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_alignment.sto')
+        output_file = output.name
+
+    with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_sequence.fa') as fasta_file:
+        fasta_file.write(f'>Seq\n{sequence}\n')
+        fasta_file.flush()
+        if log_file is None:
+            subprocess.call(
+                ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
+                 '--incE', '1E-10', fasta_file.name, database], stdout=subprocess.DEVNULL)
+        else:
+            with open(log_file, 'w') as log:
+                subprocess.call(
+                    ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
+                     '--incE', '1E-10', fasta_file.name, database], stdout=log)
+    return output_file
 
 
 def remove_gaps():
@@ -352,6 +378,48 @@ def compute_mutational_decoy_energy_fluctuation(seq: str,
     return decoy_energy
 
 
+def compute_configurational_decoy_energy_fluctuation(seq: str,
+                                                     potts_model: dict,
+                                                     mask: np.array, ) -> np.array:
+    """
+    $$ \Delta DCA_{ij} = H_i - H_{i'} + H_{j}-H_{j'}
+    + J_{ij} -J_{ij'} + J_{i'j'} - J_{i'j}
+    + \sum_k {J_{ik} - J_{i'k} + J_{jk} -J_{j'k}}
+    $$
+    :param seq:
+    :param potts_model:
+    :param mask:
+    :return:
+    """
+    seq_index = np.array([_AA.find(aa) for aa in seq])
+    seq_len = len(seq_index)
+
+    # Create decoys
+    pos1, pos2, aa1, aa2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), np.arange(21), np.arange(21),
+                                       indexing='ij', sparse=True)
+
+    decoy_energy = np.zeros([seq_len, seq_len, 21, 21])
+    decoy_energy -= (potts_model['h'][pos1, aa1] - potts_model['h'][pos1, seq_index[pos1]])  # h correction aa1
+    decoy_energy -= (potts_model['h'][pos2, aa2] - potts_model['h'][pos2, seq_index[pos2]])  # h correction aa2
+
+    j_correction = np.zeros([seq_len, seq_len, 21, 21])
+    for pos, aa in enumerate(seq_index):
+        # J correction interactions with other aminoacids
+        reduced_j = potts_model['J'][pos, :, aa, :].astype(np.float32)
+        j_correction += reduced_j[pos1, seq_index[pos1]] * mask[pos, pos1]
+        j_correction -= reduced_j[pos1, aa1] * mask.mean()
+        j_correction += reduced_j[pos2, seq_index[pos2]] * mask[pos, pos2]
+        j_correction -= reduced_j[pos2, aa2] * mask.mean()
+    # J correction, interaction with self aminoacids
+    j_correction -= potts_model['J'][pos1, pos2, seq_index[pos1], seq_index[pos2]] * mask[pos1, pos2]  # Taken two times
+    j_correction += potts_model['J'][pos1, pos2, aa1, seq_index[pos2]] * mask.mean()  # Added mistakenly
+    j_correction += potts_model['J'][pos1, pos2, seq_index[pos1], aa2] * mask.mean()  # Added mistakenly
+    j_correction -= potts_model['J'][pos1, pos2, aa1, aa2] * mask.mean()  # Correct combination
+    decoy_energy += j_correction
+
+    return decoy_energy
+
+
 def compute_contact_decoy_energy_fluctuation(seq: str,
                                              potts_model: dict,
                                              mask: np.array) -> np.array:
@@ -377,20 +445,25 @@ def compute_contact_decoy_energy_fluctuation(seq: str,
     return decoy_energy
 
 
-def compute_singleresidue_decoy_energy(seq: str,
-                                       potts_model: dict,
-                                       mask: np.array, ):
-    return compute_native_energy(seq, potts_model, mask) + compute_singleresidue_decoy_energy_fluctuation(seq,
-                                                                                                          potts_model,
-                                                                                                          mask)
+def compute_decoy_energy(seq: str, potts_model: dict, mask: np.array, kind='singleresidue'):
+    """
+    Calculates the decoy energy (Obsolete)
+    :param seq:
+    :param potts_model:
+    :param mask:
+    :param kind:
+    :return:
+    """
 
-
-def compute_mutational_decoy_energy(seq: str,
-                                    potts_model: dict,
-                                    mask: np.array, ):
-    return compute_native_energy(seq, potts_model, mask) + compute_mutational_decoy_energy_fluctuation(seq,
-                                                                                                       potts_model,
-                                                                                                       mask)
+    native_energy = compute_native_energy(seq, potts_model, mask)
+    if kind == 'singleresidue':
+        return native_energy + compute_singleresidue_decoy_energy_fluctuation(seq, potts_model, mask)
+    elif kind == 'mutational':
+        return native_energy + compute_mutational_decoy_energy_fluctuation(seq, potts_model, mask)
+    elif kind == 'configurational':
+        return native_energy + compute_configurational_decoy_energy_fluctuation(seq, potts_model, mask)
+    elif kind == 'contact':
+        return native_energy + compute_contact_decoy_energy_fluctuation(seq, potts_model, mask)
 
 
 def compute_aa_freq(sequence, include_gaps=True):
@@ -581,6 +654,7 @@ def canvas(with_attribution=True):
 
 # Class wrapper
 class PottsModel:
+
     def __init__(self,
                  pdb_file: str,
                  chain: str,
@@ -609,6 +683,10 @@ class PottsModel:
         # Initialize slow properties
         self._native_energy = None
         self._decoy_fluctuation = {}
+
+    @classmethod
+    def from_pdb(cls):
+        raise NotImplementedError
 
     @property
     def sequence_cutoff(self):
@@ -671,8 +749,11 @@ class PottsModel:
             fluctuation = compute_singleresidue_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
         elif kind == 'mutational':
             fluctuation = compute_mutational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+        elif kind == 'configurational':
+            fluctuation = compute_configurational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
         elif kind == 'contact':
             fluctuation = compute_contact_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+
         else:
             raise Exception("Wrong kind of decoy generation selected")
         self._decoy_fluctuation[kind] = fluctuation
@@ -690,7 +771,7 @@ class PottsModel:
             if aa_freq is not None:
                 aa_freq = self.aa_freq
             return compute_single_frustration(decoy_fluctuation, aa_freq, correction)
-        elif kind in ['mutational', 'contact']:
+        elif kind in ['mutational', 'configurational', 'contact']:
             if aa_freq is not None:
                 aa_freq = self.contact_freq
             return compute_pair_frustration(decoy_fluctuation, aa_freq, correction)
@@ -718,6 +799,130 @@ class PottsModel:
                                       self.frustration(pair, aa_freq=aa_freq, correction=correction),
                                       max_connections=max_connections)
         call_vmd(self.pdb_file, tcl_script)
+
+
+class AWSEMFrustratometer(PottsModel):
+    # AWSEM parameters
+    r_min = .45
+    r_max = .65
+    r_minII = .65
+    r_maxII = .95
+    eta = 50  # eta actually has unit of nm^-1.
+    eta_sigma = 7.0
+    rho_0 = 2.6
+
+    min_sequence_separation_rho = 2
+    min_sequence_separation_contact = 10  # means j-i > 9
+
+    eta_switching = 10
+    k_contact = 4.184
+    burial_kappa = 4.0
+    burial_ro_min = [0.0, 3.0, 6.0]
+    burial_ro_max = [3.0, 6.0, 9.0]
+
+    gamma_se_map_3_letters = {'ALA': 0, 'ARG': 1, 'ASN': 2, 'ASP': 3, 'CYS': 4,
+                              'GLN': 5, 'GLU': 6, 'GLY': 7, 'HIS': 8, 'ILE': 9,
+                              'LEU': 10, 'LYS': 11, 'MET': 12, 'PHE': 13, 'PRO': 14,
+                              'SER': 15, 'THR': 16, 'TRP': 17, 'TYR': 18, 'VAL': 19}
+    burial_gamma = np.fromfile(f'{_path}/data/burial_gamma').reshape(20, 3)
+    gamma_ijm = np.fromfile(f'{_path}/data/gamma_ijm').reshape(2, 20, 20)
+    water_gamma_ijm = np.fromfile(f'{_path}/data/water_gamma_ijm').reshape(2, 20, 20)
+    protein_gamma_ijm = np.fromfile(f'{_path}/data/protein_gamma_ijm').reshape(2, 20, 20)
+    q = 20
+    aa_map_awsem = [0, 0, 4, 3, 6, 13, 7, 8, 9, 11, 10, 12, 2, 14, 5, 1, 15, 16, 19, 17, 18]
+    aa_map_awsem_x, aa_map_awsem_y = np.meshgrid(aa_map_awsem, aa_map_awsem, indexing='ij')
+
+    def __init__(self,
+                 pdb_file,
+                 chain=None,
+                 sequence_cutoff=None):
+        self.pdb_file = pdb_file
+        self.chain = chain
+        self.sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
+        self.structure = prody.parsePDB(self.pdb_file)
+        selection_CB = self.structure.select('name CB or (resname GLY and name CA)')
+        resid = selection_CB.getResindices()
+        self.N = len(resid)
+        resname = [self.gamma_se_map_3_letters[aa] for aa in selection_CB.getResnames()]
+
+        coords = selection_CB.getCoords()
+        r = sdist.squareform(sdist.pdist(coords)) / 10
+        distance_mask = ((r < 1) - np.eye(len(r)))
+        sequence_mask_rho = abs(np.expand_dims(resid, 0) - np.expand_dims(resid, 1)) >= self.min_sequence_separation_rho
+        sequence_mask_contact = abs(
+            np.expand_dims(resid, 0) - np.expand_dims(resid, 1)) >= self.min_sequence_separation_contact
+        mask = ((r < 1) - np.eye(len(r)))
+        rho = 0.25 * (1 + np.tanh(self.eta * (r - self.r_min))) * \
+              (1 + np.tanh(self.eta * (self.r_max - r))) * sequence_mask_rho
+        rho_r = (rho).sum(axis=1)
+        rho_b = np.expand_dims(rho_r, 1)
+        rho1 = np.expand_dims(rho_r, 0)
+        rho2 = np.expand_dims(rho_r, 1)
+        sigma_water = 0.25 * (1 - np.tanh(self.eta_sigma * (rho1 - self.rho_0))) * (
+                1 - np.tanh(self.eta_sigma * (rho2 - self.rho_0)))
+        sigma_protein = 1 - sigma_water
+        theta = 0.25 * (1 + np.tanh(self.eta * (r - self.r_min))) * (1 + np.tanh(self.eta * (self.r_max - r)))
+        thetaII = 0.25 * (1 + np.tanh(self.eta * (r - self.r_minII))) * (1 + np.tanh(self.eta * (self.r_maxII - r)))
+        burial_indicator = np.tanh(self.burial_kappa * (rho_b - self.burial_ro_min)) + \
+                           np.tanh(self.burial_kappa * (self.burial_ro_max - rho_b))
+        J_index = np.meshgrid(range(self.N), range(self.N), range(self.q), range(self.q), indexing='ij', sparse=False)
+        h_index = np.meshgrid(range(self.N), range(self.q), indexing='ij', sparse=False)
+
+        burial_energy = -0.5 * self.k_contact * self.burial_gamma[h_index[1]] * burial_indicator[:, np.newaxis, :]
+        direct = self.gamma_ijm[0, J_index[2], J_index[3]] * theta[:, :, np.newaxis, np.newaxis]
+
+        water_mediated = thetaII[:, :, np.newaxis, np.newaxis] * sigma_water[:, :, np.newaxis, np.newaxis] * \
+                         self.water_gamma_ijm[0, J_index[2], J_index[3]]
+        protein_mediated = thetaII[:, :, np.newaxis, np.newaxis] * sigma_protein[:, :, np.newaxis, np.newaxis] * \
+                           self.protein_gamma_ijm[0, J_index[2], J_index[3]]
+        contact_energy = -self.k_contact * np.array([direct, water_mediated, protein_mediated]) * \
+                         sequence_mask_contact[np.newaxis, :, :, np.newaxis, np.newaxis]
+
+        # Set parameters
+        self._distance_cutoff = 1
+        self._sequence_cutoff = 2
+
+        # Compute fast properties
+        self.distance_matrix = r
+        self.potts_model = {}
+        self.potts_model['h'] = -burial_energy.sum(axis=-1)[:, self.aa_map_awsem]
+        self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
+        self.aa_freq = compute_aa_freq(self.sequence)
+        self.contact_freq = compute_contact_freq(self.sequence)
+        self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+
+        # Initialize slow properties
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+        #
+        # def __init__(self,
+        #              pdb_file: str,
+        #              chain: str,
+        #              potts_model_file: str,
+        #              sequence_cutoff: typing.Union[float, None],
+        #              distance_cutoff: typing.Union[float, None],
+        #              distance_matrix_method='minimum'
+        #              ):
+        #     self.pdb_file = pdb_file
+        #     self.chain = chain
+        #     self.sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
+        #
+        #     # Set parameters
+        #     self._potts_model_file = potts_model_file
+        #     self._sequence_cutoff = sequence_cutoff
+        #     self._distance_cutoff = distance_cutoff
+        #     self._distance_matrix_method = distance_matrix_method
+        #
+        #     # Compute fast properties
+        #     self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
+        #     self.potts_model = load_potts_model(self.potts_model_file)
+        #     self.aa_freq = compute_aa_freq(self.sequence)
+        #     self.contact_freq = compute_contact_freq(self.sequence)
+        #     self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        #
+        #     # Initialize slow properties
+        #     self._native_energy = None
+        #     self._decoy_fluctuation = {}
 
 
 # Function if script invoked on its own
