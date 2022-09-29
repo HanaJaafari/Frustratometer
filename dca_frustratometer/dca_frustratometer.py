@@ -98,13 +98,14 @@ def get_distance_matrix_from_pdb(pdb_file: str,
         return dm
 
 
-def create_alignment_jackhmmer(sequence,
-                               database=f'{_path}/Databases/uniparc_active.fasta',
+def create_alignment_jackhmmer(sequence,pdb_name,
+                               database=f'{_path}/Uniprot_Sequence_Database_Files/uniprot_sprot.fasta',
                                output_file=None,
                                log_file=None):
     """
 
     :param sequence:
+    :param PDB Name:
     :param database:
     :param output_file:
     :param log_file:
@@ -120,7 +121,7 @@ def create_alignment_jackhmmer(sequence,
         output_file = output.name
 
     with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_sequence.fa') as fasta_file:
-        fasta_file.write(f'>Seq\n{sequence}\n')
+        fasta_file.write(f'>{pdb_name}\n{sequence}\n')
         fasta_file.flush()
         if log_file is None:
             subprocess.call(
@@ -131,8 +132,6 @@ def create_alignment_jackhmmer(sequence,
                 subprocess.call(
                     ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
                      '--incE', '1E-10', fasta_file.name, database], stdout=log)
-    return output_file
-
 
 def remove_gaps():
     pass
@@ -142,33 +141,29 @@ def sto2fasta():
     pass
 
 
-def compute_plm(fasta_alignment,
-                outputfile,
-                lambda_h=0.01,
-                lambda_J=0.01,
-                reweighting_threshold=0.1,
-                nr_of_cores=1,
-                outputDistribution="Distribution.txt",
-                outputMatrix='matrix.mat'
-                ):
+def compute_plm(protein_name,reweighting_threshold=0.1,nr_of_cores=1):
+    """
+    Calculate Potts Model Fields and Couplings Terms
+    :param protein_name
+    :param reweighting_threshold
+    :param nr_of_cores
+    """
+    '''Returns matrix consisting of Potts Model Fields and Couplings terms'''
     # MATLAB needs Bioinfomatics toolbox and Image processing toolbox to parse the sequences
     # Functions need to be compiled with 'matlab -nodisplay -r "mexAll"'
+    #See: https://www.mathworks.com/help/matlab/call-mex-functions.html
     try:
         import matlab.engine
     except ImportError:
         subprocess.call(['matlab', '-nodisplay', '-r',
-                         "plmDCA_symmetric_mod7('3ks3A_nogaps20.fa','scores_3ks3A.txt',0.01,0.01,0.1,1,'PottsModel3ks3A.mat');quit"])
-        return outputMatrix
-    eng = matlab.engine.start_matlab()
-    eng.addpath('%s/plm' % _path, nargout=0)
-    eng.addpath('%s/plm/functions' % _path, nargout=0)
-    eng.addpath('%s/plm/3rd_party_code/minFunc' % _path, nargout=0)
-    print('plmDCA_symmetric_mod7', fasta_alignment, outputfile, lambda_h, lambda_J, reweighting_threshold, nr_of_cores,
-          outputDistribution, outputMatrix)
-    eng.plmDCA_symmetric_mod7(fasta_alignment, outputfile, lambda_h, lambda_J, reweighting_threshold, nr_of_cores,
-                              outputDistribution, outputMatrix, nargout=0)  # , stdout=out )
-    return outputMatrix
+                         f"plmDCA_asymmetric({protein_name},{reweighting_threshold},{nr_of_cores},nargout=0);quit"])
 
+    eng = matlab.engine.start_matlab()
+    eng.addpath('%s/plmDCA_asymmetric_v2_with_h' % _path, nargout=0)
+    eng.addpath('%s/plmDCA_asymmetric_v2_with_h/functions' % _path, nargout=0)
+    eng.addpath('%s/plmDCA_asymmetric_v2_with_h/3rd_party_code/minFunc' % _path, nargout=0)
+    print('plmDCA_asymmetric', protein_name,reweighting_threshold, nr_of_cores)
+    eng.plmDCA_asymmetric(protein_name,reweighting_threshold, nr_of_cores,nargout=0)  # , stdout=out )
 
 def pseudofam_pfam_download_alignments(protein_family, alignment_type,
                                        alignment_dca_files_directory):
@@ -183,10 +178,16 @@ def pseudofam_pfam_download_alignments(protein_family, alignment_type,
                          f"http://pfam.xfam.org/family/{protein_family}/alignment/{category}"])
 
 
-def pseudofam_retrieve_and_filter_alignment(file_name, alignment_dca_files_directory):
+def convert_and_filter_alignment(pdb_name):
+    """
+    Filter PDB alignment
+    :param pdb_name: PDB name
+    :return: 
+    """
+    '''Returns PDB MSA (fasta format) with column-spanning gaps and insertions removed'''
     # Convert full MSA in stockholm format to fasta format
-    input_handle = open(f"{alignment_dca_files_directory}/{file_name}_full.aln", "rU")
-    output_handle = open(f"{alignment_dca_files_directory}/{file_name}_msa.fasta", "w")
+    input_handle = open(f"dcaf_{pdb_name}_alignment.sto", "rU")
+    output_handle = open(f"dcaf_{pdb_name}_alignment.fasta", "w")
 
     alignments = AlignIO.parse(input_handle, "stockholm")
     AlignIO.write(alignments, output_handle, "fasta")
@@ -194,8 +195,8 @@ def pseudofam_retrieve_and_filter_alignment(file_name, alignment_dca_files_direc
     input_handle.close()
 
     # Remove inserts and columns that are completely composed of gaps from MSA
-    alignment = AlignIO.read(open(f"{alignment_dca_files_directory}/{file_name}_msa.fasta"), "fasta")
-    output_handle = open(f"{alignment_dca_files_directory}/{file_name}_gap_filtered_msa.fasta", "w")
+    alignment = AlignIO.read(f"dcaf_{pdb_name}_alignment.fasta", "fasta")
+    output_handle = open(f"dcaf_{pdb_name}_alignment_gaps_filtered.fasta", "w")
 
     index_mask = []
     for i, record in enumerate(alignment):
@@ -207,38 +208,8 @@ def pseudofam_retrieve_and_filter_alignment(file_name, alignment_dca_files_direc
 
     for i, record in enumerate(alignment):
         aligned_sequence = [list(record.seq)[i] for i in range(len(list(record.seq))) if i not in index_mask]
-
         output_handle.write(">%s\n" % record.id + "".join(aligned_sequence) + '\n')
     output_handle.close()
-
-
-def generate_protein_sequence_alignments(protein_family, pdb_name, build_msa_files,
-                                         database_name, alignment_dca_files_directory,
-                                         dca_frustratometer_directory):
-    if not os.path.exists(f"{alignment_dca_files_directory}/{protein_family}_full.aln"):
-        if build_msa_files:
-            if database_name == "Uniparc":
-                database_file = f"{dca_frustratometer_directory}/uniparc_active.fasta"
-            else:
-                database_file = f"{dca_frustratometer_directory}/Uniprot_Sequence_Database_Files/uniprot_sprot.fasta"
-            subprocess.call(["jackhmmer", "-A",
-                             f"{alignment_dca_files_directory}/{protein_family}_{pdb_name}_{chain_name}_full.aln",
-                             "-N", "1", "--popen", "0", "--pextend", "0", "--chkhmm",
-                             f"{protein_family}_{pdb_name}_{chain_name}", "--chkali",
-                             f"{protein_family}_{pdb_name}_{chain_name}",
-                             f"{alignment_dca_files_directory}/{protein_family}_{pdb_name}_{chain_name}_sequences.fasta",
-                             database_file])
-            file_name = f"{protein_family}_{pdb_name}_{chain_name}"
-        else:
-            alignment_type = "both"
-            if protein_family!=None:
-                pseudofam_pfam_download_alignments(protein_family, alignment_type,
-                                                   alignment_dca_files_directory)
-                file_name = protein_family
-            else:
-                print("Must Provide Protein Family Name in '--protein_family' Argument")
-        # Reformat and filter MSA file
-        pseudofam_retrieve_and_filter_alignment(file_name, alignment_dca_files_directory)
 
 
 def generate_potts_model(file_name, gap_threshold, DCA_Algorithm, alignment_dca_files_directory,
@@ -664,11 +635,12 @@ class PottsModel:
                  distance_matrix_method='minimum'
                  ):
         self.pdb_file = pdb_file
+        self.pdb_name=os.path.basename(pdb_file.replace(".pdb",""))
         self.chain = chain
         self.sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
 
         # Set parameters
-        self._potts_model_file = potts_model_file
+        self.potts_model_file = potts_model_file
         self._sequence_cutoff = sequence_cutoff
         self._distance_cutoff = distance_cutoff
         self._distance_matrix_method = distance_matrix_method
@@ -728,10 +700,18 @@ class PottsModel:
 
     @potts_model_file.setter
     def potts_model_file(self, value):
-        self.potts_model = load_potts_model(value)
-        self._potts_model_file = value
-        self._native_energy = None
-        self._decoy_fluctuation = {}
+        if value==None:
+            print("Generating PDB alignment using Jackhmmer")
+            create_alignment_jackhmmer(self.sequence,self.pdb_name,
+                                       output_file="dcaf_{}_alignment.sto".format(self.pdb_name))
+            convert_and_filter_alignment(self.pdb_name)
+            compute_plm(self.pdb_name)
+            raise ValueError("Need to generate potts model")
+        else:
+            self.potts_model = load_potts_model(value)
+            self._potts_model_file = value
+            self._native_energy = None
+            self._decoy_fluctuation = {}
 
     def native_energy(self, sequence=None):
         if sequence is None:
@@ -927,8 +907,7 @@ class AWSEMFrustratometer(PottsModel):
 
 # Function if script invoked on its own
 def main(pdb_name, chain_name, protein_family,atom_type, DCA_Algorithm, 
-         build_msa_files, database_name,
-         gap_threshold, dca_frustratometer_directory):
+         database_name,gap_threshold, dca_frustratometer_directory):
     # PDB DCA frustration analysis directory
     protein_dca_frustration_calculation_directory = f"{os.getcwd()}/{datetime.today().strftime('%m_%d_%Y')}_{pdb_name}_{chain_name}_DCA_Frustration_Analysis"
     if not os.path.exists(protein_dca_frustration_calculation_directory):
@@ -949,15 +928,12 @@ def main(pdb_name, chain_name, protein_family,atom_type, DCA_Algorithm,
         f.write(">{}_{}\n{}\n".format(pdb_name, chain_name, pdb_sequence))
 
     # Generate PDB contact distance matrix
-    distance_matrix = get_distance_matrix_from_pdb(
-        f"{protein_dca_frustration_calculation_directory}/{pdb_name[:4]}.pdb",
-        chain_name)
+#    distance_matrix = get_distance_matrix_from_pdb(
+#        f"{protein_dca_frustration_calculation_directory}/{pdb_name[:4]}.pdb",
+#        chain_name)
     # Generate PDB alignment files
-    alignment_dca_files_directory = f"{protein_dca_frustration_calculation_directory}/{datetime.today().strftime('%m_%d_%Y')}_{protein_family}_PFAM_Alignment_DCA_Files"
-    file_name = protein_family
-    if build_msa_files:
-        alignment_dca_files_directory = f"{protein_dca_frustration_calculation_directory}/{datetime.today().strftime('%m_%d_%Y')}_{protein_family}_{pdb_name}_{chain_name}_Jackhmmer_Alignment_DCA_Files"
-        file_name = f"{protein_family}_{pdb_name}_{chain_name}"
+    alignment_dca_files_directory = f"{protein_dca_frustration_calculation_directory}/{datetime.today().strftime('%m_%d_%Y')}_{protein_family}_{pdb_name}_{chain_name}_Jackhmmer_Alignment_DCA_Files"
+    file_name = f"{protein_family}_{pdb_name}_{chain_name}"
 
     if not os.path.exists(alignment_dca_files_directory):
         os.mkdir(alignment_dca_files_directory)
@@ -966,20 +942,20 @@ def main(pdb_name, chain_name, protein_family,atom_type, DCA_Algorithm,
                      f"{protein_dca_frustration_calculation_directory}/{protein_family}_{pdb_name}_{chain_name}_sequences.fasta",
                      alignment_dca_files_directory])
 
-    generate_protein_sequence_alignments(protein_family, pdb_name, build_msa_files,
+    generate_protein_sequence_alignments(protein_family, pdb_name,
                                          database_name, alignment_dca_files_directory,
                                          dca_frustratometer_directory)
     ###
     generate_potts_model(file_name, gap_threshold, DCA_Algorithm,
                          alignment_dca_files_directory, dca_frustratometer_directory)
-    os.chdir(protein_dca_frustration_calculation_directory)
+#    os.chdir(protein_dca_frustration_calculation_directory)
 
     # Compute PDB sequence native DCA energy
-    potts_model = load_potts_model(
-        f"{alignment_dca_files_directory}/{file_name}_msa_dca_gap_threshold_{gap_threshold}.mat")
-    e = compute_native_energy(pdb_sequence, potts_model, distance_matrix,
-                              distance_cutoff=4, sequence_distance_cutoff=0)
-    print(e)
+#    potts_model = load_potts_model(
+#        f"{alignment_dca_files_directory}/{file_name}_msa_dca_gap_threshold_{gap_threshold}.mat")
+#    e = compute_native_energy(pdb_sequence, potts_model, distance_matrix,
+#                              distance_cutoff=4, sequence_distance_cutoff=0)
+#    print(e)
 
 
 if __name__ == "__main__":
@@ -992,7 +968,6 @@ if __name__ == "__main__":
     parser.add_argument("--atom_type", type=str, default="CB", help="Atom Type Used for Residue Contact Map")
     parser.add_argument("--DCA_Algorithm", type=str, default="mfDCA",
                         help="DCA Algorithm Used (options=mfDCA or plmDCA)")
-    parser.add_argument("--build_msa_files", action='store_false', help="Build MSA with Full Coverage of PDB")
     parser.add_argument("--database_name", default="Uniprot",
                         help="Database used in seed msa (options are Uniparc or Uniprot)")
     parser.add_argument("--gap_threshold", type=float, default=0.2, help="Continguous gap threshold applied to MSA")
@@ -1005,10 +980,9 @@ if __name__ == "__main__":
     atom_type = args.atom_type
     protein_family=args.protein_family
     DCA_Algorithm = args.DCA_Algorithm
-    build_msa_files = args.build_msa_files
     database_name = args.database_name
     gap_threshold = args.gap_threshold
     dca_frustratometer_directory = args.dca_frustratometer_directory
 
-    main(pdb_name, chain_name, atom_type, protein_family,DCA_Algorithm, 
-         build_msa_files, database_name,gap_threshold, dca_frustratometer_directory)
+    main(pdb_name, chain_name,protein_family,atom_type,DCA_Algorithm,
+         database_name,gap_threshold, dca_frustratometer_directory)
