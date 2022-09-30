@@ -847,7 +847,7 @@ class PottsModel:
         # Set initialization variables
         self._potts_model = potts_model
         self._potts_model_file = None
-        self._pdb_file = pdb_file
+        self._pdb_file = Path(pdb_file)
         self._chain = chain
         self._sequence_cutoff = sequence_cutoff
         self._distance_cutoff = distance_cutoff
@@ -900,6 +900,13 @@ class PottsModel:
     @pdb_file.setter
     def pdb_file(self,value):
         self._pdb_file=value
+
+    @property
+    def pdb_name(self,value):
+        """
+        Returns PDBid from pdb name
+        """
+        return self._pdb_file.stem
 
     @property
     def chain(self):
