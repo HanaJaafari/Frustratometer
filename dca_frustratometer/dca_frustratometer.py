@@ -813,8 +813,7 @@ class PottsModel:
         
         # Set initialization variables
         self._potts_model_file = potts_model_file
-        self._pdb_file = pdb_file
-        self.pdb_name=os.path.basename(pdb_file.replace(".pdb",""))
+        self._pdb_file = Path(pdb_file)
         self._chain = chain
         self._sequence_cutoff = sequence_cutoff
         self._distance_cutoff = distance_cutoff
@@ -822,11 +821,11 @@ class PottsModel:
 
         # Compute fast properties
         self._potts_model = load_potts_model(self.potts_model_file)
-        self._sequence = get_protein_sequence_from_pdb(self._pdb_file, self._chain)
-        self.distance_matrix = get_distance_matrix_from_pdb(self._pdb_file, self._chain, self.distance_matrix_method)
+        self._sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
+        self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
         
-        self.aa_freq = compute_aa_freq(self._sequence)
-        self.contact_freq = compute_contact_freq(self._sequence)
+        self.aa_freq = compute_aa_freq(self.sequence)
+        self.contact_freq = compute_contact_freq(self.sequence)
         self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
 
         # Initialize slow properties
@@ -854,10 +853,10 @@ class PottsModel:
         self._distance_matrix_method = distance_matrix_method
 
         # Compute fast properties
-        self._sequence = get_protein_sequence_from_pdb(self._pdb_file, self._chain)
-        self.distance_matrix = get_distance_matrix_from_pdb(self._pdb_file, self._chain, self.distance_matrix_method)
-        self.aa_freq = compute_aa_freq(self._sequence)
-        self.contact_freq = compute_contact_freq(self._sequence)
+        self._sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
+        self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
+        self.aa_freq = compute_aa_freq(self.sequence)
+        self.contact_freq = compute_contact_freq(self.sequence)
         self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
 
         # Initialize slow properties
@@ -895,11 +894,11 @@ class PottsModel:
 
     @property
     def pdb_file(self):
-        return self._pdb_file
+        return str(self._pdb_file)
     
     @pdb_file.setter
     def pdb_file(self,value):
-        self._pdb_file=value
+        self._pdb_file = Path(value)
 
     @property
     def pdb_name(self,value):
