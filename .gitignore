@@ -6,8 +6,16 @@ __pycache__/
 # C extensions
 *.so
 
+#scratch
+scratch/
+examples/
+!examples/DCA_frustration_example.ipynb
+!examples/AWSEM_frustration_example.ipynb
+
 # Distribution / packaging
 .Python
+.idea/
+.vscode/
 env/
 build/
 develop-eggs/

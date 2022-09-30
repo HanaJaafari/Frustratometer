@@ -25,7 +25,7 @@ def test_OOP_compute_native_energy():
     pdb_file = 'examples/data/1l63.pdb'
     chain = 'A'
     potts_model_file = 'examples/data/PottsModel1l63A.mat'
-    model = dca_frustratometer.PottsModel(pdb_file, chain, potts_model_file, distance_cutoff=4, sequence_cutoff=0)
+    model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_file, pdb_file, chain,  distance_cutoff=4, sequence_cutoff=0)
     e = model.native_energy()
     assert np.round(e, 4) == -92.7688
 
@@ -33,7 +33,7 @@ def test_scores():
     pdb_file = 'examples/data/1l63.pdb'
     chain = 'A'
     potts_model_file = 'examples/data/PottsModel1l63A.mat'
-    model = dca_frustratometer.PottsModel(pdb_file, chain, potts_model_file, distance_cutoff=4, sequence_cutoff=0)
+    model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_file, pdb_file, chain, distance_cutoff=4, sequence_cutoff=0)
     assert np.round(model.scores()[30, 40], 5) == -0.03384
 
 def test_compute_singleresidue_decoy_energy():

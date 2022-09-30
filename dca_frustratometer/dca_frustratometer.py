@@ -14,9 +14,138 @@ import urllib.request
 import scipy.io
 import subprocess
 from pathlib import Path
+import pydca
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
 _path = Path(__file__).parent.absolute()
+
+def create_pfam_database(url="http://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam35.0/"):
+    #Download pfam alignments
+    urllib.request.urlretrieve(url, "Databases/Pfam-A.full.uniprot")
+
+    #Split pfam alignments
+    with open('Databases/Pfam-A.full.uniprot') as in_file:
+        new_lines=''
+        acc='Unknown'
+        for line in in_file:
+            if line.strip()=='//':
+                with open(f'Databases/Pfam-A/{acc}.sto','w+') as out_file:
+                    out_file.write(new_lines)
+                new_lines=''
+                acc='Unknown'
+                continue
+        new_lines+=line
+        l=line.strip().split()
+        if len(l)==3 and l[0]=="#=GF" and l[1]=="AC":
+            acc=l[2]
+        with open(f'Databases/Pfam-A/{acc}.sto','w+') as out_file:
+            out_file.write(new_lines)
+
+
+def get_pfamID(pdbID, chain):
+    import pandas as pd
+    df = pd.read_table(f'{_path}/data/pdb_chain_pfam.lst.txt', header=1)
+    if sum((df['PDB'] == pdbID.lower()) & (df['CHAIN'] == chain.upper())) != 0:
+        pfamID = df.loc[(df['PDB'] == pdbID.lower()) & (df['CHAIN'] == chain.upper())]["PFAM_ID"].values[0]
+    else:
+        print('cant find pfamID')
+        pfamID = 'null'
+    return pfamID
+
+
+def get_uniprotID(pdbID, chain):
+    import urllib2
+    response = urllib2.urlopen(
+        'http://www.bioinf.org.uk/cgi-bin/pdbsws/query.pl?plain=1&qtype=pdb&id=%s&chain=%s' % (pdbID, chain))
+    html = response.read()
+    info = html.split('\n')
+    uniprotID = info[3].split(' ')[1]
+    return uniprotID
+
+
+def get_pfam_map(pdbID, chain):
+    import pandas as pd
+    df = pd.read_table('%s/pdb_pfam_map.txt' % basedir, header=0)
+    if sum((df['PDB_ID'] == pdbID.upper()) & (df['CHAIN_ID'] == chain.upper())) != 0:
+        start = df.loc[(df['PDB_ID'] == pdbID.upper()) & (df['CHAIN_ID'] == chain.upper())]["PdbResNumStart"].values[0]
+        end = df.loc[(df['PDB_ID'] == pdbID.upper()) & (df['CHAIN_ID'] == chain.upper())]["PdbResNumEnd"].values[0]
+    else:
+        print('data not found')
+        pfamID = 'null'
+    return int(start), int(end)
+
+
+def download_pfam(pfamID):
+    import urllib.request
+    urllib.request.urlretrieve('http://pfam.xfam.org/family/%s/alignment/full' % pfamID,
+                               "%s%s.stockholm" % (directory, pfamID))
+
+
+def download_pdb(pdbID):
+    import urllib.request
+    urllib.request.urlretrieve('http://www.rcsb.org/pdb/files/%s.pdb' % pdbID, "%s%s.pdb" % (directory, pdbID))
+
+
+def stockholm2fasta(pfamID):
+    from Bio import AlignIO
+    # rewrite Stockholm alignment in FASTA format
+    input_handle = open("%s%s.stockholm" % (directory, pfamID), "rU")
+    output_handle = open("%s%s.fasta" % (directory, pfamID), "w")
+    alignments = AlignIO.parse(input_handle, "stockholm")
+    AlignIO.write(alignments, output_handle, "fasta")
+    output_handle.close()
+    input_handle.close()
+
+
+def filter_fasta(gap_threshold, pfamID, pdbID, chain, seq, resnos):
+    from Bio import AlignIO
+    import numpy
+    import subprocess
+    # gap_threshold=0.25
+    pfam_start, pfam_end = get_pfam_map(pdbID, chain)
+    mapped_seq = seq[resnos.index(pfam_start):resnos.index(pfam_end) + 1]
+
+    # print mapped fasta file
+    f = open('%s%s%s_pfam_mapped.fasta' % (directory, pdbID, chain), 'w')
+    f.write('>%s:%s pdb mapped to pfam\n' % (pdbID, chain))
+    f.write(mapped_seq)
+    f.close()
+
+    submit = ("%s/muscle3.8.31_i86linux64 -profile -in1 %s%s.fasta -in2 %s%s%s_pfam_mapped.fasta -out %s%s%s.fasta" % (
+    basedir, directory, pfamID, directory, pdbID, chain, directory, pdbID, chain))
+
+    # print(submit)
+
+    process = subprocess.Popen(submit.split(), stdout=subprocess.PIPE)
+    process.communicate()
+
+    # Filter sequences based on gaps in input sequence and gap threshold
+    alignment = AlignIO.read(open("%s%s%s.fasta" % (directory, pdbID, chain)), "fasta")
+    targetseq = alignment[-1].seq
+    targetname = alignment[-1].name
+    if targetseq == '':
+        print("targetseq not found")
+
+    output_handle = open("%s%s_msa_filtered.fasta" % (directory, pdbID), "w")
+    target_array = numpy.array([list(targetseq)], numpy.character)
+    bools = target_array != b'-'
+    sequences_passed_threshold = 0
+    for i, record in enumerate(alignment):
+        record_array = numpy.array([list(record.seq)], numpy.character)
+        aligned_sequence = record_array[bools]
+        if float(numpy.sum(aligned_sequence == b'-')) / len(aligned_sequence) < gap_threshold:
+            output_handle.write(">%s\n" % record.id + "".join(aligned_sequence.astype(str)).upper() + '\n')
+            sequences_passed_threshold += 1
+    output_handle.close()
+
+    fastaseq = ''.join(target_array[bools].astype(str)).upper()
+
+    stat_output = open(stat_output_file_name, "w")
+    stat_output.write("FASTA_alignments " + str(len(alignment)) + "\n")
+    stat_output.write("Filtered_alignments " + str(sequences_passed_threshold) + "\n")
+    stat_output.close()
+
+    return fastaseq, sequences_passed_threshold
 
 
 def get_protein_sequence_from_pdb(pdb: str,
@@ -652,38 +781,112 @@ def canvas(with_attribution=True):
 # Class wrapper
 class PottsModel:
 
-    def __init__(self,
-                 pdb_file: str,
-                 chain: str,
-                 potts_model_file: str,
-                 sequence_cutoff: typing.Union[float, None],
-                 distance_cutoff: typing.Union[float, None],
-                 distance_matrix_method='minimum'
-                 ):
-        self.pdb_file = pdb_file
-        self.chain = chain
-        self.sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
-
-        # Set parameters
+    @classmethod
+    def from_potts_model_file(cls,                 
+                             potts_model_file: str,
+                             pdb_file: str,
+                             chain: str,
+                             sequence_cutoff: typing.Union[float, None] = None,
+                             distance_cutoff: typing.Union[float, None] = None,
+                             distance_matrix_method='minimum'):
+        self=cls()
+        
+        # Set initialization variables
         self._potts_model_file = potts_model_file
+        self._pdb_file = pdb_file
+        self._chain = chain
         self._sequence_cutoff = sequence_cutoff
         self._distance_cutoff = distance_cutoff
         self._distance_matrix_method = distance_matrix_method
 
         # Compute fast properties
-        self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
-        self.potts_model = load_potts_model(self.potts_model_file)
-        self.aa_freq = compute_aa_freq(self.sequence)
-        self.contact_freq = compute_contact_freq(self.sequence)
+        self._potts_model = load_potts_model(self.potts_model_file)
+        self._sequence = get_protein_sequence_from_pdb(self._pdb_file, self._chain)
+        self.distance_matrix = get_distance_matrix_from_pdb(self._pdb_file, self._chain, self.distance_matrix_method)
+        
+        self.aa_freq = compute_aa_freq(self._sequence)
+        self.contact_freq = compute_contact_freq(self._sequence)
         self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
 
         # Initialize slow properties
         self._native_energy = None
         self._decoy_fluctuation = {}
+        return self
 
     @classmethod
-    def from_pdb(cls):
-        raise NotImplementedError
+    def from_pottsmodel(cls,                 
+                        potts_model: dict,
+                        pdb_file: str,
+                        chain: str,
+                        sequence_cutoff: typing.Union[float, None] = None,
+                        distance_cutoff: typing.Union[float, None] = None,
+                        distance_matrix_method='minimum'):
+        self=cls()
+        
+        # Set initialization variables
+        self._potts_model = potts_model
+        self._potts_model_file = None
+        self._pdb_file = pdb_file
+        self._chain = chain
+        self._sequence_cutoff = sequence_cutoff
+        self._distance_cutoff = distance_cutoff
+        self._distance_matrix_method = distance_matrix_method
+
+        # Compute fast properties
+        self._sequence = get_protein_sequence_from_pdb(self._pdb_file, self._chain)
+        self.distance_matrix = get_distance_matrix_from_pdb(self._pdb_file, self._chain, self.distance_matrix_method)
+        self.aa_freq = compute_aa_freq(self._sequence)
+        self.contact_freq = compute_contact_freq(self._sequence)
+        self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+
+        # Initialize slow properties
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+        return self
+    
+
+
+    @classmethod
+    def from_alignment(cls):
+        #Compute dca
+        import pydca
+        plmdca_inst = pydca.plmdca.PlmDCA(
+            new_alignment_file,
+            'protein',
+            seqid = 0.8,
+            lambda_h = 1.0,
+            lambda_J = 20.0,
+            num_threads = 10,
+            max_iterations = 500,
+        )
+    
+        # compute DCA scores summarized by Frobenius norm and average product corrected
+        potts_model=plmdca_inst.get_potts_model()
+
+    @property
+    def sequence(self):
+        return self._sequence
+
+    @sequence.setter
+    def sequence(self,value):
+        assert len(value)==len(self._sequence)
+        self._sequence=value
+
+    @property
+    def pdb_file(self):
+        return self._pdb_file
+    
+    @pdb_file.setter
+    def pdb_file(self,value):
+        self._pdb_file=value
+
+    @property
+    def chain(self):
+        return self._chain
+    
+    @chain.setter
+    def chain(self,value):
+        self._chain=value
 
     @property
     def sequence_cutoff(self):
@@ -713,7 +916,7 @@ class PottsModel:
 
     @distance_matrix_method.setter
     def distance_matrix_method(self, value):
-        self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, value)
+        self.distance_matrix = get_distance_matrix_from_pdb(self._pdb_file, self._chain, value)
         self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
         self._distance_matrix_method = value
         self._native_energy = None
@@ -725,10 +928,22 @@ class PottsModel:
 
     @potts_model_file.setter
     def potts_model_file(self, value):
-        self.potts_model = load_potts_model(value)
+        self._potts_model = load_potts_model(value)
         self._potts_model_file = value
         self._native_energy = None
         self._decoy_fluctuation = {}
+
+    @property
+    def potts_model(self):
+        return self._potts_model
+
+    @potts_model.setter
+    def potts_model(self,value):
+        self._potts_model = value
+        self._potts_model_file = None
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+
 
     def native_energy(self, sequence=None):
         if sequence is None:
@@ -835,7 +1050,7 @@ class AWSEMFrustratometer(PottsModel):
                  sequence_cutoff=None):
         self.pdb_file = pdb_file
         self.chain = chain
-        self.sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
+        self._sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
         self.structure = prody.parsePDB(self.pdb_file)
         selection_CB = self.structure.select('name CB or (resname GLY and name CA)')
         resid = selection_CB.getResindices()
@@ -876,11 +1091,11 @@ class AWSEMFrustratometer(PottsModel):
                          sequence_mask_contact[np.newaxis, :, :, np.newaxis, np.newaxis]
 
         # Set parameters
-        self._distance_cutoff = 1
+        self._distance_cutoff = 10
         self._sequence_cutoff = 2
 
         # Compute fast properties
-        self.distance_matrix = r
+        self.distance_matrix = r*10
         self.potts_model = {}
         self.potts_model['h'] = -burial_energy.sum(axis=-1)[:, self.aa_map_awsem]
         self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
