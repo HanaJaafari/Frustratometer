@@ -65,6 +65,19 @@ jobs:
         auto-activate-base: false
         show-channel-urls: true
 
+    #Install pydca
+    - name: Check out pydca
+      uses: actions/checkout@v3
+      with:
+        repository: cab99/pydca
+        path: pydca
+    - run: |
+        cd pydca
+        pip install -r requirements.txt
+        python -m pip install . --no-deps
+        conda list
+        cd ..
+    
     - name: Install package
 
       # conda setup requires this special shell
