@@ -19,9 +19,21 @@ import pydca
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
 _path = Path(__file__).parent.absolute()
 
-def create_pfam_database(url="http://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam35.0/"):
+##################
+# PFAM functions #
+##################
+
+def create_pfam_database(url="http://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam34.0"):
+    """
+    Downloads and creates a pfam database in the Database folder
+
+    Parameters
+    ----------
+    url :  str
+        Adress of pfam database
+    """
     #Download pfam alignments
-    urllib.request.urlretrieve(url, "Databases/Pfam-A.full.uniprot")
+    urllib.request.urlretrieve(url+"/Pfam-A.full.uniprot", "Databases/Pfam-A.full.uniprot")
 
     #Split pfam alignments
     with open('Databases/Pfam-A.full.uniprot') as in_file:
@@ -43,6 +55,22 @@ def create_pfam_database(url="http://ftp.ebi.ac.uk/pub/databases/Pfam/releases/P
 
 
 def get_pfamID(pdbID, chain):
+    """
+    Downloads and creates a pfam database in the Database folder
+
+    Parameters
+    ----------
+    pdbID :  str
+        pdbID (4 characters)
+    chain : str
+        Select chain from pdb
+    Returns
+    -------
+    pfamID : str
+        PFAM family ID
+    """
+
+    #TODO fix function
     import pandas as pd
     df = pd.read_table(f'{_path}/data/pdb_chain_pfam.lst.txt', header=1)
     if sum((df['PDB'] == pdbID.lower()) & (df['CHAIN'] == chain.upper())) != 0:
@@ -54,6 +82,8 @@ def get_pfamID(pdbID, chain):
 
 
 def get_uniprotID(pdbID, chain):
+
+    #TODO fix function
     import urllib2
     response = urllib2.urlopen(
         'http://www.bioinf.org.uk/cgi-bin/pdbsws/query.pl?plain=1&qtype=pdb&id=%s&chain=%s' % (pdbID, chain))
@@ -64,6 +94,8 @@ def get_uniprotID(pdbID, chain):
 
 
 def get_pfam_map(pdbID, chain):
+
+    #TODO fix function
     import pandas as pd
     df = pd.read_table('%s/pdb_pfam_map.txt' % basedir, header=0)
     if sum((df['PDB_ID'] == pdbID.upper()) & (df['CHAIN_ID'] == chain.upper())) != 0:
@@ -76,17 +108,27 @@ def get_pfam_map(pdbID, chain):
 
 
 def download_pfam(pfamID):
+    """'
+    Downloads a single pfam alignment
+    """
+    #TODO fix function
     import urllib.request
     urllib.request.urlretrieve('http://pfam.xfam.org/family/%s/alignment/full' % pfamID,
                                "%s%s.stockholm" % (directory, pfamID))
 
 
 def download_pdb(pdbID):
+    """
+    Downloads a single pdb file
+    """
     import urllib.request
     urllib.request.urlretrieve('http://www.rcsb.org/pdb/files/%s.pdb' % pdbID, "%s%s.pdb" % (directory, pdbID))
 
 
 def stockholm2fasta(pfamID):
+    """
+    Converts stockholm alignment to fasta    
+    """
     from Bio import AlignIO
     # rewrite Stockholm alignment in FASTA format
     input_handle = open("%s%s.stockholm" % (directory, pfamID), "rU")
@@ -98,6 +140,10 @@ def stockholm2fasta(pfamID):
 
 
 def filter_fasta(gap_threshold, pfamID, pdbID, chain, seq, resnos):
+    """
+    Filters and maps sequence to fasta alignment
+    """
+    
     from Bio import AlignIO
     import numpy
     import subprocess
