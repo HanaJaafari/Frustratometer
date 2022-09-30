@@ -40,14 +40,23 @@ jobs:
 
     - name: checkout source
       uses: actions/checkout@v2
+      with:
+        path: main
+    - name: Chang to main directory
+      run: |
+        cd main
+
+    
     - name: Generate lfs file list
       run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
+    
     - name: Restore lfs cache
       uses: actions/cache@v2
       id: lfs-cache
       with:
         path: .git/lfs
         key: ${{ runner.os }}-lfs-${{ hashFiles('.lfs-assets-id') }}-v1
+    
     - name: Pull lfs files
       run: git lfs pull
 
@@ -71,12 +80,13 @@ jobs:
       with:
         repository: cabb99/pydca
         path: pydca
-    - run: |
-        cd pydca
+    - name: Install pydca
+      run: |
+        cd ../pydca
         pip install -r requirements.txt
         python -m pip install . --no-deps
         conda list
-        cd ..
+        cd ../main
     
     - name: Install package
 
