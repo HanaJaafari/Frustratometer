@@ -75,15 +75,20 @@ jobs:
         auto-activate-base: false
         show-channel-urls: true
 
+    - name: Change to root directory
+      run: |
+        cd main
+        pwd
+    
     #Install pydca
     - name: Check out pydca
       uses: actions/checkout@v3
       with:
         repository: cabb99/pydca
-        path: ../pydca
+        path: pydca
     - name: Install pydca
       run: |
-        cd ../pydca
+        cd pydca
         pip install -r requirements.txt
         python -m pip install . --no-deps
         conda list
