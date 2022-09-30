@@ -69,7 +69,7 @@ jobs:
     - name: Check out pydca
       uses: actions/checkout@v3
       with:
-        repository: cab99/pydca
+        repository: cabb99/pydca
         path: pydca
     - run: |
         cd pydca
