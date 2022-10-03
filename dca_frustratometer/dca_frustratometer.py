@@ -44,8 +44,13 @@ def create_pfam_database(name='PFAM_current',
         Path of the alignments
     """
 
+    #Create databases directory
+    databases_path = _path / 'databases'
+    if not databases_path.exists():
+        os.mkdir(databases_path)
+
     # Create directory
-    data_path = _path / 'Databases' / name
+    data_path = databases_path / name
     if not data_path.exists():
         os.mkdir(data_path)
 
