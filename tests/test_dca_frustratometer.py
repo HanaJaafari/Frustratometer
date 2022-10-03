@@ -7,7 +7,16 @@ import sys
 import pytest
 import dca_frustratometer
 import numpy as np
+import logging
 
+
+
+
+def test_create_pfam_database():
+    alignments_path = dca_frustratometer.create_pfam_database(url='https://ftp.ebi.ac.uk/pub/databases/Pfam'
+                                                                  '/current_release/Pfam-A.dead.gz',
+                                                              name='test')
+    assert (alignments_path/'Unknown.sto').exists() is False
 
 def test_dca_frustratometer_imported():
     """Sample test, will always pass so long as import statement worked."""

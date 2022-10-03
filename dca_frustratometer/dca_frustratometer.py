@@ -15,15 +15,19 @@ import scipy.io
 import subprocess
 from pathlib import Path
 import pydca
+import logging
+import gzip
 
-_AA = '-ACDEFGHIKLMNPQRSTVWY'
 _path = Path(__file__).parent.absolute()
+_AA = '-ACDEFGHIKLMNPQRSTVWY'
+
 
 ##################
 # PFAM functions #
 ##################
 
-def create_pfam_database(url="http://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam34.0"):
+def create_pfam_database(name='PFAM_current',
+                         url="https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.full.uniprot.gz", ):
     """
     Downloads and creates a pfam database in the Database folder
 
@@ -31,27 +35,52 @@ def create_pfam_database(url="http://ftp.ebi.ac.uk/pub/databases/Pfam/releases/P
     ----------
     url :  str
         Adress of pfam database
-    """
-    #Download pfam alignments
-    urllib.request.urlretrieve(url+"/Pfam-A.full.uniprot", "Databases/Pfam-A.full.uniprot")
+    name: str
+        Name of the new database folder
 
-    #Split pfam alignments
-    with open('Databases/Pfam-A.full.uniprot') as in_file:
-        new_lines=''
-        acc='Unknown'
+    Returns
+    -------
+    alignment_path: Path
+        Path of the alignments
+    """
+
+    # Create directory
+    data_path = _path / 'Databases' / name
+    if not data_path.exists():
+        os.mkdir(data_path)
+
+    file_name = url.split('/')[-1]
+
+    # Download pfam alignments
+    logging.debug(f"Downloading {url} to {data_path}/{file_name}")
+    urllib.request.urlretrieve(f"{url}", f"{data_path}/{file_name}")
+
+    if not (data_path/'Alignments').exists():
+        os.mkdir(data_path /'Alignments')
+
+    # Split PFAM alignments
+    with gzip.open(f'{data_path}/{file_name}') as in_file:
+        new_lines = ''
+        acc = 'Unknown'
         for line in in_file:
-            if line.strip()=='//':
-                with open(f'Databases/Pfam-A/{acc}.sto','w+') as out_file:
-                    out_file.write(new_lines)
-                new_lines=''
-                acc='Unknown'
+            line = line.decode('utf-8')
+            if line.strip() == '//':
+                if len(new_lines) > 0:
+                    with open(f'{data_path}/Alignments/{acc}.sto', 'w+') as out_file:
+                        logging.debug(f'{data_path}/Alignments/{acc}.sto')
+                        out_file.write(new_lines)
+                new_lines = ''
+                acc = 'Unknown'
                 continue
-        new_lines+=line
-        l=line.strip().split()
-        if len(l)==3 and l[0]=="#=GF" and l[1]=="AC":
-            acc=l[2]
-        with open(f'Databases/Pfam-A/{acc}.sto','w+') as out_file:
-            out_file.write(new_lines)
+            new_lines += line
+            l = line.strip().split()
+            if len(l) == 3 and l[0] == "#=GF" and l[1] == "AC":
+                acc = l[2]
+        if len(new_lines) > 0:
+            with open(f'{data_path}/Alignments/{acc}.sto', 'w+') as out_file:
+                logging.debug(f'{data_path}/Alignments/{acc}.sto')
+                out_file.write(new_lines)
+    return data_path/'Alignments'
 
 
 def get_pfamID(pdbID, chain):
@@ -70,7 +99,7 @@ def get_pfamID(pdbID, chain):
         PFAM family ID
     """
 
-    #TODO fix function
+    # TODO fix function
     import pandas as pd
     df = pd.read_table(f'{_path}/data/pdb_chain_pfam.lst.txt', header=1)
     if sum((df['PDB'] == pdbID.lower()) & (df['CHAIN'] == chain.upper())) != 0:
@@ -82,8 +111,7 @@ def get_pfamID(pdbID, chain):
 
 
 def get_uniprotID(pdbID, chain):
-
-    #TODO fix function
+    # TODO fix function
     import urllib2
     response = urllib2.urlopen(
         'http://www.bioinf.org.uk/cgi-bin/pdbsws/query.pl?plain=1&qtype=pdb&id=%s&chain=%s' % (pdbID, chain))
@@ -94,8 +122,7 @@ def get_uniprotID(pdbID, chain):
 
 
 def get_pfam_map(pdbID, chain):
-
-    #TODO fix function
+    # TODO fix function
     import pandas as pd
     df = pd.read_table('%s/pdb_pfam_map.txt' % basedir, header=0)
     if sum((df['PDB_ID'] == pdbID.upper()) & (df['CHAIN_ID'] == chain.upper())) != 0:
@@ -111,7 +138,7 @@ def download_pfam(pfamID):
     """'
     Downloads a single pfam alignment
     """
-    #TODO fix function
+    # TODO fix function
     import urllib.request
     urllib.request.urlretrieve('http://pfam.xfam.org/family/%s/alignment/full' % pfamID,
                                "%s%s.stockholm" % (directory, pfamID))
@@ -143,7 +170,7 @@ def filter_fasta(gap_threshold, pfamID, pdbID, chain, seq, resnos):
     """
     Filters and maps sequence to fasta alignment
     """
-    
+
     from Bio import AlignIO
     import numpy
     import subprocess
@@ -158,7 +185,7 @@ def filter_fasta(gap_threshold, pfamID, pdbID, chain, seq, resnos):
     f.close()
 
     submit = ("%s/muscle3.8.31_i86linux64 -profile -in1 %s%s.fasta -in2 %s%s%s_pfam_mapped.fasta -out %s%s%s.fasta" % (
-    basedir, directory, pfamID, directory, pdbID, chain, directory, pdbID, chain))
+        basedir, directory, pfamID, directory, pdbID, chain, directory, pdbID, chain))
 
     # print(submit)
 
@@ -273,7 +300,7 @@ def get_distance_matrix_from_pdb(pdb_file: str,
         return dm
 
 
-def create_alignment_jackhmmer(sequence,pdb_name,
+def create_alignment_jackhmmer(sequence, pdb_name,
                                database=f'{_path}/Uniprot_Sequence_Database_Files/uniprot_sprot.fasta',
                                output_file=None,
                                log_file=None):
@@ -308,6 +335,7 @@ def create_alignment_jackhmmer(sequence,pdb_name,
                     ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
                      '--incE', '1E-10', fasta_file.name, database], stdout=log)
 
+
 def remove_gaps():
     pass
 
@@ -316,7 +344,7 @@ def sto2fasta():
     pass
 
 
-def compute_plm(protein_name,reweighting_threshold=0.1,nr_of_cores=1):
+def compute_plm(protein_name, reweighting_threshold=0.1, nr_of_cores=1):
     """
     Calculate Potts Model Fields and Couplings Terms
     :param protein_name
@@ -326,7 +354,7 @@ def compute_plm(protein_name,reweighting_threshold=0.1,nr_of_cores=1):
     '''Returns matrix consisting of Potts Model Fields and Couplings terms'''
     # MATLAB needs Bioinfomatics toolbox and Image processing toolbox to parse the sequences
     # Functions need to be compiled with 'matlab -nodisplay -r "mexAll"'
-    #See: https://www.mathworks.com/help/matlab/call-mex-functions.html
+    # See: https://www.mathworks.com/help/matlab/call-mex-functions.html
     try:
         import matlab.engine
     except ImportError:
@@ -337,8 +365,9 @@ def compute_plm(protein_name,reweighting_threshold=0.1,nr_of_cores=1):
     eng.addpath('%s/plmDCA_asymmetric_v2_with_h' % _path, nargout=0)
     eng.addpath('%s/plmDCA_asymmetric_v2_with_h/functions' % _path, nargout=0)
     eng.addpath('%s/plmDCA_asymmetric_v2_with_h/3rd_party_code/minFunc' % _path, nargout=0)
-    print('plmDCA_asymmetric', protein_name,reweighting_threshold, nr_of_cores)
-    eng.plmDCA_asymmetric(protein_name,reweighting_threshold, nr_of_cores,nargout=0)  # , stdout=out )
+    print('plmDCA_asymmetric', protein_name, reweighting_threshold, nr_of_cores)
+    eng.plmDCA_asymmetric(protein_name, reweighting_threshold, nr_of_cores, nargout=0)  # , stdout=out )
+
 
 def pseudofam_pfam_download_alignments(protein_family, alignment_type,
                                        alignment_dca_files_directory):
@@ -802,15 +831,15 @@ def canvas(with_attribution=True):
 class PottsModel:
 
     @classmethod
-    def from_potts_model_file(cls,                 
-                             potts_model_file: str,
-                             pdb_file: str,
-                             chain: str,
-                             sequence_cutoff: typing.Union[float, None] = None,
-                             distance_cutoff: typing.Union[float, None] = None,
-                             distance_matrix_method='minimum'):
-        self=cls()
-        
+    def from_potts_model_file(cls,
+                              potts_model_file: str,
+                              pdb_file: str,
+                              chain: str,
+                              sequence_cutoff: typing.Union[float, None] = None,
+                              distance_cutoff: typing.Union[float, None] = None,
+                              distance_matrix_method='minimum'):
+        self = cls()
+
         # Set initialization variables
         self._potts_model_file = potts_model_file
         self._pdb_file = Path(pdb_file)
@@ -823,7 +852,7 @@ class PottsModel:
         self._potts_model = load_potts_model(self.potts_model_file)
         self._sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
         self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
-        
+
         self.aa_freq = compute_aa_freq(self.sequence)
         self.contact_freq = compute_contact_freq(self.sequence)
         self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
@@ -834,15 +863,15 @@ class PottsModel:
         return self
 
     @classmethod
-    def from_pottsmodel(cls,                 
+    def from_pottsmodel(cls,
                         potts_model: dict,
                         pdb_file: str,
                         chain: str,
                         sequence_cutoff: typing.Union[float, None] = None,
                         distance_cutoff: typing.Union[float, None] = None,
                         distance_matrix_method='minimum'):
-        self=cls()
-        
+        self = cls()
+
         # Set initialization variables
         self._potts_model = potts_model
         self._potts_model_file = None
@@ -863,45 +892,43 @@ class PottsModel:
         self._native_energy = None
         self._decoy_fluctuation = {}
         return self
-    
-
 
     @classmethod
     def from_alignment(cls):
-        #Compute dca
+        # Compute dca
         import pydca
         plmdca_inst = pydca.plmdca.PlmDCA(
             new_alignment_file,
             'protein',
-            seqid = 0.8,
-            lambda_h = 1.0,
-            lambda_J = 20.0,
-            num_threads = 10,
-            max_iterations = 500,
+            seqid=0.8,
+            lambda_h=1.0,
+            lambda_J=20.0,
+            num_threads=10,
+            max_iterations=500,
         )
-    
+
         # compute DCA scores summarized by Frobenius norm and average product corrected
-        potts_model=plmdca_inst.get_potts_model()
+        potts_model = plmdca_inst.get_potts_model()
 
     @property
     def sequence(self):
         return self._sequence
 
     @sequence.setter
-    def sequence(self,value):
-        assert len(value)==len(self._sequence)
-        self._sequence=value
+    def sequence(self, value):
+        assert len(value) == len(self._sequence)
+        self._sequence = value
 
     @property
     def pdb_file(self):
         return str(self._pdb_file)
-    
+
     @pdb_file.setter
-    def pdb_file(self,value):
+    def pdb_file(self, value):
         self._pdb_file = Path(value)
 
     @property
-    def pdb_name(self,value):
+    def pdb_name(self, value):
         """
         Returns PDBid from pdb name
         """
@@ -910,10 +937,10 @@ class PottsModel:
     @property
     def chain(self):
         return self._chain
-    
+
     @chain.setter
-    def chain(self,value):
-        self._chain=value
+    def chain(self, value):
+        self._chain = value
 
     @property
     def sequence_cutoff(self):
@@ -955,9 +982,9 @@ class PottsModel:
 
     @potts_model_file.setter
     def potts_model_file(self, value):
-        if value==None:
+        if value == None:
             print("Generating PDB alignment using Jackhmmer")
-            create_alignment_jackhmmer(self.sequence,self.pdb_name,
+            create_alignment_jackhmmer(self.sequence, self.pdb_name,
                                        output_file="dcaf_{}_alignment.sto".format(self.pdb_name))
             convert_and_filter_alignment(self.pdb_name)
             compute_plm(self.pdb_name)
@@ -973,12 +1000,11 @@ class PottsModel:
         return self._potts_model
 
     @potts_model.setter
-    def potts_model(self,value):
+    def potts_model(self, value):
         self._potts_model = value
         self._potts_model_file = None
         self._native_energy = None
         self._decoy_fluctuation = {}
-
 
     def native_energy(self, sequence=None):
         if sequence is None:
@@ -1130,7 +1156,7 @@ class AWSEMFrustratometer(PottsModel):
         self._sequence_cutoff = 2
 
         # Compute fast properties
-        self.distance_matrix = r*10
+        self.distance_matrix = r * 10
         self.potts_model = {}
         self.potts_model['h'] = -burial_energy.sum(axis=-1)[:, self.aa_map_awsem]
         self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
@@ -1173,8 +1199,8 @@ class AWSEMFrustratometer(PottsModel):
 
 
 # Function if script invoked on its own
-def main(pdb_name, chain_name, protein_family,atom_type, DCA_Algorithm, 
-         database_name,gap_threshold, dca_frustratometer_directory):
+def main(pdb_name, chain_name, protein_family, atom_type, DCA_Algorithm,
+         database_name, gap_threshold, dca_frustratometer_directory):
     # PDB DCA frustration analysis directory
     protein_dca_frustration_calculation_directory = f"{os.getcwd()}/{datetime.today().strftime('%m_%d_%Y')}_{pdb_name}_{chain_name}_DCA_Frustration_Analysis"
     if not os.path.exists(protein_dca_frustration_calculation_directory):
@@ -1195,9 +1221,9 @@ def main(pdb_name, chain_name, protein_family,atom_type, DCA_Algorithm,
         f.write(">{}_{}\n{}\n".format(pdb_name, chain_name, pdb_sequence))
 
     # Generate PDB contact distance matrix
-#    distance_matrix = get_distance_matrix_from_pdb(
-#        f"{protein_dca_frustration_calculation_directory}/{pdb_name[:4]}.pdb",
-#        chain_name)
+    #    distance_matrix = get_distance_matrix_from_pdb(
+    #        f"{protein_dca_frustration_calculation_directory}/{pdb_name[:4]}.pdb",
+    #        chain_name)
     # Generate PDB alignment files
     alignment_dca_files_directory = f"{protein_dca_frustration_calculation_directory}/{datetime.today().strftime('%m_%d_%Y')}_{protein_family}_{pdb_name}_{chain_name}_Jackhmmer_Alignment_DCA_Files"
     file_name = f"{protein_family}_{pdb_name}_{chain_name}"
@@ -1215,9 +1241,11 @@ def main(pdb_name, chain_name, protein_family,atom_type, DCA_Algorithm,
     ###
     generate_potts_model(file_name, gap_threshold, DCA_Algorithm,
                          alignment_dca_files_directory, dca_frustratometer_directory)
+
+
 #    os.chdir(protein_dca_frustration_calculation_directory)
 
-    # Compute PDB sequence native DCA energy
+# Compute PDB sequence native DCA energy
 #    potts_model = load_potts_model(
 #        f"{alignment_dca_files_directory}/{file_name}_msa_dca_gap_threshold_{gap_threshold}.mat")
 #    e = compute_native_energy(pdb_sequence, potts_model, distance_matrix,
@@ -1245,11 +1273,11 @@ if __name__ == "__main__":
     pdb_name = args.pdb_name
     chain_name = args.chain_name
     atom_type = args.atom_type
-    protein_family=args.protein_family
+    protein_family = args.protein_family
     DCA_Algorithm = args.DCA_Algorithm
     database_name = args.database_name
     gap_threshold = args.gap_threshold
     dca_frustratometer_directory = args.dca_frustratometer_directory
 
-    main(pdb_name, chain_name,protein_family,atom_type,DCA_Algorithm,
-         database_name,gap_threshold, dca_frustratometer_directory)
+    main(pdb_name, chain_name, protein_family, atom_type, DCA_Algorithm,
+         database_name, gap_threshold, dca_frustratometer_directory)
