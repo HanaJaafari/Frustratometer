@@ -46,7 +46,8 @@ def create_pfam_database(name='PFAM_current',
 
     #Create databases directory
     databases_path = _path / 'databases'
-    if not databases_path.exists():
+    if not databases_path.exists() and not databases_path.is_symlink():
+        logging.debug(f"Creating {databases_path}")
         os.mkdir(databases_path)
 
     # Create directory
