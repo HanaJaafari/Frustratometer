@@ -57,7 +57,7 @@ jobs:
       run: git lfs pull
     
     
-    - name: Change to main directory
+#    - name: Change to main directory
 #      run: |
 #        cd main
 #        pwd
