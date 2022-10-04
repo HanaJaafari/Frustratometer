@@ -8,12 +8,6 @@ import dca_frustratometer
 import numpy as np
 
 
-def test_create_database_directory():
-    database_path1 = dca_frustratometer.create_database_directory()
-    database_path2 = dca_frustratometer.create_database_directory()
-    assert database_path1 == database_path2
-
-
 def test_create_pfam_database():
     alignments_path = dca_frustratometer.create_pfam_database(url='https://ftp.ebi.ac.uk/pub/databases/Pfam'
                                                                   '/current_release/Pfam-A.dead.gz',

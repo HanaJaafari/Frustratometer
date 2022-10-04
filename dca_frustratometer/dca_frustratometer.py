@@ -26,13 +26,14 @@ _AA = '-ACDEFGHIKLMNPQRSTVWY'
 # PFAM functions #
 ##################
 
-def create_database_directory():
-    #Create databases directory
+def create_directory(path):
+    # Create databases directory
     databases_path = _path / 'databases'
     if not databases_path.exists() and not databases_path.is_symlink():
         logging.debug(f"Creating {databases_path}")
         os.mkdir(databases_path)
     return databases_path
+
 
 def create_pfam_database(name='PFAM_current',
                          url="https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.full.uniprot.gz", ):
@@ -52,21 +53,17 @@ def create_pfam_database(name='PFAM_current',
         Path of the alignments
     """
 
-    databases_path = create_database_directory()
+    # Create database directory
+    databases_path = create_directory(_path / 'databases')
+    data_path = create_directory(databases_path / name)
+    alignments_path = create_directory(data_path / 'Alignments')
 
-    # Create directory
-    data_path = databases_path / name
-    if not data_path.exists():
-        os.mkdir(data_path)
-
+    # Get file name
     file_name = url.split('/')[-1]
 
     # Download pfam alignments
     logging.debug(f"Downloading {url} to {data_path}/{file_name}")
     urllib.request.urlretrieve(f"{url}", f"{data_path}/{file_name}")
-
-    if not (data_path/'Alignments').exists():
-        os.mkdir(data_path /'Alignments')
 
     # Split PFAM alignments
     with gzip.open(f'{data_path}/{file_name}') as in_file:
@@ -76,8 +73,8 @@ def create_pfam_database(name='PFAM_current',
             line = line.decode('utf-8')
             if line.strip() == '//':
                 if len(new_lines) > 0:
-                    with open(f'{data_path}/Alignments/{acc}.sto', 'w+') as out_file:
-                        logging.debug(f'{data_path}/Alignments/{acc}.sto')
+                    with open(f'{alignments_path}/{acc}.sto', 'w+') as out_file:
+                        logging.debug(f'{alignments_path}/{acc}.sto')
                         out_file.write(new_lines)
                 new_lines = ''
                 acc = 'Unknown'
@@ -87,10 +84,10 @@ def create_pfam_database(name='PFAM_current',
             if len(l) == 3 and l[0] == "#=GF" and l[1] == "AC":
                 acc = l[2]
         if len(new_lines) > 0:
-            with open(f'{data_path}/Alignments/{acc}.sto', 'w+') as out_file:
-                logging.debug(f'{data_path}/Alignments/{acc}.sto')
+            with open(f'{alignments_path}/{acc}.sto', 'w+') as out_file:
+                logging.debug(f'{alignments_path}/{acc}.sto')
                 out_file.write(new_lines)
-    return data_path/'Alignments'
+    return alignments_path
 
 
 def get_pfamID(pdbID, chain):
