@@ -92,7 +92,7 @@ jobs:
         pip install -r requirements.txt
         python -m pip install . --no-deps
         conda list
-        cd ../main
+        cd ..
         pwd
     
     - name: Install package
