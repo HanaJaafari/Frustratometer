@@ -26,6 +26,14 @@ _AA = '-ACDEFGHIKLMNPQRSTVWY'
 # PFAM functions #
 ##################
 
+def create_database_directory():
+    #Create databases directory
+    databases_path = _path / 'databases'
+    if not databases_path.exists() and not databases_path.is_symlink():
+        logging.debug(f"Creating {databases_path}")
+        os.mkdir(databases_path)
+    return databases_path
+
 def create_pfam_database(name='PFAM_current',
                          url="https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.full.uniprot.gz", ):
     """
@@ -44,11 +52,7 @@ def create_pfam_database(name='PFAM_current',
         Path of the alignments
     """
 
-    #Create databases directory
-    databases_path = _path / 'databases'
-    if not databases_path.exists() and not databases_path.is_symlink():
-        logging.debug(f"Creating {databases_path}")
-        os.mkdir(databases_path)
+    databases_path = create_database_directory()
 
     # Create directory
     data_path = databases_path / name

@@ -4,10 +4,8 @@ Unit and regression test for the dca_frustratometer package.
 
 # Import package, test suite, and other packages as needed
 import sys
-import pytest
 import dca_frustratometer
 import numpy as np
-import logging
 
 
 def test_create_pfam_database():
