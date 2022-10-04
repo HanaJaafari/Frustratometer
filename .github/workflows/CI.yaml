@@ -55,11 +55,11 @@ jobs:
       uses: actions/cache@v2
       id: lfs-cache
       with:
-        path: .git/lfs
+        path: ../.git/lfs
         key: ${{ runner.os }}-lfs-${{ hashFiles('.lfs-assets-id') }}-v1
     
     - name: Pull lfs files
-      run: git lfs fetch
+      run: git lfs pull
 
 
     # More info on options: https://github.com/conda-incubator/setup-miniconda
