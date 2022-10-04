@@ -75,10 +75,10 @@ jobs:
         auto-activate-base: false
         show-channel-urls: true
 
-    - name: Change to root directory
-      run: |
-        cd main
-        pwd
+#    - name: Change to root directory
+#      run: |
+#        cd main
+#        pwd
     
     #Install pydca
     - name: Check out pydca
