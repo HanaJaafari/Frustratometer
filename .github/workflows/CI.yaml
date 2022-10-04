@@ -40,13 +40,8 @@ jobs:
 
     - name: checkout source
       uses: actions/checkout@v2
-      with:
-        path: main
-    - name: Change to main directory
-      run: |
-        cd main
-        pwd
-
+#      with:
+#        path: main
     
     - name: Generate lfs file list
       run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
@@ -60,7 +55,12 @@ jobs:
     
     - name: Pull lfs files
       run: git lfs pull
-
+    
+    
+#    - name: Change to main directory
+#      run: |
+#        cd main
+#        pwd
 
     # More info on options: https://github.com/conda-incubator/setup-miniconda
     - uses: conda-incubator/setup-miniconda@v2
@@ -75,10 +75,10 @@ jobs:
         auto-activate-base: false
         show-channel-urls: true
 
-    - name: Change to root directory
-      run: |
-        cd main
-        pwd
+#    - name: Change to root directory
+#      run: |
+#        cd main
+#        pwd
     
     #Install pydca
     - name: Check out pydca
@@ -92,7 +92,7 @@ jobs:
         pip install -r requirements.txt
         python -m pip install . --no-deps
         conda list
-        cd ../main
+        cd ..
         pwd
     
     - name: Install package
