@@ -487,7 +487,7 @@ def compute_native_energy(seq: str,
 def compute_singleresidue_decoy_energy_fluctuation(seq: str,
                                                    potts_model: dict,
                                                    mask: np.array) -> np.array:
-    """
+    r"""
     $ \Delta H_i = \Delta h_i + \sum_k\Delta j_{ik} $
 
     :param seq:
@@ -519,7 +519,7 @@ def compute_singleresidue_decoy_energy_fluctuation(seq: str,
 def compute_mutational_decoy_energy_fluctuation(seq: str,
                                                 potts_model: dict,
                                                 mask: np.array, ) -> np.array:
-    """
+    r"""
     $$ \Delta DCA_{ij} = H_i - H_{i'} + H_{j}-H_{j'}
     + J_{ij} -J_{ij'} + J_{i'j'} - J_{i'j}
     + \sum_k {J_{ik} - J_{i'k} + J_{jk} -J_{j'k}}
@@ -561,7 +561,7 @@ def compute_mutational_decoy_energy_fluctuation(seq: str,
 def compute_configurational_decoy_energy_fluctuation(seq: str,
                                                      potts_model: dict,
                                                      mask: np.array, ) -> np.array:
-    """
+    r"""
     $$ \Delta DCA_{ij} = H_i - H_{i'} + H_{j}-H_{j'}
     + J_{ij} -J_{ij'} + J_{i'j'} - J_{i'j}
     + \sum_k {J_{ik} - J_{i'k} + J_{jk} -J_{j'k}}
@@ -603,7 +603,7 @@ def compute_configurational_decoy_energy_fluctuation(seq: str,
 def compute_contact_decoy_energy_fluctuation(seq: str,
                                              potts_model: dict,
                                              mask: np.array) -> np.array:
-    """
+    r"""
     $$ \Delta DCA_{ij} = \Delta j_{ij} $$
     :param seq:
     :param potts_model:
