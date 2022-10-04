@@ -59,7 +59,7 @@ jobs:
         key: ${{ runner.os }}-lfs-${{ hashFiles('.lfs-assets-id') }}-v1
     
     - name: Pull lfs files
-      run: git lfs checkout
+      run: git lfs fetch
 
 
     # More info on options: https://github.com/conda-incubator/setup-miniconda
