@@ -14,6 +14,24 @@ import os
 #                                                                   '/current_release/Pfam-A.dead.gz',
 #                                                               name='test')
 #     assert (alignments_path / 'Unknown.sto').exists() is False
+<<<<<<< HEAD
+=======
+
+def test_get_alignment_from_database():
+    pass
+
+def test_get_alignment_from_interpro():
+    dca_frustratometer.download_alignment_from_interpro('PF00001',output_file='test.sto.gz')
+
+def test_filter_alignment():
+    pass
+
+def create_potts_model_from_aligment():
+    pass
+
+def create_potts_model_from_pdb():
+    pass
+>>>>>>> bd3e7ef145443025b0f62ecca9be79a69d05f05a
 
 def test_dca_frustratometer_imported():
     """Sample test, will always pass so long as import statement worked."""

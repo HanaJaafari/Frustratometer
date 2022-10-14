@@ -86,6 +86,110 @@ def get_pfam_map(pdbID, chain):
     return int(start), int(end)
 
 
+<<<<<<< HEAD
+=======
+def download_alignment_from_pfam(pfamID):
+    """'
+    Downloads a single pfam alignment
+    """
+    # TODO fix function
+    import urllib.request
+    urllib.request.urlretrieve('http://pfam.xfam.org/family/%s/alignment/full' % pfamID,
+                               "%s%s.stockholm" % (directory, pfamID))
+
+def download_alignment_from_interpro(pfamID, 
+                                     alignment_type='uniprot',
+                                     output_file=None):
+    """'
+    Downloads a single pfam alignment
+    full
+    seed
+    uniprot
+    """
+    url=f'https://www.ebi.ac.uk/interpro/api/entry/pfam/{pfamID}/?annotation=alignment:{alignment_type}'
+    logging.debug(f'Downloading {url} to {output_file}')
+    urllib.request.urlretrieve(url, output_file)
+    
+
+
+def download_pdb(pdbID):
+    """
+    Downloads a single pdb file
+    """
+    import urllib.request
+    urllib.request.urlretrieve('http://www.rcsb.org/pdb/files/%s.pdb' % pdbID, "%s%s.pdb" % (directory, pdbID))
+
+
+def stockholm2fasta(pfamID):
+    """
+    Converts stockholm alignment to fasta    
+    """
+    from Bio import AlignIO
+    # rewrite Stockholm alignment in FASTA format
+    input_handle = open("%s%s.stockholm" % (directory, pfamID), "rU")
+    output_handle = open("%s%s.fasta" % (directory, pfamID), "w")
+    alignments = AlignIO.parse(input_handle, "stockholm")
+    AlignIO.write(alignments, output_handle, "fasta")
+    output_handle.close()
+    input_handle.close()
+
+
+def filter_fasta(gap_threshold, pfamID, pdbID, chain, seq, resnos):
+    """
+    Filters and maps sequence to fasta alignment
+    """
+
+    from Bio import AlignIO
+    import numpy
+    import subprocess
+    # gap_threshold=0.25
+    pfam_start, pfam_end = get_pfam_map(pdbID, chain)
+    mapped_seq = seq[resnos.index(pfam_start):resnos.index(pfam_end) + 1]
+
+    # print mapped fasta file
+    f = open('%s%s%s_pfam_mapped.fasta' % (directory, pdbID, chain), 'w')
+    f.write('>%s:%s pdb mapped to pfam\n' % (pdbID, chain))
+    f.write(mapped_seq)
+    f.close()
+
+    submit = ("%s/muscle3.8.31_i86linux64 -profile -in1 %s%s.fasta -in2 %s%s%s_pfam_mapped.fasta -out %s%s%s.fasta" % (
+        basedir, directory, pfamID, directory, pdbID, chain, directory, pdbID, chain))
+
+    # print(submit)
+
+    process = subprocess.Popen(submit.split(), stdout=subprocess.PIPE)
+    process.communicate()
+
+    # Filter sequences based on gaps in input sequence and gap threshold
+    alignment = AlignIO.read(open("%s%s%s.fasta" % (directory, pdbID, chain)), "fasta")
+    targetseq = alignment[-1].seq
+    targetname = alignment[-1].name
+    if targetseq == '':
+        print("targetseq not found")
+
+    output_handle = open("%s%s_msa_filtered.fasta" % (directory, pdbID), "w")
+    target_array = numpy.array([list(targetseq)], numpy.character)
+    bools = target_array != b'-'
+    sequences_passed_threshold = 0
+    for i, record in enumerate(alignment):
+        record_array = numpy.array([list(record.seq)], numpy.character)
+        aligned_sequence = record_array[bools]
+        if float(numpy.sum(aligned_sequence == b'-')) / len(aligned_sequence) < gap_threshold:
+            output_handle.write(">%s\n" % record.id + "".join(aligned_sequence.astype(str)).upper() + '\n')
+            sequences_passed_threshold += 1
+    output_handle.close()
+
+    fastaseq = ''.join(target_array[bools].astype(str)).upper()
+
+    stat_output = open(stat_output_file_name, "w")
+    stat_output.write("FASTA_alignments " + str(len(alignment)) + "\n")
+    stat_output.write("Filtered_alignments " + str(sequences_passed_threshold) + "\n")
+    stat_output.close()
+
+    return fastaseq, sequences_passed_threshold
+
+
+>>>>>>> bd3e7ef145443025b0f62ecca9be79a69d05f05a
 def get_protein_sequence_from_pdb(pdb: str,
                                   chain: str
                                   ) -> str:
