@@ -8,7 +8,6 @@ import scipy.spatial.distance as sdist
 import pandas as pd
 import numpy as np
 import itertools
-from datetime import datetime
 import os
 import urllib.request
 import scipy.io
@@ -26,73 +25,9 @@ _AA = '-ACDEFGHIKLMNPQRSTVWY'
 # PFAM functions #
 ##################
 
-def create_directory(path):
-    # Create databases directory
-    databases_path = _path / 'databases'
-    if not databases_path.exists() and not databases_path.is_symlink():
-        logging.debug(f"Creating {databases_path}")
-        os.mkdir(databases_path)
-    return databases_path
-
-
-def create_pfam_database(name='PFAM_current',
-                         url="https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.full.uniprot.gz", ):
-    """
-    Downloads and creates a pfam database in the Database folder
-
-    Parameters
-    ----------
-    url :  str
-        Adress of pfam database
-    name: str
-        Name of the new database folder
-
-    Returns
-    -------
-    alignment_path: Path
-        Path of the alignments
-    """
-
-    # Create database directory
-    databases_path = create_directory(_path / 'databases')
-    data_path = create_directory(databases_path / name)
-    alignments_path = create_directory(data_path / 'Alignments')
-
-    # Get file name
-    file_name = url.split('/')[-1]
-
-    # Download pfam alignments
-    logging.debug(f"Downloading {url} to {data_path}/{file_name}")
-    urllib.request.urlretrieve(f"{url}", f"{data_path}/{file_name}")
-
-    # Split PFAM alignments
-    with gzip.open(f'{data_path}/{file_name}') as in_file:
-        new_lines = ''
-        acc = 'Unknown'
-        for line in in_file:
-            line = line.decode('utf-8')
-            if line.strip() == '//':
-                if len(new_lines) > 0:
-                    with open(f'{alignments_path}/{acc}.sto', 'w+') as out_file:
-                        logging.debug(f'{alignments_path}/{acc}.sto')
-                        out_file.write(new_lines)
-                new_lines = ''
-                acc = 'Unknown'
-                continue
-            new_lines += line
-            l = line.strip().split()
-            if len(l) == 3 and l[0] == "#=GF" and l[1] == "AC":
-                acc = l[2]
-        if len(new_lines) > 0:
-            with open(f'{alignments_path}/{acc}.sto', 'w+') as out_file:
-                logging.debug(f'{alignments_path}/{acc}.sto')
-                out_file.write(new_lines)
-    return alignments_path
-
-
 def get_pfamID(pdbID, chain):
     """
-    Downloads and creates a pfam database in the Database folder
+    Returns PFAM and Uniprot IDs
 
     Parameters
     ----------
@@ -107,25 +42,14 @@ def get_pfamID(pdbID, chain):
     """
 
     # TODO fix function
-    import pandas as pd
-    df = pd.read_table(f'{_path}/data/pdb_chain_pfam.lst.txt', header=1)
+    df = pd.read_csv(f'{_path}/data/pdb_chain_pfam.csv', header=1)
     if sum((df['PDB'] == pdbID.lower()) & (df['CHAIN'] == chain.upper())) != 0:
+        #Assumes one domain for the PDB
         pfamID = df.loc[(df['PDB'] == pdbID.lower()) & (df['CHAIN'] == chain.upper())]["PFAM_ID"].values[0]
     else:
-        print('cant find pfamID')
+        print('PFAM ID is unavailable')
         pfamID = 'null'
     return pfamID
-
-
-def get_uniprotID(pdbID, chain):
-    # TODO fix function
-    import urllib2
-    response = urllib2.urlopen(
-        'http://www.bioinf.org.uk/cgi-bin/pdbsws/query.pl?plain=1&qtype=pdb&id=%s&chain=%s' % (pdbID, chain))
-    html = response.read()
-    info = html.split('\n')
-    uniprotID = info[3].split(' ')[1]
-    return uniprotID
 
 
 def get_pfam_map(pdbID, chain):
@@ -257,7 +181,6 @@ def filter_fasta(gap_threshold, pfamID, pdbID, chain, seq, resnos):
 
     return fastaseq, sequences_passed_threshold
 
-
 def get_protein_sequence_from_pdb(pdb: str,
                                   chain: str
                                   ) -> str:
@@ -286,10 +209,6 @@ def get_protein_sequence_from_pdb(pdb: str,
 
     parser = PDBParser()
     structure = parser.get_structure('name', pdb)
-    protein_residues = {'ALA', 'ARG', 'ASN', 'ASP', 'CYS',
-                        'GLN', 'GLU', 'GLY', 'HIS', 'ILE',
-                        'LEU', 'LYS', 'MET', 'PHE', 'PRO',
-                        'SER', 'THR', 'TRP', 'TYR', 'VAL'}
     Letter_code = {'ALA': 'A', 'ARG': 'R', 'ASN': 'N', 'ASP': 'D', 'CYS': 'C',
                    'GLN': 'Q', 'GLU': 'E', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I',
                    'LEU': 'L', 'LYS': 'K', 'MET': 'M', 'PHE': 'F', 'PRO': 'P',
@@ -336,8 +255,63 @@ def get_distance_matrix_from_pdb(pdb_file: str,
             dm[j, i] = d
         return dm
 
+def generate_alignment(alignment_source,pfamID,sequence,pdb_name):
+    """
+    Generates gap-filtered alignment based on user input (options are Jackhmmer or PFAM)
 
-def create_alignment_jackhmmer(sequence, pdb_name,
+    Parameters
+    ----------
+    alignment_source :  str
+        Protein alignment source
+
+    Returns
+    -------
+    alignment_file_name: str
+        Alignment file name
+    """
+    if alignment_source=="PFAM":
+        alignment_file=download_alignment_PFAM(pfamID)
+    elif alignment_source=="jackhmmer":
+        alignment_file=create_alignment_jackhmmer(sequence,pdb_name)
+    else:
+        print("Incorrect alignment type input")
+        alignment_file=None
+
+    filtered_alignment_file=convert_and_filter_alignment(alignment_file)
+    return filtered_alignment_file
+
+
+def download_alignment_PFAM(pfamID):
+    """
+    Downloads and creates a pfam database in the Database folder
+
+    Parameters
+    ----------
+    pfamID :  str
+        Protein Family PFAM ID
+
+    Returns
+    -------
+    alignment_path: Path
+        Path of the alignments
+    """
+
+    # Create database directory
+    databases_directory=f"{_path}/Databases"
+    PFAM_alignments_directory=f"{databases_directory}/PFAM_Full_Alignments"
+
+    if not os.path.exists(databases_directory):
+        os.mkdir(databases_directory)
+    if not os.path.exists(PFAM_alignments_directory):
+        os.mkdir(PFAM_alignments_directory)
+
+    alignment_file=f"{PFAM_alignments_directory}/{pfamID}_full.sto"
+    urllib.request.urlretrieve(f"https://www.ebi.ac.uk/interpro/api/entry/pfam/{pfamID}/?annotation=alignment:full",
+                               alignment_file)
+    return alignment_file
+
+
+def create_alignment_jackhmmer_deprecated(sequence, pdb_name,
                                database=f'{_path}/Uniprot_Sequence_Database_Files/uniprot_sprot.fasta',
                                output_file=None,
                                log_file=None):
@@ -372,13 +346,87 @@ def create_alignment_jackhmmer(sequence, pdb_name,
                     ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
                      '--incE', '1E-10', fasta_file.name, database], stdout=log)
 
+def create_alignment_jackhmmer(sequence, pdb_name,
+                               database=f'{_path}/Uniprot_Sequence_Database_Files/uniprot_sprot.fasta',
+                               output_file=None,
+                               log_file=None):
+    """
 
-def remove_gaps():
-    pass
+    :param sequence:
+    :param PDB Name:
+    :param database:
+    :param output_file:
+    :param log_file:
+    :return:
+    """
+    # TODO: pass options for jackhmmer
+    # jackhmmer and databases required
 
+    # Create database directory
+    databases_directory=f"{_path}/Databases"
+    jackhmmer_alignments_directory=f"{databases_directory}/Jackhmmer_Alignments"
 
-def sto2fasta():
-    pass
+    if not os.path.exists(databases_directory):
+        os.mkdir(databases_directory)
+    if not os.path.exists(jackhmmer_alignments_directory):
+        os.mkdir(jackhmmer_alignments_directory)
+
+    import tempfile
+
+    if output_file is None:
+        output = tempfile.NamedTemporaryFile(mode="w", prefix=pdb_name, suffix='_alignment.sto')
+        output_file = output.name
+
+    with tempfile.NamedTemporaryFile(mode="w", prefix=pdb_name, suffix='_sequence.fa') as fasta_file:
+        fasta_file.write(f'>{pdb_name}\n{sequence}\n')
+        fasta_file.flush()
+        if log_file is None:
+            subprocess.call(
+                ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
+                 '--incE', '1E-10', fasta_file.name, database], stdout=subprocess.DEVNULL)
+        else:
+            with open(log_file, 'w') as log:
+                subprocess.call(
+                    ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
+                     '--incE', '1E-10', fasta_file.name, database], stdout=log)
+    return output.name
+
+def convert_and_filter_alignment(alignment_file):
+    """
+    Filter PDB alignment
+    :param alignment_file
+    :return: 
+    """
+    '''Returns PDB MSA (fasta format) with column-spanning gaps and insertions removed'''
+    alignment_file_name=alignment_file.replace(".sto","")
+    # Convert full MSA in stockholm format to fasta format
+    input_handle = open(f"{alignment_file_name}.sto", "rU")
+    output_handle = open(f"{alignment_file_name}.fasta", "w")
+
+    alignments = AlignIO.parse(input_handle, "stockholm")
+    AlignIO.write(alignments, output_handle, "fasta")
+    output_handle.close()
+    input_handle.close()
+
+    # Remove inserts and columns that are completely composed of gaps from MSA
+    alignment = AlignIO.read(f"{alignment_file_name}.fasta", "fasta")
+    output_handle = open(f"{alignment_file_name}_gaps_filtered.fasta", "w")
+
+    index_mask = []
+    for i, record in enumerate(alignment):
+        index_mask += [i for i, x in enumerate(list(record.seq)) if x != x.upper()]
+    for i in range(len(alignment[0].seq)):
+        if alignment[:, i] == ''.join(["-"] * len(alignment)):
+            index_mask.append(i)
+    index_mask = sorted(list(set(index_mask)))
+
+    for i, record in enumerate(alignment):
+        aligned_sequence = [list(record.seq)[i] for i in range(len(list(record.seq))) if i not in index_mask]
+        output_handle.write(">%s\n" % record.id + "".join(aligned_sequence) + '\n')
+    output_handle.close()
+
+    output_file_name=f"{alignment_file_name}_gaps_filtered.fasta"
+    return output_file_name
 
 
 def compute_plm(protein_name, reweighting_threshold=0.1, nr_of_cores=1):
@@ -404,75 +452,6 @@ def compute_plm(protein_name, reweighting_threshold=0.1, nr_of_cores=1):
     eng.addpath('%s/plmDCA_asymmetric_v2_with_h/3rd_party_code/minFunc' % _path, nargout=0)
     print('plmDCA_asymmetric', protein_name, reweighting_threshold, nr_of_cores)
     eng.plmDCA_asymmetric(protein_name, reweighting_threshold, nr_of_cores, nargout=0)  # , stdout=out )
-
-
-def pseudofam_pfam_download_alignments(protein_family, alignment_type,
-                                       alignment_dca_files_directory):
-    if alignment_type == "both":
-        all_alignment_types = ["seed", "full"]
-    else:
-        all_alignment_types = [alignment_type]
-
-    for category in all_alignment_types:
-        alignment_file_name = f"{alignment_dca_files_directory}/{protein_family}_{category}.aln"
-        subprocess.call(["wget", "-O", alignment_file_name,
-                         f"http://pfam.xfam.org/family/{protein_family}/alignment/{category}"])
-
-
-def convert_and_filter_alignment(pdb_name):
-    """
-    Filter PDB alignment
-    :param pdb_name: PDB name
-    :return: 
-    """
-    '''Returns PDB MSA (fasta format) with column-spanning gaps and insertions removed'''
-    # Convert full MSA in stockholm format to fasta format
-    input_handle = open(f"dcaf_{pdb_name}_alignment.sto", "rU")
-    output_handle = open(f"dcaf_{pdb_name}_alignment.fasta", "w")
-
-    alignments = AlignIO.parse(input_handle, "stockholm")
-    AlignIO.write(alignments, output_handle, "fasta")
-    output_handle.close()
-    input_handle.close()
-
-    # Remove inserts and columns that are completely composed of gaps from MSA
-    alignment = AlignIO.read(f"dcaf_{pdb_name}_alignment.fasta", "fasta")
-    output_handle = open(f"dcaf_{pdb_name}_alignment_gaps_filtered.fasta", "w")
-
-    index_mask = []
-    for i, record in enumerate(alignment):
-        index_mask += [i for i, x in enumerate(list(record.seq)) if x != x.upper()]
-    for i in range(len(alignment[0].seq)):
-        if alignment[:, i] == ''.join(["-"] * len(alignment)):
-            index_mask.append(i)
-    index_mask = sorted(list(set(index_mask)))
-
-    for i, record in enumerate(alignment):
-        aligned_sequence = [list(record.seq)[i] for i in range(len(list(record.seq))) if i not in index_mask]
-        output_handle.write(">%s\n" % record.id + "".join(aligned_sequence) + '\n')
-    output_handle.close()
-
-
-def generate_potts_model(file_name, gap_threshold, DCA_Algorithm, alignment_dca_files_directory,
-                         dca_frustratometer_directory):
-    if not os.path.exists(f"{alignment_dca_files_directory}/{file_name}_msa_dca_gap_threshold_{gap_threshold}.mat"):
-        import matlab.engine
-        eng = matlab.engine.start_matlab()
-
-        if DCA_Algorithm == "mfDCA":
-            subprocess.call(["cp",
-                             f"{dca_frustratometer_directory}/DCA_Algorithms/mfDCA/DCAparameters.m",
-                             alignment_dca_files_directory])
-            os.chdir(alignment_dca_files_directory)
-            eng.DCAparameters(f"{alignment_dca_files_directory}/{file_name}_gap_filtered_msa.fasta", 1, 1.0)
-        else:
-            os.chdir(f"{dca_frustratometer_directory}/DCA_Algorithms/plmDCA-master/plmDCA_asymmetric_v2")
-            eng.plmDCA_asymmetric(f"{alignment_dca_files_directory}/{file_name}_gap_filtered_msa.fasta",
-                                  f"{alignment_dca_files_directory}/dca.mat",
-                                  0.2, 1)
-
-        subprocess.call(["mv", f"{alignment_dca_files_directory}/dca.mat",
-                         f"{alignment_dca_files_directory}/{file_name}_msa_dca_gap_threshold_{gap_threshold}.mat"])
 
 
 def load_potts_model(potts_model_file):
@@ -931,6 +910,40 @@ class PottsModel:
         return self
 
     @classmethod
+    def from_pdb_file(cls,
+                      alignment_source: str,
+                      pdb_file: str,
+                      chain: str,
+                      sequence_cutoff: typing.Union[float, None] = None,
+                      distance_cutoff: typing.Union[float, None] = None,
+                      distance_matrix_method='minimum'):
+        self = cls()
+
+        # Set initialization variables
+        self._potts_model_file = None
+        self._alignment_source=alignment_source
+        self._pdb_file = Path(pdb_file)
+        self._pdb_name=os.path.basedir(pdb_file)[:4]
+        self._chain = chain
+        self._sequence_cutoff = sequence_cutoff
+        self._distance_cutoff = distance_cutoff
+        self._distance_matrix_method = distance_matrix_method
+
+        # Compute fast properties
+        self._pfamID=get_pfamID(self.pdb_name,self.chain)
+        self._filtered_alignment_file=generate_alignment(self.alignment_source,self.pfamID,self.sequence,self.pdb_name)
+        self._sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
+        self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
+        self.aa_freq = compute_aa_freq(self.sequence)
+        self.contact_freq = compute_contact_freq(self.sequence)
+        self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+
+        # Initialize slow properties
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+        return self
+
+    @classmethod
     def from_alignment(cls):
         # Compute dca
         import pydca
@@ -970,6 +983,13 @@ class PottsModel:
         Returns PDBid from pdb name
         """
         return self._pdb_file.stem
+
+    @property
+    def pfamID(self, value):
+        """
+        Returns pfamID from pdb name
+        """
+        return self._pfamID
 
     @property
     def chain(self):
@@ -1013,24 +1033,24 @@ class PottsModel:
         self._native_energy = None
         self._decoy_fluctuation = {}
 
-    @property
-    def potts_model_file(self):
-        return self._potts_model_file
-
-    @potts_model_file.setter
-    def potts_model_file(self, value):
-        if value == None:
-            print("Generating PDB alignment using Jackhmmer")
-            create_alignment_jackhmmer(self.sequence, self.pdb_name,
-                                       output_file="dcaf_{}_alignment.sto".format(self.pdb_name))
-            convert_and_filter_alignment(self.pdb_name)
-            compute_plm(self.pdb_name)
-            raise ValueError("Need to generate potts model")
-        else:
-            self.potts_model = load_potts_model(value)
-            self._potts_model_file = value
-            self._native_energy = None
-            self._decoy_fluctuation = {}
+    # @property
+    # def potts_model_file(self):
+    #     return self._potts_model_file
+    #
+    # @potts_model_file.setter
+    # def potts_model_file(self, value):
+    #     if value == None:
+    #         print("Generating PDB alignment using Jackhmmer")
+    #         create_alignment_jackhmmer(self.sequence, self.pdb_name,
+    #                                    output_file="dcaf_{}_alignment.sto".format(self.pdb_name))
+    #         convert_and_filter_alignment(self.pdb_name)
+    #         compute_plm(self.pdb_name)
+    #         raise ValueError("Need to generate potts model")
+    #     else:
+    #         self.potts_model = load_potts_model(value)
+    #         self._potts_model_file = value
+    #         self._native_energy = None
+    #         self._decoy_fluctuation = {}
 
     @property
     def potts_model(self):
@@ -1233,88 +1253,3 @@ class AWSEMFrustratometer(PottsModel):
         #     # Initialize slow properties
         #     self._native_energy = None
         #     self._decoy_fluctuation = {}
-
-
-# Function if script invoked on its own
-def main(pdb_name, chain_name, protein_family, atom_type, DCA_Algorithm,
-         database_name, gap_threshold, dca_frustratometer_directory):
-    # PDB DCA frustration analysis directory
-    protein_dca_frustration_calculation_directory = f"{os.getcwd()}/{datetime.today().strftime('%m_%d_%Y')}_{pdb_name}_{chain_name}_DCA_Frustration_Analysis"
-    if not os.path.exists(protein_dca_frustration_calculation_directory):
-        os.mkdir(protein_dca_frustration_calculation_directory)
-    ###
-    # Importing PDB structure
-    if not os.path.exists(f"{protein_dca_frustration_calculation_directory}/{pdb_name[:4]}.pdb"):
-        urllib.request.urlretrieve(f"https://files.rcsb.org/download/{pdb_name[:4]}.pdb",
-                                   f"{protein_dca_frustration_calculation_directory}/{pdb_name[:4]}.pdb")
-
-    pdb_sequence = get_protein_sequence_from_pdb(f"{protein_dca_frustration_calculation_directory}/{pdb_name[:4]}.pdb",
-                                                 chain_name)
-
-    # Save PDB sequence
-    with open(
-            f"{protein_dca_frustration_calculation_directory}/{protein_family}_{pdb_name}_{chain_name}_sequences.fasta",
-            "w") as f:
-        f.write(">{}_{}\n{}\n".format(pdb_name, chain_name, pdb_sequence))
-
-    # Generate PDB contact distance matrix
-    #    distance_matrix = get_distance_matrix_from_pdb(
-    #        f"{protein_dca_frustration_calculation_directory}/{pdb_name[:4]}.pdb",
-    #        chain_name)
-    # Generate PDB alignment files
-    alignment_dca_files_directory = f"{protein_dca_frustration_calculation_directory}/{datetime.today().strftime('%m_%d_%Y')}_{protein_family}_{pdb_name}_{chain_name}_Jackhmmer_Alignment_DCA_Files"
-    file_name = f"{protein_family}_{pdb_name}_{chain_name}"
-
-    if not os.path.exists(alignment_dca_files_directory):
-        os.mkdir(alignment_dca_files_directory)
-
-    subprocess.call(["cp",
-                     f"{protein_dca_frustration_calculation_directory}/{protein_family}_{pdb_name}_{chain_name}_sequences.fasta",
-                     alignment_dca_files_directory])
-
-    generate_protein_sequence_alignments(protein_family, pdb_name,
-                                         database_name, alignment_dca_files_directory,
-                                         dca_frustratometer_directory)
-    ###
-    generate_potts_model(file_name, gap_threshold, DCA_Algorithm,
-                         alignment_dca_files_directory, dca_frustratometer_directory)
-
-
-#    os.chdir(protein_dca_frustration_calculation_directory)
-
-# Compute PDB sequence native DCA energy
-#    potts_model = load_potts_model(
-#        f"{alignment_dca_files_directory}/{file_name}_msa_dca_gap_threshold_{gap_threshold}.mat")
-#    e = compute_native_energy(pdb_sequence, potts_model, distance_matrix,
-#                              distance_cutoff=4, sequence_distance_cutoff=0)
-#    print(e)
-
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--pdb_name", type=str, required=True, help="PDB Name")
-    parser.add_argument("--chain_name", type=str, required=True, help="Chain Name")
-    parser.add_argument("--protein_family", type=str, default=None, help="Protein Family of PDB")
-    parser.add_argument("--atom_type", type=str, default="CB", help="Atom Type Used for Residue Contact Map")
-    parser.add_argument("--DCA_Algorithm", type=str, default="mfDCA",
-                        help="DCA Algorithm Used (options=mfDCA or plmDCA)")
-    parser.add_argument("--database_name", default="Uniprot",
-                        help="Database used in seed msa (options are Uniparc or Uniprot)")
-    parser.add_argument("--gap_threshold", type=float, default=0.2, help="Continguous gap threshold applied to MSA")
-    parser.add_argument("--dca_frustratometer_directory", type=str, help="Directory of DCA Frustratometer Scripts")
-
-    args = parser.parse_args()
-
-    pdb_name = args.pdb_name
-    chain_name = args.chain_name
-    atom_type = args.atom_type
-    protein_family = args.protein_family
-    DCA_Algorithm = args.DCA_Algorithm
-    database_name = args.database_name
-    gap_threshold = args.gap_threshold
-    dca_frustratometer_directory = args.dca_frustratometer_directory
-
-    main(pdb_name, chain_name, protein_family, atom_type, DCA_Algorithm,
-         database_name, gap_threshold, dca_frustratometer_directory)
