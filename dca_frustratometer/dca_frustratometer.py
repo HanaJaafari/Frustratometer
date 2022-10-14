@@ -25,6 +25,26 @@ _AA = '-ACDEFGHIKLMNPQRSTVWY'
 # PFAM functions #
 ##################
 
+def download_alignment_from_pfam(pfamID):
+     """'
+     Downloads a single pfam alignment
+     """
+     urllib.request.urlretrieve('http://pfam.xfam.org/family/%s/alignment/full' % pfamID,
+                                "%s%s.stockholm" % (directory, pfamID))
+
+def download_alignment_from_interpro(pfamID, 
+                                      alignment_type='uniprot',
+                                      output_file=None):
+     """'
+     Downloads a single pfam alignment
+     full
+     seed
+     uniprot
+     """
+     url=f'https://www.ebi.ac.uk/interpro/api/entry/pfam/{pfamID}/?annotation=alignment:{alignment_type}'
+     logging.debug(f'Downloading {url} to {output_file}')
+     urllib.request.urlretrieve(url, output_file)
+
 def get_pfamID(pdbID, chain):
     """
     Returns PFAM and Uniprot IDs
