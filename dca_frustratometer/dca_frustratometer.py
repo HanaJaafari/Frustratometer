@@ -154,16 +154,43 @@ def download_alignment_from_interpro(pfamID,
                                      alignment_type='uniprot',
                                      output_file=None):
     """'
-    Downloads a single pfam alignment
-    full
-    seed
-    uniprot
+    Retrieves a pfam family alignment from interpro
+
+    Parameters
+    ----------
+    pfamID : str,
+        ID of PFAM family. ex: PF00001
+    alignment_type: str,
+        aligment type to retrieve. Options: full, seed, uniprot
+    output_file: str
+        location of the output file. Default: Temporary file
+
+    Returns
+    -------
+    output : Path
+        location of aligment
+    
     """
+    import tempfile
+    from urllib.request import urlopen
+    import gzip
+
     url=f'https://www.ebi.ac.uk/interpro/api/entry/pfam/{pfamID}/?annotation=alignment:{alignment_type}'
     logging.debug(f'Downloading {url} to {output_file}')
-    urllib.request.urlretrieve(url, output_file)
-    
 
+    if output_file is None:
+        output = tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_alignment.sto.gz')
+        output_file = Path(output.name)
+    else:
+        output_file = Path(output_file)
+
+    output = urlopen(url).read()
+    alignment = gzip.decompress(output)
+    output_file.write_bytes(alignment)
+    return output_file
+
+
+    
 
 def download_pdb(pdbID):
     """

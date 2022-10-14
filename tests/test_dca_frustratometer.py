@@ -18,7 +18,10 @@ def test_get_alignment_from_database():
     pass
 
 def test_get_alignment_from_interpro():
-    dca_frustratometer.download_alignment_from_interpro('PF00001',output_file='test.sto.gz')
+    output = dca_frustratometer.download_alignment_from_interpro('PF09696')
+    assert output.exists()
+    output_text = output.read_text()
+    assert "#=GF AC   PF09696" in output_text
 
 def test_filter_alignment():
     pass
