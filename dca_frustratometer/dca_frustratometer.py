@@ -141,7 +141,7 @@ def get_pfam_map(pdbID, chain):
     return int(start), int(end)
 
 
-def download_pfam(pfamID):
+def download_alignment_from_pfam(pfamID):
     """'
     Downloads a single pfam alignment
     """
@@ -149,6 +149,20 @@ def download_pfam(pfamID):
     import urllib.request
     urllib.request.urlretrieve('http://pfam.xfam.org/family/%s/alignment/full' % pfamID,
                                "%s%s.stockholm" % (directory, pfamID))
+
+def download_alignment_from_interpro(pfamID, 
+                                     alignment_type='uniprot',
+                                     output_file=None):
+    """'
+    Downloads a single pfam alignment
+    full
+    seed
+    uniprot
+    """
+    url=f'https://www.ebi.ac.uk/interpro/api/entry/pfam/{pfamID}/?annotation=alignment:{alignment_type}'
+    logging.debug(f'Downloading {url} to {output_file}')
+    urllib.request.urlretrieve(url, output_file)
+    
 
 
 def download_pdb(pdbID):
