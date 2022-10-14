@@ -25,26 +25,6 @@ _AA = '-ACDEFGHIKLMNPQRSTVWY'
 # PFAM functions #
 ##################
 
-def download_alignment_from_pfam(pfamID):
-     """'
-     Downloads a single pfam alignment
-     """
-     urllib.request.urlretrieve('http://pfam.xfam.org/family/%s/alignment/full' % pfamID,
-                                "%s%s.stockholm" % (directory, pfamID))
-
-def download_alignment_from_interpro(pfamID, 
-                                      alignment_type='uniprot',
-                                      output_file=None):
-     """'
-     Downloads a single pfam alignment
-     full
-     seed
-     uniprot
-     """
-     url=f'https://www.ebi.ac.uk/interpro/api/entry/pfam/{pfamID}/?annotation=alignment:{alignment_type}'
-     logging.debug(f'Downloading {url} to {output_file}')
-     urllib.request.urlretrieve(url, output_file)
-
 def get_pfamID(pdbID, chain):
     """
     Returns PFAM and Uniprot IDs
@@ -85,9 +65,6 @@ def get_pfam_map(pdbID, chain):
         pfamID = 'null'
     return int(start), int(end)
 
-
-<<<<<<< HEAD
-=======
 def download_alignment_from_pfam(pfamID):
     """'
     Downloads a single pfam alignment
@@ -188,8 +165,6 @@ def filter_fasta(gap_threshold, pfamID, pdbID, chain, seq, resnos):
 
     return fastaseq, sequences_passed_threshold
 
-
->>>>>>> bd3e7ef145443025b0f62ecca9be79a69d05f05a
 def get_protein_sequence_from_pdb(pdb: str,
                                   chain: str
                                   ) -> str:
