@@ -60,9 +60,9 @@ def test_download_pfam_alignment():
     alignment_file = dca_frustratometer.download_alignment_PFAM("PF00160")
     assert os.path.exists(alignment_file)
     
-def test_aligment_filteration():
+def test_aligment_filtration():
     alignment_file = dca_frustratometer.download_alignment_PFAM("PF00160")
-    filtered_alignment_file=dca_frustratometer.convert_and_filter_alignment(alignment_file)
+    filtered_alignment_file = dca_frustratometer.convert_and_filter_alignment(alignment_file)
     assert os.path.exists(filtered_alignment_file)
 
 def test_functional_compute_native_energy():

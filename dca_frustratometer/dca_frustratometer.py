@@ -1033,24 +1033,24 @@ class PottsModel:
         self._native_energy = None
         self._decoy_fluctuation = {}
 
-    # @property
-    # def potts_model_file(self):
-    #     return self._potts_model_file
-    #
-    # @potts_model_file.setter
-    # def potts_model_file(self, value):
-    #     if value == None:
-    #         print("Generating PDB alignment using Jackhmmer")
-    #         create_alignment_jackhmmer(self.sequence, self.pdb_name,
-    #                                    output_file="dcaf_{}_alignment.sto".format(self.pdb_name))
-    #         convert_and_filter_alignment(self.pdb_name)
-    #         compute_plm(self.pdb_name)
-    #         raise ValueError("Need to generate potts model")
-    #     else:
-    #         self.potts_model = load_potts_model(value)
-    #         self._potts_model_file = value
-    #         self._native_energy = None
-    #         self._decoy_fluctuation = {}
+    @property
+    def potts_model_file(self):
+        return self._potts_model_file
+
+    @potts_model_file.setter
+    def potts_model_file(self, value):
+        if value == None:
+            print("Generating PDB alignment using Jackhmmer")
+            create_alignment_jackhmmer(self.sequence, self.pdb_name,
+                                       output_file="dcaf_{}_alignment.sto".format(self.pdb_name))
+            convert_and_filter_alignment(self.pdb_name)
+            compute_plm(self.pdb_name)
+            raise ValueError("Need to generate potts model")
+        else:
+            self.potts_model = load_potts_model(value)
+            self._potts_model_file = value
+            self._native_energy = None
+            self._decoy_fluctuation = {}
 
     @property
     def potts_model(self):
