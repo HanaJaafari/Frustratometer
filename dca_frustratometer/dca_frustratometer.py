@@ -141,7 +141,7 @@ def get_pfam_map(pdbID, chain):
     return int(start), int(end)
 
 
-def download_alignment_from_interpro(pfamID, 
+def download_alignment_from_interpro(pfamID,
                                      alignment_type='uniprot',
                                      output_file=None):
     """'
@@ -152,21 +152,21 @@ def download_alignment_from_interpro(pfamID,
     pfamID : str,
         ID of PFAM family. ex: PF00001
     alignment_type: str,
-        aligment type to retrieve. Options: full, seed, uniprot
+        alignment type to retrieve. Options: full, seed, uniprot
     output_file: str
         location of the output file. Default: Temporary file
 
     Returns
     -------
     output : Path
-        location of aligment
+        location of alignment
     
     """
     import tempfile
     from urllib.request import urlopen
     import gzip
 
-    url=f'https://www.ebi.ac.uk/interpro/api/entry/pfam/{pfamID}/?annotation=alignment:{alignment_type}'
+    url = f'https://www.ebi.ac.uk/interpro/api/entry/pfam/{pfamID}/?annotation=alignment:{alignment_type}'
     logging.debug(f'Downloading {url} to {output_file}')
 
     if output_file is None:
@@ -179,7 +179,7 @@ def download_alignment_from_interpro(pfamID,
     alignment = gzip.decompress(output)
     output_file.write_bytes(alignment)
     return output_file
-    
+
 
 def download_pdb(pdbID):
     """

@@ -17,20 +17,36 @@ import numpy as np
 def test_get_alignment_from_database():
     pass
 
+
 def test_get_alignment_from_interpro():
     output = dca_frustratometer.download_alignment_from_interpro('PF09696')
     assert output.exists()
     output_text = output.read_text()
     assert "#=GF AC   PF09696" in output_text
 
+
 def test_filter_alignment():
     pass
 
-def create_potts_model_from_aligment():
+
+def test_create_potts_model_from_aligment():
+    import pydca
+    # plmdca_inst = pydca.plmdca.PlmDCA('examples/data/PF09696.sto',
+    #                                   'protein',
+    #                                   seqid=0.8,
+    #                                   lambda_h=1.0,
+    #                                   lambda_J=20.0,
+    #                                   num_threads=10,
+    #                                   max_iterations=500,
+    #                                   )
+    #
+    # # compute DCA scores summarized by Frobenius norm and average product corrected
+    # potts_model = plmdca_inst.get_potts_model()
+
+
+def test_create_potts_model_from_pdb():
     pass
 
-def create_potts_model_from_pdb():
-    pass
 
 def test_dca_frustratometer_imported():
     """Sample test, will always pass so long as import statement worked."""
