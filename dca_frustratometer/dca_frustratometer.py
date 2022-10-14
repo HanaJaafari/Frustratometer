@@ -141,15 +141,6 @@ def get_pfam_map(pdbID, chain):
     return int(start), int(end)
 
 
-def download_alignment_from_pfam(pfamID):
-    """'
-    Downloads a single pfam alignment
-    """
-    # TODO fix function
-    import urllib.request
-    urllib.request.urlretrieve('http://pfam.xfam.org/family/%s/alignment/full' % pfamID,
-                               "%s%s.stockholm" % (directory, pfamID))
-
 def download_alignment_from_interpro(pfamID, 
                                      alignment_type='uniprot',
                                      output_file=None):
@@ -179,7 +170,7 @@ def download_alignment_from_interpro(pfamID,
     logging.debug(f'Downloading {url} to {output_file}')
 
     if output_file is None:
-        output = tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_alignment.sto.gz')
+        output = tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro_alignment.sto')
         output_file = Path(output.name)
     else:
         output_file = Path(output_file)
@@ -188,8 +179,6 @@ def download_alignment_from_interpro(pfamID,
     alignment = gzip.decompress(output)
     output_file.write_bytes(alignment)
     return output_file
-
-
     
 
 def download_pdb(pdbID):
