@@ -6,19 +6,31 @@ Unit and regression test for the dca_frustratometer package.
 import sys
 import dca_frustratometer
 import numpy as np
+import os
 
 
-def test_create_pfam_database():
-    alignments_path = dca_frustratometer.create_pfam_database(url='https://ftp.ebi.ac.uk/pub/databases/Pfam'
-                                                                  '/current_release/Pfam-A.dead.gz',
-                                                              name='test')
-    assert (alignments_path / 'Unknown.sto').exists() is False
-
+# def test_create_pfam_database():
+#     alignments_path = dca_frustratometer.create_pfam_database(url='https://ftp.ebi.ac.uk/pub/databases/Pfam'
+#                                                                   '/current_release/Pfam-A.dead.gz',
+#                                                               name='test')
+#     assert (alignments_path / 'Unknown.sto').exists() is False
 
 def test_dca_frustratometer_imported():
     """Sample test, will always pass so long as import statement worked."""
     assert "dca_frustratometer" in sys.modules
 
+def test_identify_pfamID():
+    pfamID = dca_frustratometer.get_pfamID("6U5E","A")
+    assert pfamID=="PF00160"
+    
+def test_download_pfam_alignment():
+    alignment_file = dca_frustratometer.download_alignment_PFAM("PF00160")
+    assert os.path.exists(alignment_file)
+    
+def test_aligment_filteration():
+    alignment_file = dca_frustratometer.download_alignment_PFAM("PF00160")
+    filtered_alignment_file=dca_frustratometer.convert_and_filter_alignment(alignment_file)
+    assert os.path.exists(filtered_alignment_file)
 
 def test_functional_compute_native_energy():
     seq = dca_frustratometer.get_protein_sequence_from_pdb('examples/data/1l63.pdb', 'A')
