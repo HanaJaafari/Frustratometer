@@ -17,17 +17,36 @@ import os
 def test_get_alignment_from_database():
     pass
 
+
 def test_get_alignment_from_interpro():
-    dca_frustratometer.download_alignment_from_interpro('PF00001',output_file='test.sto.gz')
+    output = dca_frustratometer.download_alignment_from_interpro('PF09696')
+    assert output.exists()
+    output_text = output.read_text()
+    assert "#=GF AC   PF09696" in output_text
+
 
 def test_filter_alignment():
     pass
 
-def create_potts_model_from_aligment():
+
+def test_create_potts_model_from_aligment():
+    import pydca
+    # plmdca_inst = pydca.plmdca.PlmDCA('examples/data/PF09696.sto',
+    #                                   'protein',
+    #                                   seqid=0.8,
+    #                                   lambda_h=1.0,
+    #                                   lambda_J=20.0,
+    #                                   num_threads=10,
+    #                                   max_iterations=500,
+    #                                   )
+    #
+    # # compute DCA scores summarized by Frobenius norm and average product corrected
+    # potts_model = plmdca_inst.get_potts_model()
+
+
+def test_create_potts_model_from_pdb():
     pass
 
-def create_potts_model_from_pdb():
-    pass
 
 def test_dca_frustratometer_imported():
     """Sample test, will always pass so long as import statement worked."""
@@ -41,9 +60,9 @@ def test_download_pfam_alignment():
     alignment_file = dca_frustratometer.download_alignment_PFAM("PF00160")
     assert os.path.exists(alignment_file)
     
-def test_aligment_filteration():
+def test_aligment_filtration():
     alignment_file = dca_frustratometer.download_alignment_PFAM("PF00160")
-    filtered_alignment_file=dca_frustratometer.convert_and_filter_alignment(alignment_file)
+    filtered_alignment_file = dca_frustratometer.convert_and_filter_alignment(alignment_file)
     assert os.path.exists(filtered_alignment_file)
 
 def test_functional_compute_native_energy():

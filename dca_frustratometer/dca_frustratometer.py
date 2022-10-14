@@ -38,8 +38,7 @@ def get_pfamID(pdbID, chain):
     Returns
     -------
     pfamID : str
-        PFAM family ID       
-        
+        PFAM family ID
     """
 
     # TODO fix function
@@ -52,27 +51,135 @@ def get_pfamID(pdbID, chain):
         pfamID = 'null'
     return pfamID
 
-def download_alignment_from_pfam(pfamID):
-    """'
-    Downloads a single pfam alignment
-    """
-    # TODO fix function
-    import urllib.request
-    urllib.request.urlretrieve('http://pfam.xfam.org/family/%s/alignment/full' % pfamID,
-                               "%s%s.stockholm" % (directory, pfamID))
 
-def download_alignment_from_interpro(pfamID, 
+def get_pfam_map(pdbID, chain):
+    # TODO fix function
+    import pandas as pd
+    df = pd.read_table('%s/pdb_pfam_map.txt' % basedir, header=0)
+    if sum((df['PDB_ID'] == pdbID.upper()) & (df['CHAIN_ID'] == chain.upper())) != 0:
+        start = df.loc[(df['PDB_ID'] == pdbID.upper()) & (df['CHAIN_ID'] == chain.upper())]["PdbResNumStart"].values[0]
+        end = df.loc[(df['PDB_ID'] == pdbID.upper()) & (df['CHAIN_ID'] == chain.upper())]["PdbResNumEnd"].values[0]
+    else:
+        print('data not found')
+        pfamID = 'null'
+    return int(start), int(end)
+
+
+def download_alignment_from_interpro(pfamID,
                                      alignment_type='uniprot',
                                      output_file=None):
     """'
-    Downloads a single pfam alignment
-    full
-    seed
-    uniprot
+    Retrieves a pfam family alignment from interpro
+
+    Parameters
+    ----------
+    pfamID : str,
+        ID of PFAM family. ex: PF00001
+    alignment_type: str,
+        alignment type to retrieve. Options: full, seed, uniprot
+    output_file: str
+        location of the output file. Default: Temporary file
+
+    Returns
+    -------
+    output : Path
+        location of alignment
+    
     """
-    url=f'https://www.ebi.ac.uk/interpro/api/entry/pfam/{pfamID}/?annotation=alignment:{alignment_type}'
+    import tempfile
+    from urllib.request import urlopen
+    import gzip
+
+    url = f'https://www.ebi.ac.uk/interpro/api/entry/pfam/{pfamID}/?annotation=alignment:{alignment_type}'
     logging.debug(f'Downloading {url} to {output_file}')
-    urllib.request.urlretrieve(url, output_file)
+
+    if output_file is None:
+        output = tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro_alignment.sto')
+        output_file = Path(output.name)
+    else:
+        output_file = Path(output_file)
+
+    output = urlopen(url).read()
+    alignment = gzip.decompress(output)
+    output_file.write_bytes(alignment)
+    return output_file
+
+
+def download_pdb(pdbID):
+    """
+    Downloads a single pdb file
+    """
+    import urllib.request
+    urllib.request.urlretrieve('http://www.rcsb.org/pdb/files/%s.pdb' % pdbID, "%s%s.pdb" % (directory, pdbID))
+
+
+def stockholm2fasta(pfamID):
+    """
+    Converts stockholm alignment to fasta    
+    """
+    from Bio import AlignIO
+    # rewrite Stockholm alignment in FASTA format
+    input_handle = open("%s%s.stockholm" % (directory, pfamID), "rU")
+    output_handle = open("%s%s.fasta" % (directory, pfamID), "w")
+    alignments = AlignIO.parse(input_handle, "stockholm")
+    AlignIO.write(alignments, output_handle, "fasta")
+    output_handle.close()
+    input_handle.close()
+
+
+def filter_fasta(gap_threshold, pfamID, pdbID, chain, seq, resnos):
+    """
+    Filters and maps sequence to fasta alignment
+    """
+
+    from Bio import AlignIO
+    import numpy
+    import subprocess
+    # gap_threshold=0.25
+    pfam_start, pfam_end = get_pfam_map(pdbID, chain)
+    mapped_seq = seq[resnos.index(pfam_start):resnos.index(pfam_end) + 1]
+
+    # print mapped fasta file
+    f = open('%s%s%s_pfam_mapped.fasta' % (directory, pdbID, chain), 'w')
+    f.write('>%s:%s pdb mapped to pfam\n' % (pdbID, chain))
+    f.write(mapped_seq)
+    f.close()
+
+    submit = ("%s/muscle3.8.31_i86linux64 -profile -in1 %s%s.fasta -in2 %s%s%s_pfam_mapped.fasta -out %s%s%s.fasta" % (
+        basedir, directory, pfamID, directory, pdbID, chain, directory, pdbID, chain))
+
+    # print(submit)
+
+    process = subprocess.Popen(submit.split(), stdout=subprocess.PIPE)
+    process.communicate()
+
+    # Filter sequences based on gaps in input sequence and gap threshold
+    alignment = AlignIO.read(open("%s%s%s.fasta" % (directory, pdbID, chain)), "fasta")
+    targetseq = alignment[-1].seq
+    targetname = alignment[-1].name
+    if targetseq == '':
+        print("targetseq not found")
+
+    output_handle = open("%s%s_msa_filtered.fasta" % (directory, pdbID), "w")
+    target_array = numpy.array([list(targetseq)], numpy.character)
+    bools = target_array != b'-'
+    sequences_passed_threshold = 0
+    for i, record in enumerate(alignment):
+        record_array = numpy.array([list(record.seq)], numpy.character)
+        aligned_sequence = record_array[bools]
+        if float(numpy.sum(aligned_sequence == b'-')) / len(aligned_sequence) < gap_threshold:
+            output_handle.write(">%s\n" % record.id + "".join(aligned_sequence.astype(str)).upper() + '\n')
+            sequences_passed_threshold += 1
+    output_handle.close()
+
+    fastaseq = ''.join(target_array[bools].astype(str)).upper()
+
+    stat_output = open(stat_output_file_name, "w")
+    stat_output.write("FASTA_alignments " + str(len(alignment)) + "\n")
+    stat_output.write("Filtered_alignments " + str(sequences_passed_threshold) + "\n")
+    stat_output.close()
+
+    return fastaseq, sequences_passed_threshold
 
 def get_protein_sequence_from_pdb(pdb: str,
                                   chain: str
@@ -166,11 +273,45 @@ def download_alignment_PFAM(pfamID,download_all_alignment_files_status,
         PFAM_alignments_directory=alignment_files_directory
         
     alignment_file=f"{PFAM_alignments_directory}/{pfamID}_full.sto"
-    urllib.request.urlretrieve(f"https://www.ebi.ac.uk/interpro/api/entry/pfam/{pfamID}/?annotation=alignment:full", 
+    urllib.request.urlretrieve(f"https://www.ebi.ac.uk/interpro/api/entry/pfam/{pfamID}/?annotation=alignment:full",
                                alignment_file)
     return alignment_file
-    
 
+
+def create_alignment_jackhmmer_deprecated(sequence, pdb_name,
+                               database=f'{_path}/Uniprot_Sequence_Database_Files/uniprot_sprot.fasta',
+                               output_file=None,
+                               log_file=None):
+    """
+
+    :param sequence:
+    :param PDB Name:
+    :param database:
+    :param output_file:
+    :param log_file:
+    :return:
+    """
+    # TODO: pass options for jackhmmer
+    # jackhmmer and databases required
+    import subprocess
+    import tempfile
+
+    if output_file is None:
+        output = tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_alignment.sto')
+        output_file = output.name
+
+    with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_sequence.fa') as fasta_file:
+        fasta_file.write(f'>{pdb_name}\n{sequence}\n')
+        fasta_file.flush()
+        if log_file is None:
+            subprocess.call(
+                ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
+                 '--incE', '1E-10', fasta_file.name, database], stdout=subprocess.DEVNULL)
+        else:
+            with open(log_file, 'w') as log:
+                subprocess.call(
+                    ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
+                     '--incE', '1E-10', fasta_file.name, database], stdout=log)
 
 def create_alignment_jackhmmer(sequence, pdb_name,download_all_alignment_files_status,
                                alignment_files_directory,
@@ -213,7 +354,7 @@ def create_alignment_jackhmmer(sequence, pdb_name,download_all_alignment_files_s
                     ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
                      '--incE', '1E-10', fasta_file.name, database], stdout=log)
     return output.name
-                
+
 def convert_and_filter_alignment(alignment_file):
     """
     Filter PDB alignment
@@ -247,7 +388,7 @@ def convert_and_filter_alignment(alignment_file):
         aligned_sequence = [list(record.seq)[i] for i in range(len(list(record.seq))) if i not in index_mask]
         output_handle.write(">%s\n" % record.id + "".join(aligned_sequence) + '\n')
     output_handle.close()
-    
+
     output_file_name=f"{alignment_file_name}_gaps_filtered.fasta"
     return output_file_name
 
@@ -731,7 +872,7 @@ class PottsModel:
         self._native_energy = None
         self._decoy_fluctuation = {}
         return self
-    
+
     @classmethod
     def from_pdb_file(cls,
                       alignment_source: str,
@@ -811,7 +952,7 @@ class PottsModel:
         Returns PDBid from pdb name
         """
         return self._pdb_file.stem
-    
+
     @property
     def pfamID(self, value):
         """
@@ -864,6 +1005,25 @@ class PottsModel:
         self._distance_matrix_method = value
         self._native_energy = None
         self._decoy_fluctuation = {}
+
+    @property
+    def potts_model_file(self):
+        return self._potts_model_file
+
+    @potts_model_file.setter
+    def potts_model_file(self, value):
+        if value == None:
+            print("Generating PDB alignment using Jackhmmer")
+            create_alignment_jackhmmer(self.sequence, self.pdb_name,
+                                       output_file="dcaf_{}_alignment.sto".format(self.pdb_name))
+            convert_and_filter_alignment(self.pdb_name)
+            compute_plm(self.pdb_name)
+            raise ValueError("Need to generate potts model")
+        else:
+            self.potts_model = load_potts_model(value)
+            self._potts_model_file = value
+            self._native_energy = None
+            self._decoy_fluctuation = {}
 
     @property
     def potts_model(self):
