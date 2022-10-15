@@ -13,7 +13,7 @@ import urllib.request
 import scipy.io
 import subprocess
 from pathlib import Path
-# import pydca
+import pydca
 import logging
 import gzip
 
@@ -219,6 +219,41 @@ def get_protein_sequence_from_pdb(pdb: str,
     sequence = ''.join([Letter_code[r.resname] for r in residues])
     return sequence
 
+
+def get_distance_matrix_from_pdb(pdb_file: str,
+                                 chain: str,
+                                 method: str = 'minimum'
+                                 ) -> np.array:
+    """
+    Get a residue distance matrix from a pdb protein
+    :param pdb_file: PDB file location
+    :param chain: chain name of PDB file to get sequence
+    :param method: method to calculate the distance between residue [minimum, CA, CB]
+    :return: distance matrix
+    """
+    '''Returns the distance matrix of the aminoacids on a sequence. The distance used is
+    the minimum distance between two residues (for example the distance of the atoms on a H-bond)'''
+    structure = prody.parsePDB(pdb_file)
+    if method == 'CA':
+        selection = structure.select('protein and name CA', chain=chain)
+        distance_matrix = sdist.squareform(sdist.pdist(selection.getCoords()))
+        return distance_matrix
+    elif method == 'CB':
+        selection = structure.select('protein and (name CB) or (resname GLY and name CA)', chain=chain)
+        distance_matrix = sdist.squareform(sdist.pdist(selection.getCoords()))
+        return distance_matrix
+    elif method == 'minimum':
+        selection = structure.select('protein', chain=chain)
+        distance_matrix = sdist.squareform(sdist.pdist(selection.getCoords()))
+        resids = selection.getResindices()
+        residues = pd.Series(resids).unique()
+        selections = np.array([resids == a for a in residues])
+        dm = np.zeros((len(residues), len(residues)))
+        for i, j in itertools.combinations(range(len(residues)), 2):
+            d = distance_matrix[selections[i]][:, selections[j]].min()
+            dm[i, j] = d
+            dm[j, i] = d
+        return dm
 
 def generate_alignment(alignment_source,pfamID,sequence,pdb_name,
                        download_all_alignment_files_status,alignment_files_directory):
