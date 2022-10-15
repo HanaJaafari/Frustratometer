@@ -13,7 +13,7 @@ import urllib.request
 import scipy.io
 import subprocess
 from pathlib import Path
-import pydca
+# import pydca
 import logging
 import gzip
 
@@ -220,42 +220,8 @@ def get_protein_sequence_from_pdb(pdb: str,
     return sequence
 
 
-def get_distance_matrix_from_pdb(pdb_file: str,
-                                 chain: str,
-                                 method: str = 'minimum'
-                                 ) -> np.array:
-    """
-    Get a residue distance matrix from a pdb protein
-    :param pdb_file: PDB file location
-    :param chain: chain name of PDB file to get sequence
-    :param method: method to calculate the distance between residue [minimum, CA, CB]
-    :return: distance matrix
-    """
-    '''Returns the distance matrix of the aminoacids on a sequence. The distance used is
-    the minimum distance between two residues (for example the distance of the atoms on a H-bond)'''
-    structure = prody.parsePDB(pdb_file)
-    if method == 'CA':
-        selection = structure.select('protein and name CA', chain=chain)
-        distance_matrix = sdist.squareform(sdist.pdist(selection.getCoords()))
-        return distance_matrix
-    elif method == 'CB':
-        selection = structure.select('protein and (name CB) or (resname GLY and name CA)', chain=chain)
-        distance_matrix = sdist.squareform(sdist.pdist(selection.getCoords()))
-        return distance_matrix
-    elif method == 'minimum':
-        selection = structure.select('protein', chain=chain)
-        distance_matrix = sdist.squareform(sdist.pdist(selection.getCoords()))
-        resids = selection.getResindices()
-        residues = pd.Series(resids).unique()
-        selections = np.array([resids == a for a in residues])
-        dm = np.zeros((len(residues), len(residues)))
-        for i, j in itertools.combinations(range(len(residues)), 2):
-            d = distance_matrix[selections[i]][:, selections[j]].min()
-            dm[i, j] = d
-            dm[j, i] = d
-        return dm
-
-def generate_alignment(alignment_source,pfamID,sequence,pdb_name):
+def generate_alignment(alignment_source,pfamID,sequence,pdb_name,
+                       download_all_alignment_files_status,alignment_files_directory):
     """
     Generates gap-filtered alignment based on user input (options are Jackhmmer or PFAM)
 
@@ -270,18 +236,24 @@ def generate_alignment(alignment_source,pfamID,sequence,pdb_name):
         Alignment file name
     """
     if alignment_source=="PFAM":
-        alignment_file=download_alignment_PFAM(pfamID)
+        alignment_file=download_alignment_PFAM(pfamID,download_all_alignment_files_status,
+                                               alignment_files_directory)
     elif alignment_source=="jackhmmer":
-        alignment_file=create_alignment_jackhmmer(sequence,pdb_name)
+        alignment_file=create_alignment_jackhmmer(sequence,pdb_name,
+                                                  download_all_alignment_files_status,
+                                                  alignment_files_directory)
     else:
         print("Incorrect alignment type input")
         alignment_file=None
-
-    filtered_alignment_file=convert_and_filter_alignment(alignment_file)
+        
+    filtered_alignment_file=convert_and_filter_alignment(alignment_file,
+                                                         download_all_alignment_files_status,
+                                                         alignment_files_directory)
     return filtered_alignment_file
 
 
-def download_alignment_PFAM(pfamID):
+def download_alignment_PFAM(pfamID,download_all_alignment_files_status,
+                            alignment_files_directory):
     """
     Downloads and creates a pfam database in the Database folder
 
@@ -295,16 +267,11 @@ def download_alignment_PFAM(pfamID):
     alignment_path: Path
         Path of the alignments
     """
-
-    # Create database directory
-    databases_directory=f"{_path}/Databases"
-    PFAM_alignments_directory=f"{databases_directory}/PFAM_Full_Alignments"
-
-    if not os.path.exists(databases_directory):
-        os.mkdir(databases_directory)
-    if not os.path.exists(PFAM_alignments_directory):
-        os.mkdir(PFAM_alignments_directory)
-
+    if alignment_files_directory==None:
+        PFAM_alignments_directory=os.getcwd()
+    else:
+        PFAM_alignments_directory=alignment_files_directory
+        
     alignment_file=f"{PFAM_alignments_directory}/{pfamID}_full.sto"
     urllib.request.urlretrieve(f"https://www.ebi.ac.uk/interpro/api/entry/pfam/{pfamID}/?annotation=alignment:full",
                                alignment_file)
@@ -346,10 +313,9 @@ def create_alignment_jackhmmer_deprecated(sequence, pdb_name,
                     ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
                      '--incE', '1E-10', fasta_file.name, database], stdout=log)
 
-def create_alignment_jackhmmer(sequence, pdb_name,
-                               database=f'{_path}/Uniprot_Sequence_Database_Files/uniprot_sprot.fasta',
-                               output_file=None,
-                               log_file=None):
+def create_alignment_jackhmmer(sequence, pdb_name,download_all_alignment_files_status,
+                               alignment_files_directory,
+                               database=f'{_path}/Uniprot_Sequence_Database_Files/uniprot_sprot.fasta'):
     """
 
     :param sequence:
@@ -361,21 +327,19 @@ def create_alignment_jackhmmer(sequence, pdb_name,
     """
     # TODO: pass options for jackhmmer
     # jackhmmer and databases required
-
-    # Create database directory
-    databases_directory=f"{_path}/Databases"
-    jackhmmer_alignments_directory=f"{databases_directory}/Jackhmmer_Alignments"
-
-    if not os.path.exists(databases_directory):
-        os.mkdir(databases_directory)
-    if not os.path.exists(jackhmmer_alignments_directory):
-        os.mkdir(jackhmmer_alignments_directory)
-
+    
+    if alignment_files_directory==None:
+        jackhmmer_alignments_directory=os.getcwd()
+    else:
+        jackhmmer_alignments_directory=alignment_files_directory
+        
     import tempfile
 
-    if output_file is None:
+    if download_all_alignment_files_status is False:
         output = tempfile.NamedTemporaryFile(mode="w", prefix=pdb_name, suffix='_alignment.sto')
         output_file = output.name
+    else:
+        output_file=open(f"","w")
 
     with tempfile.NamedTemporaryFile(mode="w", prefix=pdb_name, suffix='_sequence.fa') as fasta_file:
         fasta_file.write(f'>{pdb_name}\n{sequence}\n')
@@ -914,6 +878,8 @@ class PottsModel:
                       alignment_source: str,
                       pdb_file: str,
                       chain: str,
+                      download_all_alignment_files_status=True,
+                      alignment_files_directory=None,
                       sequence_cutoff: typing.Union[float, None] = None,
                       distance_cutoff: typing.Union[float, None] = None,
                       distance_matrix_method='minimum'):
@@ -925,13 +891,16 @@ class PottsModel:
         self._pdb_file = Path(pdb_file)
         self._pdb_name=os.path.basedir(pdb_file)[:4]
         self._chain = chain
+        self._download_all_alignment_files_status = download_all_alignment_files_status
+        self._alignment_files_directory=alignment_files_directory
         self._sequence_cutoff = sequence_cutoff
         self._distance_cutoff = distance_cutoff
         self._distance_matrix_method = distance_matrix_method
 
         # Compute fast properties
         self._pfamID=get_pfamID(self.pdb_name,self.chain)
-        self._filtered_alignment_file=generate_alignment(self.alignment_source,self.pfamID,self.sequence,self.pdb_name)
+        self._filtered_alignment_file=generate_alignment(self.alignment_source,self.pfamID,self.sequence,self.pdb_name,
+                                                         self.download_all_alignment_files_status,self.alignment_files_directory)
         self._sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
         self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
         self.aa_freq = compute_aa_freq(self.sequence)
@@ -990,6 +959,10 @@ class PottsModel:
         Returns pfamID from pdb name
         """
         return self._pfamID
+
+    @property
+    def download_all_alignment_files_status(self, value):
+        return self._download_all_alignment_files_status
 
     @property
     def chain(self):
