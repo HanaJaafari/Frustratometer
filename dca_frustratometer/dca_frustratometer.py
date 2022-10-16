@@ -25,6 +25,70 @@ _AA = '-ACDEFGHIKLMNPQRSTVWY'
 # PFAM functions #
 ##################
 
+def create_directory(path):
+    # Create databases directory
+    databases_path = _path / 'databases'
+    if not databases_path.exists() and not databases_path.is_symlink():
+        logging.debug(f"Creating {databases_path}")
+        os.mkdir(databases_path)
+    return databases_path
+
+
+def create_pfam_database(name='PFAM_current',
+                         url="https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.full.uniprot.gz", ):
+    """
+    Downloads and creates a pfam database in the Database folder
+
+    Parameters
+    ----------
+    url :  str
+        Adress of pfam database
+    name: str
+        Name of the new database folder
+
+    Returns
+    -------
+    alignment_path: Path
+        Path of the alignments
+    """
+
+    # Create database directory
+    databases_path = create_directory(_path / 'databases')
+    data_path = create_directory(databases_path / name)
+    alignments_path = create_directory(data_path / 'Alignments')
+
+    # Get file name
+    file_name = url.split('/')[-1]
+
+    # Download pfam alignments
+    logging.debug(f"Downloading {url} to {data_path}/{file_name}")
+    urllib.request.urlretrieve(f"{url}", f"{data_path}/{file_name}")
+
+    # Split PFAM alignments
+    with gzip.open(f'{data_path}/{file_name}') as in_file:
+        new_lines = ''
+        acc = 'Unknown'
+        for line in in_file:
+            line = line.decode('utf-8')
+            if line.strip() == '//':
+                if len(new_lines) > 0:
+                    with open(f'{alignments_path}/{acc}.sto', 'w+') as out_file:
+                        logging.debug(f'{alignments_path}/{acc}.sto')
+                        out_file.write(new_lines)
+                new_lines = ''
+                acc = 'Unknown'
+                continue
+            new_lines += line
+            l = line.strip().split()
+            if len(l) == 3 and l[0] == "#=GF" and l[1] == "AC":
+                acc = l[2]
+        if len(new_lines) > 0:
+            with open(f'{alignments_path}/{acc}.sto', 'w+') as out_file:
+                logging.debug(f'{alignments_path}/{acc}.sto')
+                out_file.write(new_lines)
+    return alignments_path
+
+
 def get_pfamID(pdbID, chain):
     """
     Returns PFAM and Uniprot IDs
