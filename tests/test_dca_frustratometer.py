@@ -7,22 +7,32 @@ import sys
 import dca_frustratometer
 import numpy as np
 import os
+import tempfile
+from pathlib import Path
 
 
-# def test_create_pfam_database():
-#     alignments_path = dca_frustratometer.create_pfam_database(url='https://ftp.ebi.ac.uk/pub/databases/Pfam'
-#                                                                   '/current_release/Pfam-A.dead.gz',
-#                                                               name='test')
-#     assert (alignments_path / 'Unknown.sto').exists() is False
+def test_create_pfam_database():
+    alignments_path = dca_frustratometer.create_pfam_database(url='https://ftp.ebi.ac.uk/pub/databases/Pfam'
+                                                                  '/current_release/Pfam-A.dead.gz',
+                                                              name='test')
+    assert (alignments_path / 'Unknown.sto').exists() is False
+
+
 def test_get_alignment_from_database():
     pass
 
 
-def test_get_alignment_from_interpro():
-    output = dca_frustratometer.download_alignment_from_interpro('PF09696')
-    assert output.exists()
-    output_text = output.read_text()
-    assert "#=GF AC   PF09696" in output_text
+def test_transient_alignment_from_interpro():
+    with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as output_handle:
+        output = Path(output_handle.name)
+        assert output.exists()
+        output_text = output.read_text()
+        assert output_text==""
+        output = dca_frustratometer.download_alignment_from_interpro('PF09696',output)
+        assert output.exists()
+        output_text = output.read_text()
+        assert "#=GF AC   PF09696" in output_text
+    assert not output.exists()
 
 
 def test_filter_alignment():

@@ -25,6 +25,83 @@ _AA = '-ACDEFGHIKLMNPQRSTVWY'
 # PFAM functions #
 ##################
 
+def create_directory(path):
+    """
+    Creates a directory after checking it does not exists
+
+    Parameters
+    ----------
+    path :  str or Path
+        Location of the new directory
+    
+    Returns
+    -------
+    path: Path
+        Path of the new directory
+
+    """
+    path=Path(path)
+    if not path.exists() and not path.is_symlink():
+        logging.debug(f"Creating {path}")
+        Path.mkdir(path)
+    return path
+
+
+def create_pfam_database(name='PFAM_current',
+                         url="https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.full.uniprot.gz", ):
+    """
+    Downloads and creates a pfam database in the Database folder
+
+    Parameters
+    ----------
+    url :  str
+        Adress of pfam database
+    name: str
+        Name of the new database folder
+
+    Returns
+    -------
+    alignment_path: Path
+        Path of the alignments
+    """
+
+    # Create database directory
+    databases_path = create_directory(_path / 'databases')
+    data_path = create_directory(databases_path / name)
+    alignments_path = create_directory(data_path / 'Alignments')
+
+    # Get file name
+    file_name = url.split('/')[-1]
+
+    # Download pfam alignments
+    logging.debug(f"Downloading {url} to {data_path}/{file_name}")
+    urllib.request.urlretrieve(f"{url}", f"{data_path}/{file_name}")
+
+    # Split PFAM alignments
+    with gzip.open(f'{data_path}/{file_name}') as in_file:
+        new_lines = ''
+        acc = 'Unknown'
+        for line in in_file:
+            line = line.decode('utf-8')
+            if line.strip() == '//':
+                if len(new_lines) > 0:
+                    with open(f'{alignments_path}/{acc}.sto', 'w+') as out_file:
+                        logging.debug(f'{alignments_path}/{acc}.sto')
+                        out_file.write(new_lines)
+                new_lines = ''
+                acc = 'Unknown'
+                continue
+            new_lines += line
+            l = line.strip().split()
+            if len(l) == 3 and l[0] == "#=GF" and l[1] == "AC":
+                acc = l[2]
+        if len(new_lines) > 0:
+            with open(f'{alignments_path}/{acc}.sto', 'w+') as out_file:
+                logging.debug(f'{alignments_path}/{acc}.sto')
+                out_file.write(new_lines)
+    return alignments_path
+
+
 def get_pfamID(pdbID, chain):
     """
     Returns PFAM and Uniprot IDs
@@ -66,8 +143,8 @@ def get_pfam_map(pdbID, chain):
 
 
 def download_alignment_from_interpro(pfamID,
-                                     alignment_type='uniprot',
-                                     output_file=None):
+                                     output_file=None,
+                                     alignment_type='uniprot'):
     """'
     Retrieves a pfam family alignment from interpro
 
@@ -94,7 +171,7 @@ def download_alignment_from_interpro(pfamID,
     logging.debug(f'Downloading {url} to {output_file}')
 
     if output_file is None:
-        output = tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro_alignment.sto')
+        output = tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto')
         output_file = Path(output.name)
     else:
         output_file = Path(output_file)
@@ -102,6 +179,50 @@ def download_alignment_from_interpro(pfamID,
     output = urlopen(url).read()
     alignment = gzip.decompress(output)
     output_file.write_bytes(alignment)
+    return output_file
+
+def filter_alignment(alignment_file, 
+                     output_file = None,
+                     alignment_format = "stockholm"):
+    """
+    Filter PDB alignment
+    :param alignment_file
+    :return: 
+    """
+    '''Returns PDB MSA (fasta format) with column-spanning gaps and insertions removed'''
+    import tempfile
+
+    # Parse the alignment
+    alignment = AlignIO.read(alignment_file, alignment_format)
+
+    # Create a numpy array of the alignment
+    alignment_array=[]
+    for record in alignment:
+        alignment_array+=[np.array(record.seq)]
+    alignment_array=np.array(alignment_array)
+
+    # Substitute lower case letters with gaps
+    for letter in np.unique(alignment_array):
+        if letter!=letter.upper():
+            alignment_array[alignment_array==letter]='-'
+
+    # Take only columns that are not all gaps
+    not_all_gaps=(alignment_array=='-').sum(axis=0)<len(alignment_array)
+    new_alignment=alignment_array[:,not_all_gaps]
+
+    # Create temporary file if needed
+    if output_file is None:
+        # Temporary file
+        output = tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_alignment.fa', delete=False)
+        output_file = Path(output.name)
+    else:
+        # Other file
+        output_file = Path(output_file)
+
+    # Write filtered alignment to file
+    for record,new_seq in zip(alignment,new_alignment):
+        output_file.write_text(f">{record.id}\n{''.join(new_seq)}\n")
+        
     return output_file
 
 
@@ -427,6 +548,8 @@ def convert_and_filter_alignment(alignment_file,download_all_alignment_files_sta
 
     output_file_name=f"{alignment_file_name}_gaps_filtered.fasta"
     return output_file_name
+
+
 
 
 def compute_plm(protein_name, reweighting_threshold=0.1, nr_of_cores=1):
