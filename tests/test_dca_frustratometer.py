@@ -45,16 +45,7 @@ def test_create_potts_model_from_aligment():
          tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered.fa') as filtered_file:
         dca_frustratometer.download_alignment_from_interpro("PF09696", alignment_file.name)
         dca_frustratometer.filter_alignment(alignment_file.name, filtered_file.name)
-        plmdca_inst = pydca.plmdca.PlmDCA(filtered_file.name,
-                                        'protein',
-                                        seqid=0.8,
-                                        lambda_h=1.0,
-                                        lambda_J=20.0,
-                                        num_threads=10,
-                                        max_iterations=500,
-                                        )
-        
-        potts_model = plmdca_inst.get_potts_model()
+        potts_model = dca_frustratometer.create_pottsmodel_from_alignment_pydca(filtered_file.name)
     assert 'h' in potts_model.keys()
     assert 'J' in potts_model.keys()
 
@@ -71,7 +62,7 @@ def test_identify_pfamID():
     assert pfamID=="PF00160"
     
 def test_download_pfam_alignment():
-    alignment_file = dca_frustratometer.download_alignment_PFAM("PF00160",download_all_alignment_files_status=True,alignment_files_directory=os.getcwd())
+    alignment_file = dca_frustratometer.download_alignment_PFAM("PF09696",download_all_alignment_files_status=True,alignment_files_directory=os.getcwd())
     assert os.path.exists(alignment_file)
     
 def test_aligment_filtration():
@@ -80,31 +71,31 @@ def test_aligment_filtration():
     assert filtered_alignment_file.exists()
 
 def test_functional_compute_native_energy():
-    seq = dca_frustratometer.get_protein_sequence_from_pdb('examples/data/1l63.pdb', 'A')
-    distance_matrix = dca_frustratometer.get_distance_matrix_from_pdb('examples/data/1l63.pdb', 'A')
-    potts_model = dca_frustratometer.load_potts_model('examples/data/PottsModel1l63A.mat')
+    seq = dca_frustratometer.get_protein_sequence_from_pdb('examples/data/1cyo.pdb', 'A')
+    distance_matrix = dca_frustratometer.get_distance_matrix_from_pdb('examples/data/1cyo.pdb', 'A')
+    potts_model = dca_frustratometer.load_potts_model('examples/data/PottsModel1cyoA.mat')
     mask = dca_frustratometer.compute_mask(distance_matrix, distance_cutoff=4, sequence_distance_cutoff=0)
     e = dca_frustratometer.compute_native_energy(seq, potts_model, mask)
-    assert np.round(e, 4) == -92.7688
+    assert np.round(e, 4) == -61.5248
 
 
 def test_OOP_compute_native_energy():
-    pdb_file = 'examples/data/1l63.pdb'
+    pdb_file = 'examples/data/1cyo.pdb'
     chain = 'A'
-    potts_model_file = 'examples/data/PottsModel1l63A.mat'
+    potts_model_file = 'examples/data/PottsModel1cyoA.mat'
     model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_file, pdb_file, chain, distance_cutoff=4,
                                                                 sequence_cutoff=0)
     e = model.native_energy()
-    assert np.round(e, 4) == -92.7688
+    assert np.round(e, 4) == -61.5248
 
 
 def test_scores():
-    pdb_file = 'examples/data/1l63.pdb'
+    pdb_file = 'examples/data/1cyo.pdb'
     chain = 'A'
-    potts_model_file = 'examples/data/PottsModel1l63A.mat'
+    potts_model_file = 'examples/data/PottsModel1cyoA.mat'
     model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_file, pdb_file, chain, distance_cutoff=4,
                                                                 sequence_cutoff=0)
-    assert np.round(model.scores()[30, 40], 5) == -0.03384
+    assert np.round(model.scores()[30, 40], 5) == -0.02234
 
 
 def test_compute_singleresidue_decoy_energy():
@@ -112,9 +103,9 @@ def test_compute_singleresidue_decoy_energy():
     pos_x = 30
     distance_cutoff = 4
     sequence_cutoff = 0
-    distance_matrix = dca_frustratometer.get_distance_matrix_from_pdb('examples/data/1l63.pdb', 'A')
-    potts_model = dca_frustratometer.load_potts_model('examples/data/PottsModel1l63A.mat')
-    seq = dca_frustratometer.get_protein_sequence_from_pdb('examples/data/1l63.pdb', 'A')
+    distance_matrix = dca_frustratometer.get_distance_matrix_from_pdb('examples/data/1cyo.pdb', 'A')
+    potts_model = dca_frustratometer.load_potts_model('examples/data/PottsModel1cyoA.mat')
+    seq = dca_frustratometer.get_protein_sequence_from_pdb('examples/data/1cyo.pdb', 'A')
     mask = dca_frustratometer.compute_mask(distance_matrix, distance_cutoff, sequence_cutoff)
     AA = '-ACDEFGHIKLMNPQRSTVWY'
     seq = [aa for aa in seq]
@@ -132,9 +123,9 @@ def test_compute_mutational_decoy_energy():
     pos_y = 69
     distance_cutoff = 4
     sequence_cutoff = 0
-    distance_matrix = dca_frustratometer.get_distance_matrix_from_pdb('examples/data/1l63.pdb', 'A')
-    potts_model = dca_frustratometer.load_potts_model('examples/data/PottsModel1l63A.mat')
-    seq = dca_frustratometer.get_protein_sequence_from_pdb('examples/data/1l63.pdb', 'A')
+    distance_matrix = dca_frustratometer.get_distance_matrix_from_pdb('examples/data/1cyo.pdb', 'A')
+    potts_model = dca_frustratometer.load_potts_model('examples/data/PottsModel1cyoA.mat')
+    seq = dca_frustratometer.get_protein_sequence_from_pdb('examples/data/1cyo.pdb', 'A')
     mask = dca_frustratometer.compute_mask(distance_matrix, distance_cutoff, sequence_cutoff)
     AA = '-ACDEFGHIKLMNPQRSTVWY'
     seq = [aa for aa in seq]
