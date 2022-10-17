@@ -64,11 +64,12 @@ def test_identify_pfamID():
 def test_download_pfam_alignment():
     alignment_file = dca_frustratometer.download_alignment_PFAM("PF09696",download_all_alignment_files_status=True,alignment_files_directory=os.getcwd())
     assert os.path.exists(alignment_file)
-    
-def test_aligment_filtration():
-    alignment_file = dca_frustratometer.download_alignment_from_interpro("PF09696")
-    filtered_alignment_file = dca_frustratometer.filter_alignment(alignment_file)
-    assert filtered_alignment_file.exists()
+
+#Takes too long to run 
+# def test_aligment_filtration():
+#     alignment_file = dca_frustratometer.download_alignment_PFAM("PF00160",download_all_alignment_files_status=True,alignment_files_directory=os.getcwd())
+#     filtered_alignment_file = dca_frustratometer.convert_and_filter_alignment(alignment_file,download_all_alignment_files_status=True,alignment_files_directory=os.getcwd())
+#     assert os.path.exists(filtered_alignment_file)
 
 def test_functional_compute_native_energy():
     seq = dca_frustratometer.get_protein_sequence_from_pdb('examples/data/1cyo.pdb', 'A')
