@@ -1089,7 +1089,7 @@ class PottsModel:
     @classmethod
     def from_alignment(cls):
         # Compute dca
-        import pydca
+        import pydca.plmdca
         plmdca_inst = pydca.plmdca.PlmDCA(
             new_alignment_file,
             'protein',

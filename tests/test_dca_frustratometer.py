@@ -40,7 +40,6 @@ def test_filter_alignment():
 
 
 def test_create_potts_model_from_aligment():
-    import pydca
     with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as alignment_file,\
          tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered.fa') as filtered_file:
         dca_frustratometer.download_alignment_from_interpro("PF09696", alignment_file.name)
