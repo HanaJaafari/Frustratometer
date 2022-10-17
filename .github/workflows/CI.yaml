@@ -43,18 +43,18 @@ jobs:
 #      with:
 #        path: main
     
-    - name: Generate lfs file list
-      run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
+    # - name: Generate lfs file list
+    #   run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
     
-    - name: Restore lfs cache
-      uses: actions/cache@v2
-      id: lfs-cache
-      with:
-        path: .git/lfs
-        key: ${{ runner.os }}-lfs-${{ hashFiles('.lfs-assets-id') }}-v1
+    # - name: Restore lfs cache
+    #   uses: actions/cache@v2
+    #   id: lfs-cache
+    #   with:
+    #     path: .git/lfs
+    #     key: ${{ runner.os }}-lfs-${{ hashFiles('.lfs-assets-id') }}-v1
     
-    - name: Pull lfs files
-      run: git lfs pull
+    # - name: Pull lfs files
+    #   run: git lfs pull
     
     
 #    - name: Change to main directory
