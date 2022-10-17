@@ -7,6 +7,8 @@ import sys
 import dca_frustratometer
 import numpy as np
 import os
+import tempfile
+from pathlib import Path
 
 
 def test_create_pfam_database():
@@ -20,11 +22,17 @@ def test_get_alignment_from_database():
     pass
 
 
-def test_get_alignment_from_interpro():
-    output = dca_frustratometer.download_alignment_from_interpro('PF09696')
-    assert output.exists()
-    output_text = output.read_text()
-    assert "#=GF AC   PF09696" in output_text
+def test_transient_alignment_from_interpro():
+    with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as output_handle:
+        output = Path(output_handle.name)
+        assert output.exists()
+        output_text = output.read_text()
+        assert output_text==""
+        output = dca_frustratometer.download_alignment_from_interpro('PF09696',output)
+        assert output.exists()
+        output_text = output.read_text()
+        assert "#=GF AC   PF09696" in output_text
+    assert not output.exists()
 
 
 def test_filter_alignment():
@@ -63,9 +71,9 @@ def test_download_pfam_alignment():
     assert os.path.exists(alignment_file)
     
 def test_aligment_filtration():
-    alignment_file = dca_frustratometer.download_alignment_PFAM("PF00160",download_all_alignment_files_status=True,alignment_files_directory=os.getcwd())
-    filtered_alignment_file = dca_frustratometer.convert_and_filter_alignment(alignment_file)
-    assert os.path.exists(filtered_alignment_file)
+    alignment_file = dca_frustratometer.download_alignment_from_interpro("PF09696")
+    filtered_alignment_file = dca_frustratometer.filter_alignment(alignment_file)
+    assert filtered_alignment_file.exists()
 
 def test_functional_compute_native_energy():
     seq = dca_frustratometer.get_protein_sequence_from_pdb('examples/data/1l63.pdb', 'A')
