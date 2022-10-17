@@ -13,7 +13,7 @@ import urllib.request
 import scipy.io
 import subprocess
 from pathlib import Path
-import pydca
+# import pydca
 import logging
 import gzip
 
@@ -308,8 +308,9 @@ def download_alignment_PFAM(pfamID,download_all_alignment_files_status,
         PFAM_alignments_directory=alignment_files_directory
         
     alignment_file=f"{PFAM_alignments_directory}/{pfamID}_full.sto"
-    urllib.request.urlretrieve(f"https://www.ebi.ac.uk/interpro/api/entry/pfam/{pfamID}/?annotation=alignment:full",
-                               alignment_file)
+    urllib.request.urlretrieve(f"https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/{pfamID}/?annotation=alignment:full&download",
+                               f"{alignment_file}.gz")
+    subprocess.run(["gunzip",f"{alignment_file}.gz"])
     return alignment_file
 
 
@@ -390,7 +391,7 @@ def create_alignment_jackhmmer(sequence, pdb_name,download_all_alignment_files_s
                      '--incE', '1E-10', fasta_file.name, database], stdout=log)
     return output.name
 
-def convert_and_filter_alignment(alignment_file):
+def convert_and_filter_alignment(alignment_file,download_all_alignment_files_status,alignment_files_directory):
     """
     Filter PDB alignment
     :param alignment_file
