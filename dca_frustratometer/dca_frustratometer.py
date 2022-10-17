@@ -391,10 +391,12 @@ def get_distance_matrix_from_pdb(pdb_file: str,
             dm[j, i] = d
         return dm
 
-def generate_alignment(alignment_source,pfamID,sequence,pdb_name,
-                       download_all_alignment_files_status,alignment_files_directory):
+def generate_filtered_alignment(alignment_source,pfamID,sequence,pdb_name,download_all_alignment_files_status,alignment_files_directory):
     """
-    Generates gap-filtered alignment based on user input (options are Jackhmmer or PFAM)
+    Generates gap-filtered alignment based on user input.
+    Options are generating an alignment using Jackhmmer (select "alignment_source='jackhmmer'")
+    or downloading generated PFAM (select "alignment_source='PFAM'") 
+    or Uniprot alignments (select "alignment_source='uniprot'").
 
     Parameters
     ----------
@@ -406,9 +408,8 @@ def generate_alignment(alignment_source,pfamID,sequence,pdb_name,
     alignment_file_name: str
         Alignment file name
     """
-    if alignment_source=="PFAM":
-        alignment_file=download_alignment_PFAM(pfamID,download_all_alignment_files_status,
-                                               alignment_files_directory)
+    if alignment_source=="PFAM" or alignment_source=="uniprot":
+        alignment_file=download_alignment_PFAM_or_uniprot(pfamID,alignment_source,download_all_alignment_files_status,alignment_files_directory)
     elif alignment_source=="jackhmmer":
         alignment_file=create_alignment_jackhmmer(sequence,pdb_name,
                                                   download_all_alignment_files_status,
@@ -416,17 +417,19 @@ def generate_alignment(alignment_source,pfamID,sequence,pdb_name,
     else:
         print("Incorrect alignment type input")
         alignment_file=None
-        
-    filtered_alignment_file=convert_and_filter_alignment(alignment_file,
-                                                         download_all_alignment_files_status,
-                                                         alignment_files_directory)
+    
+    if not alignment_file==None:
+        filtered_alignment_file=convert_and_filter_alignment(alignment_file,
+                                                            download_all_alignment_files_status,
+                                                            alignment_files_directory)
+    else:
+        filtered_alignment_file=None
     return filtered_alignment_file
 
 
-def download_alignment_PFAM(pfamID,download_all_alignment_files_status,
-                            alignment_files_directory):
+def download_alignment_PFAM_or_uniprot(pfamID,alignment_source,download_all_alignment_files_status,alignment_files_directory):
     """
-    Downloads and creates a pfam database in the Database folder
+    Downloads family PFAM or uniprot alignment from Interpro database
 
     Parameters
     ----------
@@ -442,11 +445,15 @@ def download_alignment_PFAM(pfamID,download_all_alignment_files_status,
         PFAM_alignments_directory=os.getcwd()
     else:
         PFAM_alignments_directory=alignment_files_directory
-        
-    alignment_file=f"{PFAM_alignments_directory}/{pfamID}_full.sto"
-    urllib.request.urlretrieve(f"https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/{pfamID}/?annotation=alignment:full&download",
+    
+    if alignment_source=="PFAM":
+        alignment_source="full"
+    alignment_file=f"{PFAM_alignments_directory}/{pfamID}_{alignment_source}.sto"
+    
+    urllib.request.urlretrieve(f"https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/{pfamID}/?annotation=alignment:{alignment_source}&download",
                                f"{alignment_file}.gz")
     subprocess.run(["gunzip",f"{alignment_file}.gz"])
+
     return alignment_file
 
 
@@ -563,8 +570,6 @@ def convert_and_filter_alignment(alignment_file,download_all_alignment_files_sta
 
     output_file_name=f"{alignment_file_name}_gaps_filtered.fasta"
     return output_file_name
-
-
 
 
 def compute_plm(protein_name, reweighting_threshold=0.1, nr_of_cores=1):
@@ -1073,8 +1078,7 @@ class PottsModel:
 
         # Compute fast properties
         self._pfamID=get_pfamID(self.pdb_name,self.chain)
-        self._filtered_alignment_file=generate_alignment(self.alignment_source,self.pfamID,self.sequence,self.pdb_name,
-                                                         self.download_all_alignment_files_status,self.alignment_files_directory)
+        self._filtered_alignment_file=generate_filtered_alignment(self.alignment_source,self.pfamID,self.sequence,self.pdb_name,self.download_all_alignment_files_status,self.alignment_files_directory)
         self._sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
         self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
         self.aa_freq = compute_aa_freq(self.sequence)
@@ -1128,6 +1132,14 @@ class PottsModel:
         return self._pdb_file.stem
 
     @property
+    def chain(self):
+        return self._chain
+
+    @chain.setter
+    def chain(self, value):
+        self._chain = value
+
+    @property
     def pfamID(self, value):
         """
         Returns pfamID from pdb name
@@ -1135,16 +1147,16 @@ class PottsModel:
         return self._pfamID
 
     @property
+    def alignment_source(self, value):
+        return self._alignment_source
+
+    @property
     def download_all_alignment_files_status(self, value):
         return self._download_all_alignment_files_status
 
     @property
-    def chain(self):
-        return self._chain
-
-    @chain.setter
-    def chain(self, value):
-        self._chain = value
+    def alignment_files_directory(self, value):
+        return self._alignment_files_directory
 
     @property
     def sequence_cutoff(self):
