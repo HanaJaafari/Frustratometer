@@ -41,18 +41,22 @@ def test_filter_alignment():
 
 def test_create_potts_model_from_aligment():
     import pydca
-    # plmdca_inst = pydca.plmdca.PlmDCA('examples/data/PF09696.sto',
-    #                                   'protein',
-    #                                   seqid=0.8,
-    #                                   lambda_h=1.0,
-    #                                   lambda_J=20.0,
-    #                                   num_threads=10,
-    #                                   max_iterations=500,
-    #                                   )
-    #
-    # # compute DCA scores summarized by Frobenius norm and average product corrected
-    # potts_model = plmdca_inst.get_potts_model()
-
+    with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as alignment_file,\
+         tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered.fa') as filtered_file:
+        dca_frustratometer.download_alignment_from_interpro("PF09696", alignment_file.name)
+        dca_frustratometer.filter_alignment(alignment_file.name, filtered_file.name)
+        plmdca_inst = pydca.plmdca.PlmDCA(filtered_file.name,
+                                        'protein',
+                                        seqid=0.8,
+                                        lambda_h=1.0,
+                                        lambda_J=20.0,
+                                        num_threads=10,
+                                        max_iterations=500,
+                                        )
+        
+        potts_model = plmdca_inst.get_potts_model()
+    assert 'h' in potts_model.keys()
+    assert 'J' in potts_model.keys()
 
 def test_create_potts_model_from_pdb():
     pass
