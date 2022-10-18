@@ -417,7 +417,6 @@ def generate_filtered_alignment(alignment_source,pfamID,sequence,pdb_name,downlo
                                                   alignment_files_directory)
     else:
         print("Incorrect alignment type input")
-        alignment_file=None
     
     if not alignment_file==None:
         filtered_alignment_file=convert_and_filter_alignment(alignment_file,
@@ -442,23 +441,17 @@ def download_alignment_PFAM_or_uniprot(pfamID,alignment_source,download_all_alig
     alignment_path: Path
         Path of the alignments
     """
-    if alignment_files_directory==None:
-        PFAM_alignments_directory=os.getcwd()
-    else:
-        PFAM_alignments_directory=alignment_files_directory
-
     url = f'https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/{pfamID}/?annotation=alignment:{alignment_source}&download'
-    # logging.debug(f'Downloading {url} to {alignment_file}')
 
     if download_all_alignment_files_status is None:
-        output = tempfile.NamedTemporaryFile(mode="w", prefix=f"{pfamID}_", suffix=f'_{alignment_source}.sto',dir=PFAM_alignments_directory)
+        output = tempfile.NamedTemporaryFile(mode="w", prefix=f"{pfamID}_", suffix=f'_{alignment_source}.sto',dir=alignment_files_directory,delete=False)
         output_file = Path(output.name)
     else:
         output_file = Path(f"{alignment_files_directory}/{pfamID}_{alignment_source}.sto")
     
-    output = urllib.request.urlopen(url).read()
-    alignment = gzip.decompress(output)
-    output_file.write_bytes(alignment)
+    zipped_alignment = urllib.request.urlopen(url).read()
+    unzipped_alignment = gzip.decompress(zipped_alignment)
+    output_file.write_bytes(unzipped_alignment)
     return output_file
 
 
@@ -546,15 +539,12 @@ def convert_and_filter_alignment(alignment_file,download_all_alignment_files_sta
     :return: 
     """
     '''Returns PDB MSA (fasta format) with column-spanning gaps and insertions removed'''
-    alignment_file_name=alignment_file.replace(".sto","")
+    alignment_file_name=alignment_file.name.replace(".sto","")
     # Convert full MSA in stockholm format to fasta format
-    input_handle = open(f"{alignment_file_name}.sto", "rU")
     output_handle = open(f"{alignment_file_name}.fasta", "w")
-
-    alignments = AlignIO.parse(input_handle, "stockholm")
+    alignments = AlignIO.parse(alignment_file, "stockholm")
     AlignIO.write(alignments, output_handle, "fasta")
     output_handle.close()
-    input_handle.close()
 
     # Remove inserts and columns that are completely composed of gaps from MSA
     alignment = AlignIO.read(f"{alignment_file_name}.fasta", "fasta")

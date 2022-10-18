@@ -60,9 +60,9 @@ def test_identify_pfamID():
     pfamID = dca_frustratometer.get_pfamID("6U5E","A")
     assert pfamID=="PF00160"
     
-def test_download_pfam_alignment():
-    alignment_file = dca_frustratometer.download_alignment_PFAM_or_uniprot("PF09696",alignment_source="full",download_all_alignment_files_status=True,alignment_files_directory=os.getcwd())
-    assert os.path.exists(alignment_file)
+def test_pfam_alignment_filtration():
+    alignment_file = dca_frustratometer.generate_filtered_alignment(pfamID="PF09696",alignment_source="full",sequence=None,pdb_name=None,download_all_alignment_files_status=None,alignment_files_directory=os.getcwd())
+    assert alignment_file.isfile()
 
 def test_aligment_filtration():
     alignment_file = dca_frustratometer.download_alignment_from_interpro("PF09696")
