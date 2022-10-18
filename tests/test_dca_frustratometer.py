@@ -61,7 +61,7 @@ def test_identify_pfamID():
     assert pfamID=="PF00160"
     
 def test_download_pfam_alignment():
-    alignment_file = dca_frustratometer.download_alignment_PFAM("PF09696",download_all_alignment_files_status=True,alignment_files_directory=os.getcwd())
+    alignment_file = dca_frustratometer.download_alignment_PFAM_or_uniprot("PF09696",alignment_source="full",download_all_alignment_files_status=True,alignment_files_directory=os.getcwd())
     assert os.path.exists(alignment_file)
 
 def test_aligment_filtration():

@@ -13,9 +13,10 @@ import urllib.request
 import scipy.io
 import subprocess
 from pathlib import Path
-import pydca.plmdca
+# import pydca.plmdca
 import logging
 import gzip
+import tempfile
 
 _path = Path(__file__).parent.absolute()
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
@@ -395,7 +396,7 @@ def generate_filtered_alignment(alignment_source,pfamID,sequence,pdb_name,downlo
     """
     Generates gap-filtered alignment based on user input.
     Options are generating an alignment using Jackhmmer (select "alignment_source='jackhmmer'")
-    or downloading generated PFAM (select "alignment_source='PFAM'") 
+    or downloading generated PFAM (select "alignment_source='full'") 
     or Uniprot alignments (select "alignment_source='uniprot'").
 
     Parameters
@@ -408,7 +409,7 @@ def generate_filtered_alignment(alignment_source,pfamID,sequence,pdb_name,downlo
     alignment_file_name: str
         Alignment file name
     """
-    if alignment_source=="PFAM" or alignment_source=="uniprot":
+    if alignment_source=="full" or alignment_source=="uniprot":
         alignment_file=download_alignment_PFAM_or_uniprot(pfamID,alignment_source,download_all_alignment_files_status,alignment_files_directory)
     elif alignment_source=="jackhmmer":
         alignment_file=create_alignment_jackhmmer(sequence,pdb_name,
@@ -445,16 +446,20 @@ def download_alignment_PFAM_or_uniprot(pfamID,alignment_source,download_all_alig
         PFAM_alignments_directory=os.getcwd()
     else:
         PFAM_alignments_directory=alignment_files_directory
-    
-    if alignment_source=="PFAM":
-        alignment_source="full"
-    alignment_file=f"{PFAM_alignments_directory}/{pfamID}_{alignment_source}.sto"
-    
-    urllib.request.urlretrieve(f"https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/{pfamID}/?annotation=alignment:{alignment_source}&download",
-                               f"{alignment_file}.gz")
-    subprocess.run(["gunzip",f"{alignment_file}.gz"])
 
-    return alignment_file
+    url = f'https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/{pfamID}/?annotation=alignment:{alignment_source}&download'
+    # logging.debug(f'Downloading {url} to {alignment_file}')
+
+    if download_all_alignment_files_status is None:
+        output = tempfile.NamedTemporaryFile(mode="w", prefix=f"{pfamID}_", suffix=f'_{alignment_source}.sto',dir=PFAM_alignments_directory)
+        output_file = Path(output.name)
+    else:
+        output_file = Path(f"{alignment_files_directory}/{pfamID}_{alignment_source}.sto")
+    
+    output = urllib.request.urlopen(url).read()
+    alignment = gzip.decompress(output)
+    output_file.write_bytes(alignment)
+    return output_file
 
 
 def create_alignment_jackhmmer_deprecated(sequence, pdb_name,
@@ -585,16 +590,16 @@ def compute_plm(protein_name, reweighting_threshold=0.1, nr_of_cores=1):
     # See: https://www.mathworks.com/help/matlab/call-mex-functions.html
     try:
         import matlab.engine
+        eng = matlab.engine.start_matlab()
+        eng.addpath('%s/plmDCA_asymmetric_v2_with_h' % _path, nargout=0)
+        eng.addpath('%s/plmDCA_asymmetric_v2_with_h/functions' % _path, nargout=0)
+        eng.addpath('%s/plmDCA_asymmetric_v2_with_h/3rd_party_code/minFunc' % _path, nargout=0)
+        print('plmDCA_asymmetric', protein_name, reweighting_threshold, nr_of_cores)
+        eng.plmDCA_asymmetric(protein_name, reweighting_threshold, nr_of_cores, nargout=0)  # , stdout=out )
     except ImportError:
         subprocess.call(['matlab', '-nodisplay', '-r',
                          f"plmDCA_asymmetric({protein_name},{reweighting_threshold},{nr_of_cores},nargout=0);quit"])
 
-    eng = matlab.engine.start_matlab()
-    eng.addpath('%s/plmDCA_asymmetric_v2_with_h' % _path, nargout=0)
-    eng.addpath('%s/plmDCA_asymmetric_v2_with_h/functions' % _path, nargout=0)
-    eng.addpath('%s/plmDCA_asymmetric_v2_with_h/3rd_party_code/minFunc' % _path, nargout=0)
-    print('plmDCA_asymmetric', protein_name, reweighting_threshold, nr_of_cores)
-    eng.plmDCA_asymmetric(protein_name, reweighting_threshold, nr_of_cores, nargout=0)  # , stdout=out )
 
 
 def load_potts_model(potts_model_file):
