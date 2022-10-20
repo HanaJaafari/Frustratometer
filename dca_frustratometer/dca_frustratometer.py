@@ -13,7 +13,7 @@ import urllib.request
 import scipy.io
 import subprocess
 from pathlib import Path
-# import pydca.plmdca
+import pydca.plmdca
 import logging
 import gzip
 import tempfile
