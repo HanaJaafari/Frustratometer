@@ -39,14 +39,14 @@ def test_filter_alignment():
     pass
 
 
-def test_create_potts_model_from_aligment():
-    with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as alignment_file,\
-         tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered.fa') as filtered_file:
-        dca_frustratometer.download_alignment_from_interpro("PF09696", alignment_file.name)
-        dca_frustratometer.filter_alignment(alignment_file.name, filtered_file.name)
-        potts_model = dca_frustratometer.create_pottsmodel_from_alignment_pydca(filtered_file.name)
-    assert 'h' in potts_model.keys()
-    assert 'J' in potts_model.keys()
+# def test_create_potts_model_from_aligment():
+#     with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as alignment_file,\
+#          tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered.fa') as filtered_file:
+#         dca_frustratometer.download_alignment_from_interpro("PF09696", alignment_file.name)
+#         dca_frustratometer.filter_alignment(alignment_file.name, filtered_file.name)
+#         potts_model = dca_frustratometer.create_pottsmodel_from_alignment_pydca(filtered_file.name)
+#     assert 'h' in potts_model.keys()
+#     assert 'J' in potts_model.keys()
 
 def test_create_potts_model_from_pdb():
     pass
@@ -60,9 +60,9 @@ def test_identify_pfamID():
     pfamID = dca_frustratometer.get_pfamID("6U5E","A")
     assert pfamID=="PF00160"
     
-def test_pfam_alignment_filtration():
-    alignment_file = dca_frustratometer.generate_filtered_alignment(pfamID="PF09696",alignment_source="full",sequence=None,pdb_name=None,download_all_alignment_files_status=None,alignment_files_directory=os.getcwd())
-    assert alignment_file.isfile()
+# def test_pfam_alignment_filtration():
+#     alignment_file = dca_frustratometer.generate_filtered_alignment(pfamID="PF09696",alignment_source="full",sequence=None,pdb_name=None,download_all_alignment_files_status=None,alignment_files_directory=os.getcwd())
+#     assert alignment_file.isfile()
 
 def test_aligment_filtration():
     alignment_file = dca_frustratometer.download_alignment_from_interpro("PF09696")
