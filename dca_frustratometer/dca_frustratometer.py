@@ -392,66 +392,75 @@ def get_distance_matrix_from_pdb(pdb_file: str,
             dm[j, i] = d
         return dm
 
-def generate_filtered_alignment(alignment_source,pfamID,sequence,pdb_name,download_all_alignment_files_status,alignment_files_directory):
-    """
-    Generates gap-filtered alignment based on user input.
-    Options are generating an alignment using Jackhmmer (select "alignment_source='jackhmmer'")
-    or downloading generated PFAM (select "alignment_source='full'") 
-    or Uniprot alignments (select "alignment_source='uniprot'").
 
-    Parameters
-    ----------
-    alignment_source :  str
-        Protein alignment source
-
-    Returns
-    -------
-    alignment_file_name: str
-        Alignment file name
-    """
-    if alignment_source=="full" or alignment_source=="uniprot":
-        alignment_file=download_alignment_PFAM_or_uniprot(pfamID,alignment_source,download_all_alignment_files_status,alignment_files_directory)
-    elif alignment_source=="jackhmmer":
-        alignment_file=create_alignment_jackhmmer(sequence,pdb_name,
-                                                  download_all_alignment_files_status,
-                                                  alignment_files_directory)
-    else:
-        print("Incorrect alignment type input")
-    
-    if not alignment_file==None:
-        filtered_alignment_file=convert_and_filter_alignment(alignment_file,
-                                                            download_all_alignment_files_status,
-                                                            alignment_files_directory)
-    else:
-        filtered_alignment_file=None
-    return filtered_alignment_file
-
-
-def download_alignment_PFAM_or_uniprot(pfamID,alignment_source,download_all_alignment_files_status,alignment_files_directory):
+def generate_alignment(pdb_name,pfamID,pdb_sequence=None,
+    alignment_source="full",download_all_alignment_files=False,alignment_files_directory=os.getcwd(),
+    jackhmmer_alignment_output_file=False,jackhmmer_sequence_database="swissprot"):
     """
     Downloads family PFAM or uniprot alignment from Interpro database
+    OR Generates alignment using jackhmmer
 
     Parameters
     ----------
+    pdb_name :  str
+        PDB ID
     pfamID :  str
         Protein Family PFAM ID
+    pdb_sequence :  str
+        PDB sequence
+        Default is None
+    alignment_source:   str
+        Arguments: "full" (for PFAM) OR "uniprot" OR "jackhmmer"
+        Default is "full".
+    download_all_alignment_files:    bool
+        Option to download intermediate alignment files
+        Arguments: True OR False
+        Default is False.
+    alignment_files_directory:  str
+        If selected TRUE for download_all_alignment_files_status, 
+        provide filepath. Default is current directory. 
+    jackhmmer_alignment_output_file:   bool
+        If True, will record jackhmmer output messages.
+        Arguments: True OR False
+        Default is False
+    jackhmmer_sequence_database: str
+        Sequence database used to generation MSA
+        Arguments: "swissprot" OR "trembl"
+        Default is "swissprot"
 
     Returns
     -------
     alignment_path: Path
         Path of the alignments
     """
-    url = f'https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/{pfamID}/?annotation=alignment:{alignment_source}&download'
-
-    if download_all_alignment_files_status is None:
-        output = tempfile.NamedTemporaryFile(mode="w", prefix=f"{pfamID}_", suffix=f'_{alignment_source}.sto',dir=alignment_files_directory,delete=False)
+    if download_all_alignment_files is False:
+        output = tempfile.NamedTemporaryFile(mode="w", prefix=f"{pdb_name}_",suffix=f'_{alignment_source}_MSA.sto',dir=alignment_files_directory)
         output_file = Path(output.name)
     else:
-        output_file = Path(f"{alignment_files_directory}/{pfamID}_{alignment_source}.sto")
-    
-    zipped_alignment = urllib.request.urlopen(url).read()
-    unzipped_alignment = gzip.decompress(zipped_alignment)
-    output_file.write_bytes(unzipped_alignment)
+        output_file = Path(f"{alignment_files_directory}/{pdb_name}_{alignment_source}_MSA.sto")
+        
+    if alignment_source=="full" or alignment_source=="uniprot":
+        url = f'https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/{pfamID}/?annotation=alignment:{alignment_source}&download'
+        
+        zipped_alignment = urllib.request.urlopen(url).read()
+        unzipped_alignment = gzip.decompress(zipped_alignment)
+        output_file.write_bytes(unzipped_alignment)
+
+    elif alignment_source=="jackhmmer":
+        jackhmmer_sequence_database=Path(f"{_path}/databases/uniprot_{jackhmmer_sequence_database}.fa")
+        with tempfile.NamedTemporaryFile(mode="w", prefix=f"{pdb_name}_", suffix='_sequence.fa',dir=alignment_files_directory) as fasta_file:
+            fasta_file.write(f'>{pdb_name}\n{pdb_sequence}\n')
+            fasta_file.flush()
+            if jackhmmer_alignment_output_file is False:
+                subprocess.call(
+                    ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
+                    '--incE', '1E-10', fasta_file.name, jackhmmer_sequence_database], stdout=subprocess.DEVNULL)
+            else:
+                with open(Path(f"{alignment_files_directory}/jackhmmer_output.txt"), 'w') as log:
+                    subprocess.call(
+                        ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
+                        '--incE', '1E-10', fasta_file.name, jackhmmer_sequence_database], stdout=log)
+
     return output_file
 
 
