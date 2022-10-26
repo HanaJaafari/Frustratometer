@@ -394,8 +394,8 @@ def get_distance_matrix_from_pdb(pdb_file: str,
 
 
 def generate_alignment(pdb_name,pfamID,pdb_sequence=None,
-    alignment_source="full",download_all_alignment_files=False,alignment_files_directory=os.getcwd(),
-    jackhmmer_alignment_output_file=False,jackhmmer_sequence_database="swissprot"):
+    alignment_type="full",download_all_alignment_files=False,alignment_files_directory=os.getcwd(),
+    alignment_output_file=False,alignment_sequence_database="swissprot"):
     """
     Downloads family PFAM or uniprot alignment from Interpro database
     OR Generates alignment using jackhmmer
@@ -409,24 +409,23 @@ def generate_alignment(pdb_name,pfamID,pdb_sequence=None,
     pdb_sequence :  str
         PDB sequence
         Default is None
-    alignment_source:   str
+    alignment_type:   str
         Arguments: "full" (for PFAM) OR "uniprot" OR "jackhmmer"
-        Default is "full".
+        (Default is "full")
     download_all_alignment_files:    bool
         Option to download intermediate alignment files
-        Arguments: True OR False
-        Default is False.
+        Arguments: True OR False (Default is False)
     alignment_files_directory:  str
         If selected TRUE for download_all_alignment_files_status, 
         provide filepath. Default is current directory. 
-    jackhmmer_alignment_output_file:   bool
-        If True, will record jackhmmer output messages.
-        Arguments: True OR False
-        Default is False
-    jackhmmer_sequence_database: str
-        Sequence database used to generation MSA
-        Arguments: "swissprot" OR "trembl"
-        Default is "swissprot"
+    alignment_output_file:   bool
+        If True, will record alignment output messages; relevant if 
+        using jackhmmer to generate the alignment
+        Arguments: True OR False (Default is False)
+    alignment_sequence_database: str
+        Sequence database used to generation MSA; relevant if using 
+        jackhmmer to generate the alignment
+        Arguments: "swissprot" OR "trembl" (Default is "swissprot")
 
     Returns
     -------
@@ -434,32 +433,32 @@ def generate_alignment(pdb_name,pfamID,pdb_sequence=None,
         Path of the alignments
     """
     if download_all_alignment_files is False:
-        output = tempfile.NamedTemporaryFile(mode="w", prefix=f"{pdb_name}_",suffix=f'_{alignment_source}_MSA.sto',dir=alignment_files_directory)
+        output = tempfile.NamedTemporaryFile(mode="w", prefix=f"{pdb_name}_",suffix=f'_{alignment_type}_MSA.sto',dir=alignment_files_directory)
         output_file = Path(output.name)
     else:
-        output_file = Path(f"{alignment_files_directory}/{pdb_name}_{alignment_source}_MSA.sto")
+        output_file = Path(f"{alignment_files_directory}/{pdb_name}_{alignment_type}_MSA.sto")
         
-    if alignment_source=="full" or alignment_source=="uniprot":
-        url = f'https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/{pfamID}/?annotation=alignment:{alignment_source}&download'
+    if alignment_type=="full" or alignment_type=="uniprot":
+        url = f'https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/{pfamID}/?annotation=alignment:{alignment_type}&download'
         
         zipped_alignment = urllib.request.urlopen(url).read()
         unzipped_alignment = gzip.decompress(zipped_alignment)
         output_file.write_bytes(unzipped_alignment)
 
-    elif alignment_source=="jackhmmer":
+    elif alignment_type=="jackhmmer":
         jackhmmer_sequence_database=Path(f"{_path}/databases/uniprot_{jackhmmer_sequence_database}.fa")
         with tempfile.NamedTemporaryFile(mode="w", prefix=f"{pdb_name}_", suffix='_sequence.fa',dir=alignment_files_directory) as fasta_file:
             fasta_file.write(f'>{pdb_name}\n{pdb_sequence}\n')
             fasta_file.flush()
-            if jackhmmer_alignment_output_file is False:
+            if alignment_output_file is False:
                 subprocess.call(
                     ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
-                    '--incE', '1E-10', fasta_file.name, jackhmmer_sequence_database], stdout=subprocess.DEVNULL)
+                    '--incE', '1E-10', fasta_file.name, alignment_sequence_database], stdout=subprocess.DEVNULL)
             else:
                 with open(Path(f"{alignment_files_directory}/jackhmmer_output.txt"), 'w') as log:
                     subprocess.call(
                         ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
-                        '--incE', '1E-10', fasta_file.name, jackhmmer_sequence_database], stdout=log)
+                        '--incE', '1E-10', fasta_file.name, alignment_sequence_database], stdout=log)
 
     return output_file
 
@@ -1058,11 +1057,13 @@ class PottsModel:
 
     @classmethod
     def from_pdb_file(cls,
-                      alignment_source: str,
+                      alignment_type: str,
+                      alignment_sequence_database: str,
                       pdb_file: str,
                       chain: str,
-                      download_all_alignment_files_status=True,
-                      alignment_files_directory=None,
+                      download_all_alignment_files: bool,
+                      alignment_files_directory: str,
+                      alignment_output_file: bool,
                       sequence_cutoff: typing.Union[float, None] = None,
                       distance_cutoff: typing.Union[float, None] = None,
                       distance_matrix_method='minimum'):
@@ -1070,20 +1071,22 @@ class PottsModel:
 
         # Set initialization variables
         self._potts_model_file = None
-        self._alignment_source=alignment_source
+        self._alignment_type=alignment_type
+        self._alignment_sequence_database=alignment_sequence_database
         self._pdb_file = Path(pdb_file)
         self._pdb_name=os.path.basedir(pdb_file)[:4]
         self._chain = chain
-        self._download_all_alignment_files_status = download_all_alignment_files_status
+        self._download_all_alignment_files = download_all_alignment_files
         self._alignment_files_directory=alignment_files_directory
+        self._alignment_output_file=alignment_output_file
         self._sequence_cutoff = sequence_cutoff
         self._distance_cutoff = distance_cutoff
         self._distance_matrix_method = distance_matrix_method
 
         # Compute fast properties
-        self._pfamID=get_pfamID(self.pdb_name,self.chain)
-        self._filtered_alignment_file=generate_filtered_alignment(self.alignment_source,self.pfamID,self.sequence,self.pdb_name,self.download_all_alignment_files_status,self.alignment_files_directory)
         self._sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
+        self._pfamID=get_pfamID(self.pdb_name,self.chain)
+        self._alignment_file=generate_alignment(self.pdb_name,self.pfamID,self.sequence,self.alignment_type,self.download_all_alignment_files,self.alignment_files_directory,self.alignment_output_file,self.alignment_sequence_database)
         self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
         self.aa_freq = compute_aa_freq(self.sequence)
         self.contact_freq = compute_contact_freq(self.sequence)
@@ -1114,11 +1117,11 @@ class PottsModel:
     @property
     def sequence(self):
         return self._sequence
-
-    @sequence.setter
-    def sequence(self, value):
-        assert len(value) == len(self._sequence)
-        self._sequence = value
+    #The sequence is dependent on the pdb so no need to provide option to set this.
+    # @sequence.setter
+    # def sequence(self, value):
+    #     assert len(value) == len(self._sequence)
+    #     self._sequence = value
 
     @property
     def pdb_file(self):
@@ -1151,16 +1154,44 @@ class PottsModel:
         return self._pfamID
 
     @property
-    def alignment_source(self, value):
-        return self._alignment_source
+    def alignment_type(self, value):
+        return self._alignment_type
+
+    @alignment_type.setter
+    def alignment_type(self, value):
+        self._alignment_type = value
 
     @property
-    def download_all_alignment_files_status(self, value):
-        return self._download_all_alignment_files_status
+    def alignment_sequence_database(self, value):
+        return self._alignment_sequence_database
+
+    @alignment_sequence_database.setter
+    def alignment_sequence_database(self, value):
+        self._alignment_sequence_database = value
+
+    @property
+    def download_all_alignment_files(self, value):
+        return self._download_all_alignment_files
+
+    @download_all_alignment_files.setter
+    def download_all_alignment_files(self, value):
+        self._download_all_alignment_files = value
 
     @property
     def alignment_files_directory(self, value):
         return self._alignment_files_directory
+
+    @alignment_files_directory.setter
+    def alignment_files_directory(self, value):
+        self._alignment_files_directory = value
+
+    @property
+    def alignment_output_file(self, value):
+        return self._alignment_output_file
+
+    @alignment_output_file.setter
+    def alignment_output_file(self, value):
+        self._alignment_output_file = value
 
     @property
     def sequence_cutoff(self):
