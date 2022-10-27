@@ -394,7 +394,7 @@ def get_distance_matrix_from_pdb(pdb_file: str,
 
 
 def generate_alignment(pdb_name,pfamID,pdb_sequence=None,
-    alignment_type="full",download_all_alignment_files=False,alignment_files_directory=os.getcwd(),
+    alignment_type="full",alignment_files_directory=os.getcwd(),
     alignment_output_file=False,alignment_sequence_database="swissprot"):
     """
     Downloads family PFAM or uniprot alignment from Interpro database
@@ -412,9 +412,6 @@ def generate_alignment(pdb_name,pfamID,pdb_sequence=None,
     alignment_type:   str
         Arguments: "full" (for PFAM) OR "uniprot" OR "jackhmmer"
         (Default is "full")
-    download_all_alignment_files:    bool
-        Option to download intermediate alignment files
-        Arguments: True OR False (Default is False)
     alignment_files_directory:  str
         If selected TRUE for download_all_alignment_files_status, 
         provide filepath. Default is current directory. 
@@ -429,14 +426,10 @@ def generate_alignment(pdb_name,pfamID,pdb_sequence=None,
 
     Returns
     -------
-    alignment_path: Path
-        Path of the alignments
+    output_file: Path
+        Path of the alignment file
     """
-    if download_all_alignment_files is False:
-        output = tempfile.NamedTemporaryFile(mode="w", prefix=f"{pdb_name}_",suffix=f'_{alignment_type}_MSA.sto',dir=alignment_files_directory)
-        output_file = Path(output.name)
-    else:
-        output_file = Path(f"{alignment_files_directory}/{pdb_name}_{alignment_type}_MSA.sto")
+    output_file = Path(f"{alignment_files_directory}/{pdb_name}_{alignment_type}_MSA.sto")
         
     if alignment_type=="full" or alignment_type=="uniprot":
         url = f'https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/{pfamID}/?annotation=alignment:{alignment_type}&download'
@@ -540,23 +533,39 @@ def create_alignment_jackhmmer(sequence, pdb_name,download_all_alignment_files_s
                      '--incE', '1E-10', fasta_file.name, database], stdout=log)
     return output.name
 
-def convert_and_filter_alignment(alignment_file,download_all_alignment_files_status,alignment_files_directory):
+def convert_and_filter_alignment(alignment_file,download_all_alignment_files=False,alignment_files_directory=os.getcwd()):
     """
-    Filter PDB alignment
-    :param alignment_file
-    :return: 
+    Produces a column gap and insertion filtered MSA file. 
+
+    Parameters
+    ----------
+    alignment_file :  Path
+        MSA file name (full path)
+    download_all_alignment_files:   bool
+        If True, will download all alignment files
+        Arguments: True OR False (Default is False)
+    alignment_files_directory:  str
+        If selected TRUE for download_all_alignment_files_status, 
+        provide filepath. Default is current directory. 
+
+    Returns
+    -------
+    filtered_fasta_alignment_file: Path
+        Path of the filtered MSA
     """
-    '''Returns PDB MSA (fasta format) with column-spanning gaps and insertions removed'''
     alignment_file_name=alignment_file.name.replace(".sto","")
+    fasta_alignment_file=f"{alignment_files_directory}/{alignment_file_name}.fasta"
+    filtered_fasta_alignment_file=f"{alignment_files_directory}/{alignment_file_name}_gaps_filtered.fasta"
+    
     # Convert full MSA in stockholm format to fasta format
-    output_handle = open(f"{alignment_file_name}.fasta", "w")
+    output_handle = open(fasta_alignment_file, "w")
     alignments = AlignIO.parse(alignment_file, "stockholm")
     AlignIO.write(alignments, output_handle, "fasta")
     output_handle.close()
 
     # Remove inserts and columns that are completely composed of gaps from MSA
-    alignment = AlignIO.read(f"{alignment_file_name}.fasta", "fasta")
-    output_handle = open(f"{alignment_file_name}_gaps_filtered.fasta", "w")
+    alignment = AlignIO.read(fasta_alignment_file, "fasta")
+    output_handle = open(filtered_fasta_alignment_file, "w")
 
     index_mask = []
     for i, record in enumerate(alignment):
@@ -571,8 +580,11 @@ def convert_and_filter_alignment(alignment_file,download_all_alignment_files_sta
         output_handle.write(">%s\n" % record.id + "".join(aligned_sequence) + '\n')
     output_handle.close()
 
-    output_file_name=f"{alignment_file_name}_gaps_filtered.fasta"
-    return output_file_name
+    if download_all_alignment_files is False:
+        os.remove(alignment_file)
+        os.remove(fasta_alignment_file)
+
+    return Path(filtered_fasta_alignment_file)
 
 
 def compute_plm(protein_name, reweighting_threshold=0.1, nr_of_cores=1):
@@ -1077,7 +1089,7 @@ class PottsModel:
         self._pdb_name=os.path.basedir(pdb_file)[:4]
         self._chain = chain
         self._download_all_alignment_files = download_all_alignment_files
-        self._alignment_files_directory=alignment_files_directory
+        self._alignment_files_directory=Path(alignment_files_directory)
         self._alignment_output_file=alignment_output_file
         self._sequence_cutoff = sequence_cutoff
         self._distance_cutoff = distance_cutoff
@@ -1086,7 +1098,8 @@ class PottsModel:
         # Compute fast properties
         self._sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
         self._pfamID=get_pfamID(self.pdb_name,self.chain)
-        self._alignment_file=generate_alignment(self.pdb_name,self.pfamID,self.sequence,self.alignment_type,self.download_all_alignment_files,self.alignment_files_directory,self.alignment_output_file,self.alignment_sequence_database)
+        self._alignment_file=generate_alignment(self.pdb_name,self.pfamID,self.sequence,self.alignment_type,self.alignment_files_directory,self.alignment_output_file,self.alignment_sequence_database)
+        self._filtered_alignment_file=convert_and_filter_alignment(self.alignment_file,self.download_all_alignment_files,self.alignment_files_directory)
         self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
         self.aa_freq = compute_aa_freq(self.sequence)
         self.contact_freq = compute_contact_freq(self.sequence)
@@ -1127,9 +1140,9 @@ class PottsModel:
     def pdb_file(self):
         return str(self._pdb_file)
 
-    @pdb_file.setter
-    def pdb_file(self, value):
-        self._pdb_file = Path(value)
+    # @pdb_file.setter
+    # def pdb_file(self, value):
+    #     self._pdb_file = Path(value)
 
     @property
     def pdb_name(self, value):
@@ -1142,9 +1155,9 @@ class PottsModel:
     def chain(self):
         return self._chain
 
-    @chain.setter
-    def chain(self, value):
-        self._chain = value
+    # @chain.setter
+    # def chain(self, value):
+    #     self._chain = value
 
     @property
     def pfamID(self, value):
@@ -1157,41 +1170,41 @@ class PottsModel:
     def alignment_type(self, value):
         return self._alignment_type
 
-    @alignment_type.setter
-    def alignment_type(self, value):
-        self._alignment_type = value
+    # @alignment_type.setter
+    # def alignment_type(self, value):
+    #     self._alignment_type = value
 
     @property
     def alignment_sequence_database(self, value):
         return self._alignment_sequence_database
 
-    @alignment_sequence_database.setter
-    def alignment_sequence_database(self, value):
-        self._alignment_sequence_database = value
+    # @alignment_sequence_database.setter
+    # def alignment_sequence_database(self, value):
+    #     self._alignment_sequence_database = value
 
     @property
     def download_all_alignment_files(self, value):
         return self._download_all_alignment_files
 
-    @download_all_alignment_files.setter
-    def download_all_alignment_files(self, value):
-        self._download_all_alignment_files = value
+    # @download_all_alignment_files.setter
+    # def download_all_alignment_files(self, value):
+    #     self._download_all_alignment_files = value
 
     @property
     def alignment_files_directory(self, value):
         return self._alignment_files_directory
 
-    @alignment_files_directory.setter
-    def alignment_files_directory(self, value):
-        self._alignment_files_directory = value
+    # @alignment_files_directory.setter
+    # def alignment_files_directory(self, value):
+    #     self._alignment_files_directory = value
 
     @property
     def alignment_output_file(self, value):
         return self._alignment_output_file
 
-    @alignment_output_file.setter
-    def alignment_output_file(self, value):
-        self._alignment_output_file = value
+    # @alignment_output_file.setter
+    # def alignment_output_file(self, value):
+    #     self._alignment_output_file = value
 
     @property
     def sequence_cutoff(self):

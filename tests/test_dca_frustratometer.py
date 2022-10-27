@@ -60,11 +60,10 @@ def test_identify_pfamID():
     pfamID = dca_frustratometer.get_pfamID("6U5E","A")
     assert pfamID=="PF00160"
 
-#Temporarily commented out-still haven't resolved the temporary file disappearing when using AlignIO.read
-# def test_aligment_filtration():
-#     alignment_file = dca_frustratometer.generate_alignment(pdb_name="5MSM_B",pfamID="PF09696")
-#     filtered_alignment_file = dca_frustratometer.filter_alignment(alignment_file)
-#     assert filtered_alignment_file.exists()
+def test_aligment_filtration():
+    alignment_file = dca_frustratometer.generate_alignment(pdb_name="5MSM_B",pfamID="PF09696")
+    filtered_alignment_file = dca_frustratometer.convert_and_filter_alignment(alignment_file)
+    assert filtered_alignment_file.exists()
 
 def test_functional_compute_native_energy():
     seq = dca_frustratometer.get_protein_sequence_from_pdb('examples/data/1cyo.pdb', 'A')
