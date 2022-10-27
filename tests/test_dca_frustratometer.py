@@ -16,6 +16,7 @@ def test_create_pfam_database():
                                                                   '/current_release/Pfam-A.dead.gz',
                                                               name='test')
     assert (alignments_path / 'Unknown.sto').exists() is False
+    assert (alignments_path / 'PF00065.sto').exists() is True
 
 
 def test_get_alignment_from_database():
