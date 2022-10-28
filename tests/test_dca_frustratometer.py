@@ -6,15 +6,18 @@ Unit and regression test for the dca_frustratometer package.
 import sys
 import dca_frustratometer
 import numpy as np
-import os
 import tempfile
 from pathlib import Path
 
 
 def test_create_pfam_database():
-    alignments_path = dca_frustratometer.create_pfam_database(url='https://ftp.ebi.ac.uk/pub/databases/Pfam'
+    path = dca_frustratometer._path
+    print(path)
+    databases_path = dca_frustratometer.create_directory(path / 'databases')
+    alignments_path = dca_frustratometer.create_pfam_database(databases_path,
+                                                              url='https://ftp.ebi.ac.uk/pub/databases/Pfam'
                                                                   '/current_release/Pfam-A.dead.gz',
-                                                              name='test')
+                                                              name='pfam_dead')
     assert (alignments_path / 'Unknown.sto').exists() is False
     assert (alignments_path / 'PF00065.sto').exists() is True
 
@@ -40,14 +43,14 @@ def test_filter_alignment():
     pass
 
 
-# def test_create_potts_model_from_aligment():
-#     with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as alignment_file,\
-#          tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered.fa') as filtered_file:
-#         dca_frustratometer.download_alignment_from_interpro("PF09696", alignment_file.name)
-#         dca_frustratometer.filter_alignment(alignment_file.name, filtered_file.name)
-#         potts_model = dca_frustratometer.create_pottsmodel_from_alignment_pydca(filtered_file.name)
-#     assert 'h' in potts_model.keys()
-#     assert 'J' in potts_model.keys()
+def test_create_potts_model_from_aligment():
+    with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as alignment_file,\
+         tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered.fa') as filtered_file:
+        dca_frustratometer.download_alignment_from_interpro("PF09696", alignment_file.name)
+        dca_frustratometer.filter_alignment(alignment_file.name, filtered_file.name)
+        potts_model = dca_frustratometer.create_pottsmodel_from_alignment_pydca(filtered_file.name)
+    assert 'h' in potts_model.keys()
+    assert 'J' in potts_model.keys()
 
 def test_create_potts_model_from_pdb():
     pass
