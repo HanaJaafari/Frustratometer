@@ -1,7 +1,12 @@
 """Calculates single residue frustration, and mutational frustration of proteins."""
 
 # Add imports here
+from .utils import *
+from .download import *
 from .dca_frustratometer import *
+
+#Define a path
+_path = Path(__file__).parent.absolute()
 
 # Handle versioneer
 from ._version import get_versions
