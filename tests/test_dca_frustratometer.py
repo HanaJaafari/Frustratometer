@@ -11,6 +11,7 @@ from pathlib import Path
 
 
 def test_create_pfam_database():
+    """ This test downloads a small database from pfam and splits the files in a folder"""
     path = dca_frustratometer._path
     print(path)
     databases_path = dca_frustratometer.create_directory(path / 'databases')
