@@ -10,30 +10,28 @@ import tempfile
 from pathlib import Path
 
 
-def test_create_pfam_database():
+def test_download_pfam_database():
     """ This test downloads a small database from pfam and splits the files in a folder"""
+    name='pfam_dead'
+    url='https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.dead.gz'
     path = dca_frustratometer._path
     print(path)
     databases_path = dca_frustratometer.create_directory(path / 'databases')
-    alignments_path = dca_frustratometer.create_pfam_database(databases_path,
-                                                              url='https://ftp.ebi.ac.uk/pub/databases/Pfam'
-                                                                  '/current_release/Pfam-A.dead.gz',
-                                                              name='pfam_dead')
+    alignments_path = dca_frustratometer.download.pfam.database(databases_path, url=url, name=name)
     assert (alignments_path / 'Unknown.sto').exists() is False
     assert (alignments_path / 'PF00065.sto').exists() is True
-
 
 def test_get_alignment_from_database():
     pass
 
 
-def test_transient_alignment_from_interpro():
+def test_download_pfam_alignment():
     with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as output_handle:
         output = Path(output_handle.name)
         assert output.exists()
         output_text = output.read_text()
         assert output_text==""
-        output = dca_frustratometer.download_alignment_from_interpro('PF09696',output)
+        output = dca_frustratometer.download.pfam.alignment('PF09696',output)
         assert output.exists()
         output_text = output.read_text()
         assert "#=GF AC   PF09696" in output_text

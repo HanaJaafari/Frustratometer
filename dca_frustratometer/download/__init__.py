@@ -1,2 +1,2 @@
 from .pdb import *
-from .pfam import *
+from . import pfam

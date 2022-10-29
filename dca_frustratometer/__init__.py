@@ -1,8 +1,8 @@
 """Calculates single residue frustration, and mutational frustration of proteins."""
 
 # Add imports here
-from .utils import *
-from .download import *
+from . import utils
+from . import download
 from .dca_frustratometer import *
 
 #Define a path

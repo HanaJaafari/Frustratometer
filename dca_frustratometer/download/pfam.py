@@ -7,9 +7,9 @@ from ..utils import *
 
 
 #Download whole database
-def create_pfam_database(path,
-                         name='PFAM_current',
-                         url="https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.full.uniprot.gz"):
+def database(path,
+             name='PFAM_current',
+             url="https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.full.uniprot.gz"):
     """
     Downloads and creates a pfam database in the Database folder
 
@@ -69,9 +69,9 @@ def create_pfam_database(path,
     return alignments_path
 
 #Download single alignment
-def download_alignment_from_interpro(pfamID,
-                                     output_file=None,
-                                     alignment_type='uniprot'):
+def alignment(pfamID,
+              output_file=None,
+              alignment_type='uniprot'):
     """'
     Retrieves a pfam family alignment from interpro
 
