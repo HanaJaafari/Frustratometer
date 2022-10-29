@@ -5,9 +5,9 @@ import scipy.spatial.distance as sdist
 import numpy as np
 import os
 from pathlib import Path
+from .utils import _path
 
 
-_path = Path(__file__).parent.absolute()
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
 
 

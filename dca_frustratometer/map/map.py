@@ -1,5 +1,5 @@
 import pandas as pd
-
+from ..utils import _path
 
 def get_pfamID(pdbID, chain):
     """
@@ -18,6 +18,7 @@ def get_pfamID(pdbID, chain):
     """
 
     # TODO fix function
+    # TODO appdirs?
     df = pd.read_csv(f'{_path}/data/pdb_chain_pfam.csv', header=1)
     if sum((df['PDB'] == pdbID.lower()) & (df['CHAIN'] == chain.upper())) != 0:
         #Assumes one domain for the PDB

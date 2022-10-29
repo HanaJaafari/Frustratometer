@@ -16,7 +16,7 @@ def test_download_pfam_database():
     url='https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.dead.gz'
     path = dca_frustratometer._path
     print(path)
-    databases_path = dca_frustratometer.create_directory(path / 'databases')
+    databases_path = dca_frustratometer.utils.create_directory(path / 'databases')
     alignments_path = dca_frustratometer.download.pfam.database(databases_path, url=url, name=name)
     assert (alignments_path / 'Unknown.sto').exists() is False
     assert (alignments_path / 'PF00065.sto').exists() is True
@@ -45,9 +45,9 @@ def test_filter_alignment():
 def test_create_potts_model_from_aligment():
     with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as alignment_file,\
          tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered.fa') as filtered_file:
-        dca_frustratometer.download_alignment_from_interpro("PF09696", alignment_file.name)
-        dca_frustratometer.filter_alignment(alignment_file.name, filtered_file.name)
-        potts_model = dca_frustratometer.create_pottsmodel_from_alignment_pydca(filtered_file.name)
+        dca_frustratometer.download.pfam.alignment("PF09696", alignment_file.name)
+        dca_frustratometer.filter.filter_alignment(alignment_file.name, filtered_file.name)
+        potts_model = dca_frustratometer.dca.pydca.run(filtered_file.name)
     assert 'h' in potts_model.keys()
     assert 'J' in potts_model.keys()
 
@@ -60,7 +60,7 @@ def test_dca_frustratometer_imported():
     assert "dca_frustratometer" in sys.modules
 
 def test_identify_pfamID():
-    pfamID = dca_frustratometer.get_pfamID("6U5E","A")
+    pfamID = dca_frustratometer.map.get_pfamID("6U5E","A")
     assert pfamID=="PF00160"
 
 def test_aligment_filtration():

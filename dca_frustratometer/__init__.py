@@ -3,10 +3,10 @@
 # Add imports here
 from . import utils
 from . import download
+from . import filter
+from . import dca
+from . import map
 from .dca_frustratometer import *
-
-#Define a path
-_path = Path(__file__).parent.absolute()
 
 # Handle versioneer
 from ._version import get_versions
