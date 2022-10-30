@@ -8,9 +8,6 @@ from pathlib import Path
 from .utils import _path
 
 
-_AA = '-ACDEFGHIKLMNPQRSTVWY'
-
-
 ##################
 # PFAM functions #
 ##################

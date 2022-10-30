@@ -1,9 +1,9 @@
 import prody
 import scipy.spatial.distance as sdist
 import numpy as np
+import typing
 
-
-
+_AA = '-ACDEFGHIKLMNPQRSTVWY'
 
 def compute_mask(distance_matrix: np.array,
                  distance_cutoff: typing.Union[float, None] = None,

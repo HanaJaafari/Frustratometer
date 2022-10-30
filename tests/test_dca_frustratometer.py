@@ -69,11 +69,11 @@ def test_aligment_filtration():
     assert filtered_alignment_file.exists()
 
 def test_functional_compute_native_energy():
-    seq = dca_frustratometer.get_protein_sequence_from_pdb('examples/data/1cyo.pdb', 'A')
-    distance_matrix = dca_frustratometer.get_distance_matrix_from_pdb('examples/data/1cyo.pdb', 'A')
-    potts_model = dca_frustratometer.load_potts_model('examples/data/PottsModel1cyoA.mat')
-    mask = dca_frustratometer.compute_mask(distance_matrix, distance_cutoff=4, sequence_distance_cutoff=0)
-    e = dca_frustratometer.compute_native_energy(seq, potts_model, mask)
+    seq = dca_frustratometer.download.pdb.get_protein_sequence_from_pdb('examples/data/1cyo.pdb', 'A')
+    distance_matrix = dca_frustratometer.download.pdb.get_distance_matrix_from_pdb('examples/data/1cyo.pdb', 'A')
+    potts_model = dca_frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
+    mask = dca_frustratometer.frustratometer.compute_mask(distance_matrix, distance_cutoff=4, sequence_distance_cutoff=0)
+    e = dca_frustratometer.frustratometer.compute_native_energy(seq, potts_model, mask)
     assert np.round(e, 4) == -61.5248
 
 

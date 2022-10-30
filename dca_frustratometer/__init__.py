@@ -8,6 +8,7 @@ from . import filter
 from . import dca
 from . import map
 from . import align
+from . import frustratometer
 from .dca_frustratometer import *
 
 # Handle versioneer
