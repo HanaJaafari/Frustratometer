@@ -7,6 +7,15 @@ import os
 from pathlib import Path
 from .utils import _path
 
+#Import other modules
+from . import utils
+from . import pfam
+from . import pdb
+from . import filter
+from . import dca
+from . import map
+from . import align
+from . import frustratometer
 
 ##################
 # PFAM functions #
@@ -35,13 +44,13 @@ class PottsModel:
         self._distance_matrix_method = distance_matrix_method
 
         # Compute fast properties
-        self._potts_model = load_potts_model(self.potts_model_file)
-        self._sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
-        self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
+        self._potts_model = dca.matlab.load_potts_model(self.potts_model_file)
+        self._sequence = pdb.get_protein_sequence_from_pdb(self.pdb_file, self.chain)
+        self.distance_matrix = pdb.get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
 
-        self.aa_freq = compute_aa_freq(self.sequence)
-        self.contact_freq = compute_contact_freq(self.sequence)
-        self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        self.aa_freq = frustratometer.compute_aa_freq(self.sequence)
+        self.contact_freq = frustratometer.compute_contact_freq(self.sequence)
+        self.mask = frustratometer.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
 
         # Initialize slow properties
         self._native_energy = None
@@ -68,11 +77,11 @@ class PottsModel:
         self._distance_matrix_method = distance_matrix_method
 
         # Compute fast properties
-        self._sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
-        self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
-        self.aa_freq = compute_aa_freq(self.sequence)
-        self.contact_freq = compute_contact_freq(self.sequence)
-        self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        self._sequence = pdb.get_protein_sequence_from_pdb(self.pdb_file, self.chain)
+        self.distance_matrix = pdb.get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
+        self.aa_freq = frustratometer.compute_aa_freq(self.sequence)
+        self.contact_freq = frustratometer.compute_contact_freq(self.sequence)
+        self.mask = frustratometer.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
 
         # Initialize slow properties
         self._native_energy = None
@@ -108,14 +117,14 @@ class PottsModel:
         self._distance_matrix_method = distance_matrix_method
 
         # Compute fast properties
-        self._sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
-        self._pfamID=get_pfamID(self.pdb_name,self.chain)
-        self._alignment_file=generate_alignment(self.pdb_name,self.pfamID,self.sequence,self.alignment_type,self.alignment_files_directory,self.alignment_output_file,self.alignment_sequence_database)
-        self._filtered_alignment_file=convert_and_filter_alignment(self.alignment_file,self.download_all_alignment_files,self.alignment_files_directory)
-        self.distance_matrix = get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
-        self.aa_freq = compute_aa_freq(self.sequence)
-        self.contact_freq = compute_contact_freq(self.sequence)
-        self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        self._sequence = pdb.get_protein_sequence_from_pdb(self.pdb_file, self.chain)
+        self._pfamID=map.get_pfamID(self.pdb_name,self.chain)
+        self._alignment_file=align.generate_alignment(self.pdb_name,self.pfamID,self.sequence,self.alignment_type,self.alignment_files_directory,self.alignment_output_file,self.alignment_sequence_database)
+        self._filtered_alignment_file=filter.convert_and_filter_alignment(self.alignment_file,self.download_all_alignment_files,self.alignment_files_directory)
+        self.distance_matrix = pdb.get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
+        self.aa_freq = frustratometer.compute_aa_freq(self.sequence)
+        self.contact_freq = frustratometer.compute_contact_freq(self.sequence)
+        self.mask = frustratometer.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
 
         # Initialize slow properties
         self._native_energy = None
@@ -224,7 +233,7 @@ class PottsModel:
 
     @sequence_cutoff.setter
     def sequence_cutoff(self, value):
-        self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        self.mask = frustratometer.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
         self._sequence_cutoff = value
         self._native_energy = None
         self._decoy_fluctuation = {}
@@ -235,7 +244,7 @@ class PottsModel:
 
     @distance_cutoff.setter
     def distance_cutoff(self, value):
-        self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        self.mask = frustratometer.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
         self._distance_cutoff = value
         self._native_energy = None
         self._decoy_fluctuation = {}
@@ -246,8 +255,8 @@ class PottsModel:
 
     @distance_matrix_method.setter
     def distance_matrix_method(self, value):
-        self.distance_matrix = get_distance_matrix_from_pdb(self._pdb_file, self._chain, value)
-        self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        self.distance_matrix = pdb.et_distance_matrix_from_pdb(self._pdb_file, self._chain, value)
+        self.mask = frustratometer.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
         self._distance_matrix_method = value
         self._native_energy = None
         self._decoy_fluctuation = {}
@@ -260,13 +269,13 @@ class PottsModel:
     def potts_model_file(self, value):
         if value == None:
             print("Generating PDB alignment using Jackhmmer")
-            create_alignment_jackhmmer(self.sequence, self.pdb_name,
+            align.create_alignment_jackhmmer(self.sequence, self.pdb_name,
                                        output_file="dcaf_{}_alignment.sto".format(self.pdb_name))
-            convert_and_filter_alignment(self.pdb_name)
-            compute_plm(self.pdb_name)
+            filter.convert_and_filter_alignment(self.pdb_name)
+            dca.matlab.compute_plm(self.pdb_name)
             raise ValueError("Need to generate potts model")
         else:
-            self.potts_model = load_potts_model(value)
+            self.potts_model = dca.matlab.load_potts_model(value)
             self._potts_model_file = value
             self._native_energy = None
             self._decoy_fluctuation = {}
@@ -287,21 +296,21 @@ class PottsModel:
             if self._native_energy:
                 return self._native_energy
             else:
-                return compute_native_energy(self.sequence, self.potts_model, self.mask)
+                return frustratometer.compute_native_energy(self.sequence, self.potts_model, self.mask)
         else:
-            return compute_native_energy(sequence, self.potts_model, self.mask)
+            return frustratometer.compute_native_energy(sequence, self.potts_model, self.mask)
 
     def decoy_fluctuation(self, kind='singleresidue'):
         if kind in self._decoy_fluctuation:
             return self._decoy_fluctuation[kind]
         if kind == 'singleresidue':
-            fluctuation = compute_singleresidue_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+            fluctuation = frustratometer.compute_singleresidue_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
         elif kind == 'mutational':
-            fluctuation = compute_mutational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+            fluctuation = frustratometer.compute_mutational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
         elif kind == 'configurational':
-            fluctuation = compute_configurational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+            fluctuation = frustratometer.compute_configurational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
         elif kind == 'contact':
-            fluctuation = compute_contact_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+            fluctuation = frustratometer.compute_contact_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
 
         else:
             raise Exception("Wrong kind of decoy generation selected")
@@ -312,42 +321,42 @@ class PottsModel:
         return self.native_energy() + self.decoy_fluctuation(kind)
 
     def scores(self):
-        return compute_scores(self.potts_model)
+        return frustratometer.compute_scores(self.potts_model)
 
     def frustration(self, kind='singleresidue', aa_freq=None, correction=0):
         decoy_fluctuation = self.decoy_fluctuation(kind)
         if kind == 'singleresidue':
             if aa_freq is not None:
                 aa_freq = self.aa_freq
-            return compute_single_frustration(decoy_fluctuation, aa_freq, correction)
+            return frustratometer.compute_single_frustration(decoy_fluctuation, aa_freq, correction)
         elif kind in ['mutational', 'configurational', 'contact']:
             if aa_freq is not None:
                 aa_freq = self.contact_freq
-            return compute_pair_frustration(decoy_fluctuation, aa_freq, correction)
+            return frustratometer.compute_pair_frustration(decoy_fluctuation, aa_freq, correction)
 
     def plot_decoy_energy(self, kind='singleresidue'):
         native_energy = self.native_energy()
         decoy_energy = self.decoy_energy(kind)
         if kind == 'singleresidue':
-            plot_singleresidue_decoy_energy(decoy_energy, native_energy)
+            frustratometer.plot_singleresidue_decoy_energy(decoy_energy, native_energy)
 
     def roc(self):
-        return compute_roc(self.scores(), self.distance_matrix, self.distance_cutoff)
+        return frustratometer.compute_roc(self.scores(), self.distance_matrix, self.distance_cutoff)
 
     def plot_roc(self):
-        plot_roc(self.roc())
+        frustratometer.plot_roc(self.roc())
 
     def auc(self):
         """Computes area under the curve of the receiver-operating characteristic.
            Function intended"""
-        return compute_auc(self.roc())
+        return frustratometer.compute_auc(self.roc())
 
     def vmd(self, single='singleresidue', pair='mutational', aa_freq=None, correction=0, max_connections=100):
-        tcl_script = write_tcl_script(self.pdb_file, self.chain,
+        tcl_script = frustratometer.write_tcl_script(self.pdb_file, self.chain,
                                       self.frustration(single, aa_freq=aa_freq, correction=correction),
                                       self.frustration(pair, aa_freq=aa_freq, correction=correction),
                                       max_connections=max_connections)
-        call_vmd(self.pdb_file, tcl_script)
+        frustratometer.call_vmd(self.pdb_file, tcl_script)
 
 
 class AWSEMFrustratometer(PottsModel):
@@ -387,7 +396,7 @@ class AWSEMFrustratometer(PottsModel):
                  sequence_cutoff=None):
         self.pdb_file = pdb_file
         self.chain = chain
-        self._sequence = get_protein_sequence_from_pdb(self.pdb_file, self.chain)
+        self._sequence = pdb.get_protein_sequence_from_pdb(self.pdb_file, self.chain)
         self.structure = prody.parsePDB(self.pdb_file)
         selection_CB = self.structure.select('name CB or (resname GLY and name CA)')
         resid = selection_CB.getResindices()
@@ -436,9 +445,9 @@ class AWSEMFrustratometer(PottsModel):
         self.potts_model = {}
         self.potts_model['h'] = -burial_energy.sum(axis=-1)[:, self.aa_map_awsem]
         self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
-        self.aa_freq = compute_aa_freq(self.sequence)
-        self.contact_freq = compute_contact_freq(self.sequence)
-        self.mask = compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        self.aa_freq = frustratometer.compute_aa_freq(self.sequence)
+        self.contact_freq = frustratometer.compute_contact_freq(self.sequence)
+        self.mask = frustratometer.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
 
         # Initialize slow properties
         self._native_energy = None
