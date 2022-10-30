@@ -3,7 +3,7 @@ import urllib.request
 from pathlib import Path
 import logging
 import gzip
-from ..utils import *
+from ..utils import create_directory
 
 
 #Download whole database

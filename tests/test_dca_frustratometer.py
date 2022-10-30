@@ -14,7 +14,7 @@ def test_download_pfam_database():
     """ This test downloads a small database from pfam and splits the files in a folder"""
     name='pfam_dead'
     url='https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.dead.gz'
-    path = dca_frustratometer._path
+    path = dca_frustratometer.utils._path
     print(path)
     databases_path = dca_frustratometer.utils.create_directory(path / 'databases')
     alignments_path = dca_frustratometer.download.pfam.database(databases_path, url=url, name=name)
@@ -64,8 +64,8 @@ def test_identify_pfamID():
     assert pfamID=="PF00160"
 
 def test_aligment_filtration():
-    alignment_file = dca_frustratometer.generate_alignment(pdb_name="5MSM_B",pfamID="PF09696")
-    filtered_alignment_file = dca_frustratometer.convert_and_filter_alignment(alignment_file)
+    alignment_file = dca_frustratometer.align.generate_alignment(pdb_name="5MSM_B",pfamID="PF09696")
+    filtered_alignment_file = dca_frustratometer.filter.convert_and_filter_alignment(alignment_file)
     assert filtered_alignment_file.exists()
 
 def test_functional_compute_native_energy():

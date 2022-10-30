@@ -4,7 +4,9 @@ import subprocess
 from pathlib import Path
 import gzip
 import tempfile
+from ..utils import _path
 
+###TODO: Check this function, it seems to download, align and filter? Too many functions
 def generate_alignment(pdb_name,pfamID,pdb_sequence=None,
     alignment_type="full",alignment_files_directory=os.getcwd(),
     alignment_output_file=False,alignment_sequence_database="swissprot"):
