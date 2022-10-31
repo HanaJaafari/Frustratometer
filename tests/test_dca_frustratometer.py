@@ -72,8 +72,8 @@ def test_functional_compute_native_energy():
     seq = dca_frustratometer.pdb.get_protein_sequence_from_pdb('examples/data/1cyo.pdb', 'A')
     distance_matrix = dca_frustratometer.pdb.get_distance_matrix_from_pdb('examples/data/1cyo.pdb', 'A')
     potts_model = dca_frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
-    mask = dca_frustratometer.frustratometer.compute_mask(distance_matrix, distance_cutoff=4, sequence_distance_cutoff=0)
-    e = dca_frustratometer.frustratometer.compute_native_energy(seq, potts_model, mask)
+    mask = dca_frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff=4, sequence_distance_cutoff=0)
+    e = dca_frustratometer.frustration.compute_native_energy(seq, potts_model, mask)
     assert np.round(e, 4) == -61.5248
 
 
@@ -104,13 +104,13 @@ def test_compute_singleresidue_decoy_energy():
     distance_matrix = dca_frustratometer.pdb.get_distance_matrix_from_pdb('examples/data/1cyo.pdb', 'A')
     potts_model = dca_frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
     seq = dca_frustratometer.pdb.get_protein_sequence_from_pdb('examples/data/1cyo.pdb', 'A')
-    mask = dca_frustratometer.frustratometer.compute_mask(distance_matrix, distance_cutoff, sequence_cutoff)
+    mask = dca_frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff, sequence_cutoff)
     AA = '-ACDEFGHIKLMNPQRSTVWY'
     seq = [aa for aa in seq]
     seq[pos_x] = AA[aa_x]
     seq = ''.join(seq)
-    test_energy = dca_frustratometer.frustratometer.compute_native_energy(seq, potts_model, mask)
-    decoy_energy = dca_frustratometer.frustratometer.compute_decoy_energy(seq, potts_model, mask, 'singleresidue')
+    test_energy = dca_frustratometer.frustration.compute_native_energy(seq, potts_model, mask)
+    decoy_energy = dca_frustratometer.frustration.compute_decoy_energy(seq, potts_model, mask, 'singleresidue')
     assert (decoy_energy[pos_x, aa_x] - test_energy) ** 2 < 1E-16
 
 
@@ -124,12 +124,12 @@ def test_compute_mutational_decoy_energy():
     distance_matrix = dca_frustratometer.pdb.get_distance_matrix_from_pdb('examples/data/1cyo.pdb', 'A')
     potts_model = dca_frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
     seq = dca_frustratometer.pdb.get_protein_sequence_from_pdb('examples/data/1cyo.pdb', 'A')
-    mask = dca_frustratometer.frustratometer.compute_mask(distance_matrix, distance_cutoff, sequence_cutoff)
+    mask = dca_frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff, sequence_cutoff)
     AA = '-ACDEFGHIKLMNPQRSTVWY'
     seq = [aa for aa in seq]
     seq[pos_x] = AA[aa_x]
     seq[pos_y] = AA[aa_y]
     seq = ''.join(seq)
-    test_energy = dca_frustratometer.frustratometer.compute_native_energy(seq, potts_model, mask)
-    decoy_energy = dca_frustratometer.frustratometer.compute_decoy_energy(seq, potts_model, mask, 'mutational')
+    test_energy = dca_frustratometer.frustration.compute_native_energy(seq, potts_model, mask)
+    decoy_energy = dca_frustratometer.frustration.compute_decoy_energy(seq, potts_model, mask, 'mutational')
     assert (decoy_energy[pos_x, pos_y, aa_x, aa_y] - test_energy) ** 2 < 1E-16
