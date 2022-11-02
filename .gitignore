@@ -118,3 +118,4 @@ ENV/
 
 #Other files
 dca_frustratometer/databases
+docs/autosummary/*
