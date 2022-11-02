@@ -8,6 +8,7 @@ import dca_frustratometer
 import numpy as np
 import tempfile
 from pathlib import Path
+import pytest
 
 
 def test_download_pfam_database():
@@ -133,3 +134,12 @@ def test_compute_mutational_decoy_energy():
     test_energy = dca_frustratometer.frustration.compute_native_energy(seq, potts_model, mask)
     decoy_energy = dca_frustratometer.frustration.compute_decoy_energy(seq, potts_model, mask, 'mutational')
     assert (decoy_energy[pos_x, pos_y, aa_x, aa_y] - test_energy) ** 2 < 1E-16
+
+@pytest.mark.xfail
+def test_initialize_from_pdb():
+    PFAM_id='PFxxxxx'
+    pdb='file.pdb'
+    expected_energy=10.0
+    potts_model=dca_frustratometer.PottsModel.from_PFAM(PFAM_id)
+    potts_model.set_structure(pdb)
+    assert potts_model.compute_native_energy()==expected_energy
