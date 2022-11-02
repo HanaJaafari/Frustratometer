@@ -1,4 +1,3 @@
-
 import urllib.request
 from pathlib import Path
 import logging
@@ -68,7 +67,11 @@ def database(path,
                 out_file.write(new_lines)
     return alignments_path
 
-#Download single alignment
+# Get a single alignment
+def get(pfamID, database_path):
+    raise NotImplementedError
+
+# Download single alignment
 def alignment(pfamID,
               output_file=None,
               alignment_type='uniprot'):

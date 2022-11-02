@@ -4,7 +4,8 @@ API Documentation
 .. autosummary::
    :toctree: autosummary
 
-   dca_frustratometer.get_protein_sequence_from_pdb
-   dca_frustratometer.get_distance_matrix_from_pdb
-   dca_frustratometer.canvas
-
+   dca_frustratometer
+   dca_frustratometer.AWSEMFrustratometer
+   dca_frustratometer.PottsModel
+   dca_frustratometer.dca
+   dca_frustratometer.pfam
