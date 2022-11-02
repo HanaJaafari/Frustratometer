@@ -114,12 +114,9 @@ jobs:
         pytest -v --cov=dca_frustratometer --cov-report=xml --color=yes tests/
 
     - name: CodeCov
-      uses: codecov/codecov-action@v1
+      uses: codecov/codecov-action@v3.1.1
       with:
         file: ./coverage.xml
         flags: unittests
         name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
-    
-    - name: Codecov
-      uses: codecov/codecov-action@v3.1.1
 
