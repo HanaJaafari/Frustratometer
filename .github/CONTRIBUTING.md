@@ -40,3 +40,4 @@ describes how to merge code changes into this dca_frustratometer.
 * [PR best practices](http://codeinthehole.com/writing/pull-requests-and-other-good-practices-for-teams-using-github/)
 * [A guide to contributing to software packages](http://www.contribution-guide.org)
 * [Thinkful PR example](http://www.thinkful.com/learn/github-pull-request-tutorial/#Time-to-Submit-Your-First-PR)
+* [Style Guide](https://google.github.io/styleguide/pyguide.html)

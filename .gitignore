@@ -115,3 +115,7 @@ ENV/
 
 # macOS
 .DS_Store
+
+#Other files
+dca_frustratometer/databases
+docs/autosummary/*
