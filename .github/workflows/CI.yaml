@@ -119,3 +119,7 @@ jobs:
         file: ./coverage.xml
         flags: unittests
         name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
+    
+    - name: Codecov
+      uses: codecov/codecov-action@v3.1.1
+
