@@ -101,7 +101,7 @@ class PottsModel:
         self = cls()
 
         # Set initialization variables
-        #Can provide pdb file or a protein sequence
+        #Can provide pdb file path or a protein sequence
         self._potts_model_file = None
         self._pdb_file=Path(pdb_file)
         self._pdb_chain=pdb_chain
@@ -118,9 +118,13 @@ class PottsModel:
             self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
         else:
             self._protein_sequence=protein_sequence
+            self.distance_matrix=None
+            self.mask = None
         
         if PFAM_ID==None:
-            self._PFAM_ID=map.get_pfamID(self.pdb_name,self.chain)
+            # TODO Identify protein family given protein sequence
+            if protein_sequence==None:
+                self._PFAM_ID=map.get_pfamID(self.pdb_file,self.chain)
         else:
             self._PFAM_ID=PFAM_ID
 
@@ -135,42 +139,47 @@ class PottsModel:
         return self
 
     @classmethod
-    def from_pdb_file(cls,
-                      alignment_type: str,
-                      alignment_sequence_database: str,
-                      pdb_file: str,
-                      chain: str,
-                      download_all_alignment_files: bool,
-                      alignment_files_directory: str,
-                      alignment_output_file: bool,
-                      sequence_cutoff: typing.Union[float, None] = None,
-                      distance_cutoff: typing.Union[float, None] = None,
-                      distance_matrix_method='minimum'):
+    def from_hmmer_alignment(cls,
+                            protein_sequence:   str,
+                            PFAM_ID: str,
+                            pdb_file:   str,
+                            pdb_chain:  str,
+                            download_all_alignment_files: bool,
+                            alignment_files_directory: str,
+                            alignment_output_file:  bool,
+                            alignment_sequence_database:    str,
+                            sequence_cutoff: typing.Union[float, None] = None,
+                            distance_cutoff: typing.Union[float, None] = None,
+                            distance_matrix_method='minimum'):
         self = cls()
 
         # Set initialization variables
+        #Can provide pdb file or a protein sequence
         self._potts_model_file = None
-        self._alignment_type=alignment_type
-        self._alignment_sequence_database=alignment_sequence_database
-        self._pdb_file = Path(pdb_file)
-        self._pdb_name=os.path.basedir(pdb_file)[:4]
-        self._chain = chain
+        self._pdb_file=Path(pdb_file)
+        self._pdb_chain=pdb_chain
         self._download_all_alignment_files = download_all_alignment_files
         self._alignment_files_directory=Path(alignment_files_directory)
         self._alignment_output_file=alignment_output_file
+        self._alignment_sequence_database=alignment_sequence_database
         self._sequence_cutoff = sequence_cutoff
         self._distance_cutoff = distance_cutoff
         self._distance_matrix_method = distance_matrix_method
 
         # Compute fast properties
-        self._sequence = pdb.get_protein_sequence_from_pdb(self.pdb_file, self.chain)
-        self._pfamID=map.get_pfamID(self.pdb_name,self.chain)
-        self._alignment_file=align.generate_alignment(self.pdb_name,self.pfamID,self.sequence,self.alignment_type,self.alignment_files_directory,self.alignment_output_file,self.alignment_sequence_database)
+        if protein_sequence==None:
+            self._protein_sequence = pdb.get_protein_sequence_from_pdb(self.pdb_file, self.pdb_chain)
+            self.distance_matrix = pdb.get_distance_matrix_from_pdb(self.pdb_file, self.pdb_chain, self.distance_matrix_method)
+            self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        else:
+            self._protein_sequence=protein_sequence
+            self.distance_matrix=None
+            self.mask = None
+
+        self._alignment_file=align.generate_hmmer_alignment(self.pdb_file,self.protein_sequence,self.alignment_files_directory,self.alignment_output_file,self.alignment_sequence_database)
         self._filtered_alignment_file=filter.convert_and_filter_alignment(self.alignment_file,self.download_all_alignment_files,self.alignment_files_directory)
-        self.distance_matrix = pdb.get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
-        self.aa_freq = frustration.compute_aa_freq(self.sequence)
-        self.contact_freq = frustration.compute_contact_freq(self.sequence)
-        self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        self.aa_freq = frustration.compute_aa_freq(self.protein_sequence)
+        self.contact_freq = frustration.compute_contact_freq(self.protein_sequence)
 
         # Initialize slow properties
         self._native_energy = None
@@ -196,8 +205,8 @@ class PottsModel:
         potts_model = plmdca_inst.get_potts_model()
 
     @property
-    def sequence(self):
-        return self._sequence
+    def protein_sequence(self):
+        return self._protein_sequence
     #The sequence is dependent on the pdb so no need to provide option to set this.
     # @sequence.setter
     # def sequence(self, value):
@@ -217,6 +226,7 @@ class PottsModel:
         """
         Returns PDBid from pdb name
         """
+        assert self._pdb_file.exists()
         return self._pdb_file.stem
 
     @property

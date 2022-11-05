@@ -1,14 +1,15 @@
 import pandas as pd
 from ..utils import _path
+import os
 
-def get_pfamID(pdbID, chain):
+def get_pfamID(pdb_file, chain):
     """
     Returns PFAM and Uniprot IDs
 
     Parameters
     ----------
-    pdbID :  str
-        pdbID (4 characters)
+    pdb_file :  str
+        pdb file name
     chain : str
         Select chain from pdb
     Returns
@@ -19,6 +20,7 @@ def get_pfamID(pdbID, chain):
 
     # TODO fix function
     # TODO appdirs?
+    pdbID=os.path.basename(pdb_file)[:4]
     df = pd.read_csv(f'{_path}/data/pdb_chain_pfam.csv', header=1)
     if sum((df['PDB'] == pdbID.lower()) & (df['CHAIN'] == chain.upper())) != 0:
         #Assumes one domain for the PDB
