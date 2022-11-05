@@ -22,21 +22,29 @@ def test_download_pfam_database():
     assert (alignments_path / 'Unknown.sto').exists() is False
     assert (alignments_path / 'PF00065.sto').exists() is True
 
+
 def test_get_alignment_from_database():
     pass
 
 
-def test_download_pfam_alignment():
-    with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as output_handle:
-        output = Path(output_handle.name)
-        assert output.exists()
-        output_text = output.read_text()
-        assert output_text==""
-        output = dca_frustratometer.pfam.alignment('PF09696',output)
-        assert output.exists()
-        output_text = output.read_text()
-        assert "#=GF AC   PF09696" in output_text
-    assert not output.exists()
+def test_download_and_filter_pfam_alignment():
+    alignment_file = dca_frustratometer.pfam.download_full_alignment('PF09696')
+    assert alignment_file.exists()
+    output_text = alignment_file.read_text()
+    assert "#=GF AC   PF09696" in output_text
+    filtered_file=dca_frustratometer.filter.convert_and_filter_alignment(alignment_file)
+    assert filtered_file.exists()
+
+    # with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as output_handle:
+    #     output = Path(output_handle.name)
+    #     assert output.exists()
+    #     output_text = output.read_text()
+    #     assert output_text==""
+    #     output = dca_frustratometer.pfam.alignment('PF09696',output)
+    #     assert output.exists()
+    #     output_text = output.read_text()
+    #     assert "#=GF AC   PF09696" in output_text
+    # assert not output.exists()
 
 
 def test_filter_alignment():
@@ -44,13 +52,17 @@ def test_filter_alignment():
 
 
 def test_create_potts_model_from_aligment():
-    with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as alignment_file,\
-         tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered.fa') as filtered_file:
-        dca_frustratometer.pfam.alignment("PF09696", alignment_file.name)
-        dca_frustratometer.filter.filter_alignment(alignment_file.name, filtered_file.name)
-        potts_model = dca_frustratometer.dca.pydca.run(filtered_file.name)
+    alignment_file=dca_frustratometer.pfam.download_full_alignment("PF09696")
+    filtered_file=dca_frustratometer.filter.convert_and_filter_alignment(alignment_file)
+    potts_model = dca_frustratometer.dca.pydca.run(str(filtered_file))
+    # with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as alignment_file,\
+    #      tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered.fa') as filtered_file:
+    #     dca_frustratometer.pfam.download_full_alignment("PF09696", alignment_file.name)
+    #     dca_frustratometer.filter.filter_alignment(alignment_file.name, filtered_file.name)
+    #     potts_model = dca_frustratometer.dca.pydca.run(filtered_file.name)
     assert 'h' in potts_model.keys()
     assert 'J' in potts_model.keys()
+
 
 def test_create_potts_model_from_pdb():
     pass
@@ -60,14 +72,11 @@ def test_dca_frustratometer_imported():
     """Sample test, will always pass so long as import statement worked."""
     assert "dca_frustratometer" in sys.modules
 
+
 def test_identify_pfamID():
     pfamID = dca_frustratometer.map.get_pfamID("6U5E","A")
     assert pfamID=="PF00160"
 
-def test_aligment_filtration():
-    alignment_file = dca_frustratometer.align.generate_alignment(pdb_name="5MSM_B",pfamID="PF09696")
-    filtered_alignment_file = dca_frustratometer.filter.convert_and_filter_alignment(alignment_file)
-    assert filtered_alignment_file.exists()
 
 def test_functional_compute_native_energy():
     seq = dca_frustratometer.pdb.get_protein_sequence_from_pdb('examples/data/1cyo.pdb', 'A')

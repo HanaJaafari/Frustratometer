@@ -95,10 +95,10 @@ def download_full_alignment(PFAM_ID,
     from urllib.request import urlopen
     import gzip
 
+    output_file =Path(f"{alignment_files_directory}/{PFAM_ID}_full_MSA.sto")
+    
     url = f'https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/{PFAM_ID}/?annotation=alignment:full&download'
     logging.debug(f'Downloading {url} to {output_file}')
-
-    output_file =Path(f"{alignment_files_directory}/{PFAM_ID}_full_MSA.sto")
 
     zipped_alignment = urllib.request.urlopen(url).read()
     unzipped_alignment = gzip.decompress(zipped_alignment)
