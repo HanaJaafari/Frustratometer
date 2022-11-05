@@ -66,12 +66,12 @@ def test_filter_alignment_memory():
         assert filtered_alignment[0].seq == expected_filtered_sequence
         
 
-def test_filter_alignment_disk():
-    alignment_file = data_path/'alignments_database'/'PF09696.12.sto'
+def test_filter_alignment_lowmem():
+    alignment_file = data_path/'pfam_database'/'PF09696.12.sto'
     expected_filtered_sequence='-IQTPSGLALLELQGTINLPEDAVDSDGKAT-------------KSIPVGRIDFPDYHPDTQSTAWMKRVYLYVGPHQRLTGEVKKLPKAIAIVRKKDGASNG-----------------------------------------'
     with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered_disk.sto') as output_handle:
         output_file = Path(output_handle.name)
-        filtered_file=dca_frustratometer.filter.filter_alignment_no_memory(alignment_file,output_file)
+        filtered_file=dca_frustratometer.filter.filter_alignment_lowmem(alignment_file,output_file)
         assert filtered_file.exists()
         unfiltered_alignment = Bio.AlignIO.read(alignment_file, 'stockholm')
         filtered_alignment = Bio.AlignIO.read(filtered_file, 'fasta')
