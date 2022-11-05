@@ -38,7 +38,7 @@ def generate_hmmer_alignment(pdb_file,protein_sequence,alignment_files_directory
         pdb_name="protein"
     output_file = Path(f"{alignment_files_directory}/{pdb_name}_jackhmmer_MSA.sto")
         
-    jackhmmer_sequence_database=Path(f"{_path}/databases/uniprot_{jackhmmer_sequence_database}.fa")
+    jackhmmer_sequence_database=Path(f"{_path}/databases/uniprot_{alignment_sequence_database}.fa")
     with tempfile.NamedTemporaryFile(mode="w", prefix=f"{pdb_name}_", suffix='_sequence.fa',dir=alignment_files_directory) as fasta_file:
         fasta_file.write(f'>{pdb_name}\n{protein_sequence}\n')
         fasta_file.flush()

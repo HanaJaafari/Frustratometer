@@ -46,6 +46,14 @@ def test_download_and_filter_pfam_alignment():
     #     assert "#=GF AC   PF09696" in output_text
     # assert not output.exists()
 
+def test_download_and_filter_hmmer_alignment():
+    #PDB ID:1ZR7_1
+    protein_sequence="GSWTEHKSPDGRTYYYNTETKQSTWEKPDD"
+    alignment_file = dca_frustratometer.align.generate_hmmer_alignment(pdb_file=None,protein_sequence=protein_sequence)
+    assert alignment_file.exists()
+    filtered_file=dca_frustratometer.filter.convert_and_filter_alignment(alignment_file)
+    assert filtered_file.exists()
+
 
 def test_filter_alignment():
     pass
