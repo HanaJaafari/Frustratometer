@@ -13,6 +13,7 @@ from .. import dca
 from .. import map
 from .. import align
 from .. import frustration
+from .. import pfam
 
 __all__=['PottsModel']
 ##################
@@ -87,6 +88,53 @@ class PottsModel:
         return self
 
     @classmethod
+    def from_pfam_alignment(cls,
+                            protein_sequence:   str,
+                            PFAM_ID: str,
+                            pdb_file:   str,
+                            pdb_chain:  str,
+                            download_all_alignment_files: bool,
+                            alignment_files_directory: str,
+                            sequence_cutoff: typing.Union[float, None] = None,
+                            distance_cutoff: typing.Union[float, None] = None,
+                            distance_matrix_method='minimum'):
+        self = cls()
+
+        # Set initialization variables
+        #Can provide pdb file or a protein sequence
+        self._potts_model_file = None
+        self._pdb_file=Path(pdb_file)
+        self._pdb_chain=pdb_chain
+        self._download_all_alignment_files = download_all_alignment_files
+        self._alignment_files_directory=Path(alignment_files_directory)
+        self._sequence_cutoff = sequence_cutoff
+        self._distance_cutoff = distance_cutoff
+        self._distance_matrix_method = distance_matrix_method
+
+        # Compute fast properties
+        if protein_sequence==None:
+            self._protein_sequence = pdb.get_protein_sequence_from_pdb(self.pdb_file, self.pdb_chain)
+            self.distance_matrix = pdb.get_distance_matrix_from_pdb(self.pdb_file, self.pdb_chain, self.distance_matrix_method)
+            self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        else:
+            self._protein_sequence=protein_sequence
+        
+        if PFAM_ID==None:
+            self._PFAM_ID=map.get_pfamID(self.pdb_name,self.chain)
+        else:
+            self._PFAM_ID=PFAM_ID
+
+        self._alignment_file=pfam.download_full_alignment(self.PFAM_ID,self.alignment_files_directory)
+        self._filtered_alignment_file=filter.convert_and_filter_alignment(self.alignment_file,self.download_all_alignment_files,self.alignment_files_directory)
+        self.aa_freq = frustration.compute_aa_freq(self.protein_sequence)
+        self.contact_freq = frustration.compute_contact_freq(self.protein_sequence)
+
+        # Initialize slow properties
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+        return self
+
+    @classmethod
     def from_pdb_file(cls,
                       alignment_type: str,
                       alignment_sequence_database: str,
@@ -128,6 +176,7 @@ class PottsModel:
         self._native_energy = None
         self._decoy_fluctuation = {}
         return self
+
 
     @classmethod
     def from_alignment(cls):

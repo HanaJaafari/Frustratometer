@@ -2,6 +2,7 @@ import urllib.request
 from pathlib import Path
 import logging
 import gzip
+import os
 from ..utils import create_directory
 
 
@@ -72,20 +73,18 @@ def get(pfamID, database_path):
     raise NotImplementedError
 
 # Download single alignment
-def alignment(pfamID,
-              output_file=None,
-              alignment_type='uniprot'):
+def download_full_alignment(PFAM_ID,
+                            alignment_files_directory=os.getcwd()):
     """'
     Retrieves a pfam family alignment from interpro
 
     Parameters
     ----------
-    pfamID : str,
+    PFAM_ID : str,
         ID of PFAM family. ex: PF00001
-    alignment_type: str,
-        alignment type to retrieve. Options: full, seed, uniprot
-    output_file: str
-        location of the output file. Default: Temporary file
+    alignment_files_directory:  str
+        If selected TRUE for download_all_alignment_files_status, 
+        provide filepath. Default is current directory. 
 
     Returns
     -------
@@ -93,22 +92,18 @@ def alignment(pfamID,
         location of alignment
     
     """
-    import tempfile
     from urllib.request import urlopen
     import gzip
 
-    url = f'https://www.ebi.ac.uk/interpro/api/entry/pfam/{pfamID}/?annotation=alignment:{alignment_type}'
+    url = f'https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/{PFAM_ID}/?annotation=alignment:full&download'
     logging.debug(f'Downloading {url} to {output_file}')
 
-    if output_file is None:
-        output = tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto')
-        output_file = Path(output.name)
-    else:
-        output_file = Path(output_file)
+    output_file =Path(f"{alignment_files_directory}/{PFAM_ID}_full_MSA.sto")
 
-    output = urlopen(url).read()
-    alignment = gzip.decompress(output)
-    output_file.write_bytes(alignment)
+    zipped_alignment = urllib.request.urlopen(url).read()
+    unzipped_alignment = gzip.decompress(zipped_alignment)
+    output_file.write_bytes(unzipped_alignment)
+
     return output_file
 
 # TODO: Get a single file from database
