@@ -2,12 +2,12 @@ import urllib.request
 from pathlib import Path
 import logging
 import gzip
-import os
 from ..utils import create_directory
+import glob
 
 
 #Download whole database
-def database(path,
+def download_database(path,
              name='PFAM_current',
              url="https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.full.uniprot.gz"):
     """
@@ -69,22 +69,32 @@ def database(path,
     return alignments_path
 
 # Get a single alignment
-def get(pfamID, database_path):
-    raise NotImplementedError
+def get_alignment(pfamid, database_path):
+    path = Path(database_path)
+    assert path.exists(), "The path doesn't exist"
+    assert path.is_dir(), "The path is not a directory" 
+    files=glob.glob(str(path/f'{pfamid}')+'.*.sto')
+    print(str(path/f'{pfamid}')+'.*.sto')
+    if len(files)==0:
+        raise(IOError,'File not found')
+    if len(files)>1:
+        raise(IOError, 'Multiple files found')
+    return Path(files[0])
 
-# Download single alignment
-def download_full_alignment(PFAM_ID,
-                            alignment_files_directory=os.getcwd()):
+def alignment(pfamid,
+              output_file,
+              alignment_type='full'):
     """'
     Retrieves a pfam family alignment from interpro
 
     Parameters
     ----------
-    PFAM_ID : str,
+    pfamid : str,
         ID of PFAM family. ex: PF00001
-    alignment_files_directory:  str
-        If selected TRUE for download_all_alignment_files_status, 
-        provide filepath. Default is current directory. 
+    alignment_type: str,
+        alignment type to retrieve. Options: full, seed, uniprot
+    output_file: str
+        location of the output file. Default: Temporary file
 
     Returns
     -------
@@ -92,19 +102,11 @@ def download_full_alignment(PFAM_ID,
         location of alignment
     
     """
-    from urllib.request import urlopen
-    import gzip
-
-    output_file =Path(f"{alignment_files_directory}/{PFAM_ID}_full_MSA.sto")
-    
-    url = f'https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/{PFAM_ID}/?annotation=alignment:full&download'
+    url = f'https://www.ebi.ac.uk/interpro/api/entry/pfam/{pfamid}/?annotation=alignment:{alignment_type}'
+    #url = f'https://www.ebi.ac.uk/interpro/wwwapi//entry/pfam/{pfamid}/?annotation=alignment:{alignment_type}&download' 
     logging.debug(f'Downloading {url} to {output_file}')
 
     zipped_alignment = urllib.request.urlopen(url).read()
-    unzipped_alignment = gzip.decompress(zipped_alignment)
-    output_file.write_bytes(unzipped_alignment)
-
+    alignment = gzip.decompress(zipped_alignment)
+    output_file.write_bytes(alignment)
     return output_file
-
-# TODO: Get a single file from database
-

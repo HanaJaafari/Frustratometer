@@ -7,44 +7,55 @@ import sys
 import dca_frustratometer
 import numpy as np
 from pathlib import Path
+import tempfile
 import pytest
+from dca_frustratometer.utils import _path
 
+data_path = dca_frustratometer.utils.create_directory(_path/'..'/'tests'/'data')
+#scratch_path = dca_frustratometer.utils.create_directory(_path/'..'/'tests'/'scratch')
 
 def test_download_pfam_database():
     """ This test downloads a small database from pfam and splits the files in a folder"""
     name='pfam_dead'
     url='https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.dead.gz'
-    path = dca_frustratometer.utils._path
-    print(path)
-    databases_path = dca_frustratometer.utils.create_directory(path / 'databases')
-    alignments_path = dca_frustratometer.pfam.database(databases_path, url=url, name=name)
-    assert (alignments_path / 'Unknown.sto').exists() is False
-    assert (alignments_path / 'PF00065.sto').exists() is True
+    with tempfile.TemporaryDirectory() as scratch_path:
+        alignments_path = dca_frustratometer.pfam.download_database(scratch_path, url=url, name=name)
+        print(alignments_path)
+        assert (alignments_path / 'Unknown.sto').exists() is False
+        assert (alignments_path / 'PF00065.sto').exists() is True
 
 
 def test_get_alignment_from_database():
-    pass
-
-
-def test_download_and_filter_pfam_alignment():
-    alignment_file = dca_frustratometer.pfam.download_full_alignment('PF09696')
+    alignment_file = dca_frustratometer.pfam.get_alignment('PF17182', data_path/'alignments_database')
     assert alignment_file.exists()
-    output_text = alignment_file.read_text()
-    assert "#=GF AC   PF09696" in output_text
-    filtered_file=dca_frustratometer.filter.convert_and_filter_alignment(alignment_file)
-    assert filtered_file.exists()
+    alignment_text = alignment_file.read_text()
+    assert "#=GF AC   PF17182" in alignment_text
 
-    # with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as output_handle:
-    #     output = Path(output_handle.name)
-    #     assert output.exists()
-    #     output_text = output.read_text()
-    #     assert output_text==""
-    #     output = dca_frustratometer.pfam.alignment('PF09696',output)
-    #     assert output.exists()
-    #     output_text = output.read_text()
-    #     assert "#=GF AC   PF09696" in output_text
-    # assert not output.exists()
-    
+    alignment_file = dca_frustratometer.pfam.get_alignment('PF09696', data_path/'alignments_database')
+    assert alignment_file.exists()
+    alignment_text = alignment_file.read_text()
+    assert "#=GF AC   PF09696" in alignment_text
+
+
+def test_download_pfam_alignment():
+    with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as output_handle:
+        output = Path(output_handle.name)
+        assert output.exists()
+        output_text = output.read_text()
+        assert output_text==""
+        output = dca_frustratometer.pfam.alignment('PF09696',output)
+        assert output.exists()
+        output_text = output.read_text()
+        assert "#=GF AC   PF09696" in output_text
+    assert not output.exists()
+
+
+def test_filter_alignment():
+    alignment_file = data_path/'alignments_database'/'PF09696.12.sto'
+    with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered.sto') as filtered_file:
+        filtered_file=dca_frustratometer.filter.convert_and_filter_alignment(alignment_file,download_all_alignment_files=True)
+        assert filtered_file.exists()
+   
 @pytest.mark.xfail
 def test_generate_and_filter_hmmer_alignment():
     #PDB ID:1ZR7_1
@@ -53,17 +64,13 @@ def test_generate_and_filter_hmmer_alignment():
     assert alignment_file.exists()
     output_text = alignment_file.read_text()
     assert "# STOCKHOLM" in output_text
-    filtered_file=dca_frustratometer.filter.convert_and_filter_alignment(alignment_file)
+    filtered_file=dca_frustratometer.filter.convert_and_filter_alignment(alignment_file,download_all_alignment_files=True)
     assert filtered_file.exists()
 
 
-def test_filter_alignment():
-    pass
-
-
 def test_create_potts_model_from_aligment():
-    alignment_file=dca_frustratometer.pfam.download_full_alignment("PF09696")
-    filtered_file=dca_frustratometer.filter.convert_and_filter_alignment(alignment_file)
+    alignment_file=data_path/'alignments_database'/'PF09696.12.sto'
+    filtered_file=dca_frustratometer.filter.convert_and_filter_alignment(alignment_file,download_all_alignment_files=True)
     potts_model = dca_frustratometer.dca.pydca.run(str(filtered_file))
     # with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as alignment_file,\
     #      tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered.fa') as filtered_file:
