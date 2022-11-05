@@ -44,11 +44,11 @@ class PottsModel:
 
         # Compute fast properties
         self._potts_model = dca.matlab.load_potts_model(self.potts_model_file)
-        self._sequence = pdb.get_protein_sequence_from_pdb(self.pdb_file, self.chain)
+        self._protein_sequence = pdb.get_protein_sequence_from_pdb(self.pdb_file, self.chain)
         self.distance_matrix = pdb.get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
 
-        self.aa_freq = frustration.compute_aa_freq(self.sequence)
-        self.contact_freq = frustration.compute_contact_freq(self.sequence)
+        self.aa_freq = frustration.compute_aa_freq(self.protein_sequence)
+        self.contact_freq = frustration.compute_contact_freq(self.protein_sequence)
         self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
 
         # Initialize slow properties
@@ -78,8 +78,8 @@ class PottsModel:
         # Compute fast properties
         self._sequence = pdb.get_protein_sequence_from_pdb(self.pdb_file, self.chain)
         self.distance_matrix = pdb.get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
-        self.aa_freq = frustration.compute_aa_freq(self.sequence)
-        self.contact_freq = frustration.compute_contact_freq(self.sequence)
+        self.aa_freq = frustration.compute_aa_freq(self.protein_sequence)
+        self.contact_freq = frustration.compute_contact_freq(self.protein_sequence)
         self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
 
         # Initialize slow properties
@@ -326,7 +326,7 @@ class PottsModel:
     def potts_model_file(self, value):
         if value == None:
             print("Generating PDB alignment using Jackhmmer")
-            align.create_alignment_jackhmmer(self.sequence, self.pdb_name,
+            align.create_alignment_jackhmmer(self.protein_sequence, self.pdb_name,
                                        output_file="dcaf_{}_alignment.sto".format(self.pdb_name))
             filter.convert_and_filter_alignment(self.pdb_name)
             dca.matlab.compute_plm(self.pdb_name)
@@ -353,21 +353,21 @@ class PottsModel:
             if self._native_energy:
                 return self._native_energy
             else:
-                return frustration.compute_native_energy(self.sequence, self.potts_model, self.mask)
+                return frustration.compute_native_energy(self.protein_sequence, self.potts_model, self.mask)
         else:
-            return frustration.compute_native_energy(sequence, self.potts_model, self.mask)
+            return frustration.compute_native_energy(protein_sequence, self.potts_model, self.mask)
 
     def decoy_fluctuation(self, kind='singleresidue'):
         if kind in self._decoy_fluctuation:
             return self._decoy_fluctuation[kind]
         if kind == 'singleresidue':
-            fluctuation = frustration.compute_singleresidue_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+            fluctuation = frustration.compute_singleresidue_decoy_energy_fluctuation(self.protein_sequence, self.potts_model, self.mask)
         elif kind == 'mutational':
-            fluctuation = frustration.compute_mutational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+            fluctuation = frustration.compute_mutational_decoy_energy_fluctuation(self.protein_sequence, self.potts_model, self.mask)
         elif kind == 'configurational':
-            fluctuation = frustration.compute_configurational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+            fluctuation = frustration.compute_configurational_decoy_energy_fluctuation(self.protein_sequence, self.potts_model, self.mask)
         elif kind == 'contact':
-            fluctuation = frustration.compute_contact_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+            fluctuation = frustration.compute_contact_decoy_energy_fluctuation(self.protein_sequence, self.potts_model, self.mask)
 
         else:
             raise Exception("Wrong kind of decoy generation selected")

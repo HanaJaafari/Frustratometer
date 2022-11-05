@@ -1,13 +1,11 @@
 import os
-import urllib.request
 import subprocess
 from pathlib import Path
-import gzip
 import tempfile
 from ..utils import _path
 
 def generate_hmmer_alignment(pdb_file,protein_sequence,alignment_files_directory=os.getcwd(),
-    alignment_output_file=False,alignment_sequence_database="swissprot"):
+    alignment_output_file=False,alignment_sequence_database="swissprot",iterations=5):
     """
     Generates alignment using jackhmmer
 
@@ -26,6 +24,8 @@ def generate_hmmer_alignment(pdb_file,protein_sequence,alignment_files_directory
     alignment_sequence_database: str
         Sequence database used to generation MSA
         Arguments: "swissprot" OR "trembl" (Default is "swissprot")
+    iterations: int
+        Number of iterations for jackhmmer alignment
 
     Returns
     -------
@@ -36,26 +36,26 @@ def generate_hmmer_alignment(pdb_file,protein_sequence,alignment_files_directory
         pdb_name=os.path.basename(pdb_file)[:4]
     else:
         pdb_name="protein"
-    output_file = Path(f"{alignment_files_directory}/{pdb_name}_jackhmmer_MSA.sto")
+    output_file = (f"{alignment_files_directory}/{pdb_name}_jackhmmer_MSA.sto")
         
-    jackhmmer_sequence_database=Path(f"{_path}/databases/uniprot_{alignment_sequence_database}.fa")
-    with tempfile.NamedTemporaryFile(mode="w", prefix=f"{pdb_name}_", suffix='_sequence.fa',dir=alignment_files_directory) as fasta_file:
+    jackhmmer_sequence_database=(f"{_path}/../Uniprot_Sequence_Database/uniprot_{alignment_sequence_database}.fasta")
+    with tempfile.NamedTemporaryFile(mode="w", prefix=f"{pdb_name}_", suffix='_sequence.fasta',dir=alignment_files_directory) as fasta_file:
         fasta_file.write(f'>{pdb_name}\n{protein_sequence}\n')
         fasta_file.flush()
         if alignment_output_file is False:
             subprocess.call(
-                ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
-                '--incE', '1E-10', fasta_file.name, alignment_sequence_database], stdout=subprocess.DEVNULL)
+                ['jackhmmer', '-A', output_file, '-N', str(iterations),'--noali', '-E', '1E-8',
+                '--incE', '1E-10', fasta_file.name, jackhmmer_sequence_database], stdout=subprocess.DEVNULL)
         else:
             with open(Path(f"{alignment_files_directory}/jackhmmer_output.txt"), 'w') as log:
                 subprocess.call(
-                    ['jackhmmer', '-A', output_file, '--noali', '-E', '1E-8',
-                    '--incE', '1E-10', fasta_file.name, alignment_sequence_database], stdout=log)
+                    ['jackhmmer', '-A', output_file, '-N', str(iterations), '--noali', '-E', '1E-8',
+                    '--incE', '1E-10', fasta_file.name, jackhmmer_sequence_database], stdout=log)
 
-    return output_file
+    return Path(output_file)
 
 def create_alignment_jackhmmer_deprecated(sequence, pdb_name,
-                               database=f'{_path}/Uniprot_Sequence_Database_Files/uniprot_sprot.fasta',
+                               database=f'{_path}/../Uniprot_Sequence_Database/uniprot_sprot.fasta',
                                output_file=None,
                                log_file=None):
     """
@@ -91,7 +91,7 @@ def create_alignment_jackhmmer_deprecated(sequence, pdb_name,
 
 def create_alignment_jackhmmer(sequence, pdb_name,download_all_alignment_files_status,
                                alignment_files_directory,
-                               database=f'{_path}/Uniprot_Sequence_Database_Files/uniprot_sprot.fasta'):
+                               database=f'{_path}/../Uniprot_Sequence_Database/uniprot_swissprot.fasta'):
     """
 
     :param sequence:
