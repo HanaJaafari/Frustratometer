@@ -10,6 +10,7 @@ from pathlib import Path
 import tempfile
 import pytest
 from dca_frustratometer.utils import _path
+import Bio.AlignIO
 
 data_path = dca_frustratometer.utils.create_directory(_path/'..'/'tests'/'data')
 #scratch_path = dca_frustratometer.utils.create_directory(_path/'..'/'tests'/'scratch')
@@ -50,11 +51,34 @@ def test_download_pfam_alignment():
     assert not output.exists()
 
 
-def test_filter_alignment():
+def test_filter_alignment_memory():
     alignment_file = data_path/'alignments_database'/'PF09696.12.sto'
-    with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered.sto') as filtered_file:
-        filtered_file=dca_frustratometer.filter.convert_and_filter_alignment(alignment_file,download_all_alignment_files=True)
+    expected_filtered_sequence='-IQTPSGLALLELQGTINLPEDAVDSDGKAT-------------KSIPVGRIDFPDYHPDTQSTAWMKRVYLYVGPHQRLTGEVKKLPKAIAIVRKKDGASNG-----------------------------------------'
+    with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered_memory.sto') as output_handle:
+        output_file = Path(output_handle.name)
+        filtered_file=dca_frustratometer.filter.filter_alignment(alignment_file, output_file)
         assert filtered_file.exists()
+        unfiltered_alignment = Bio.AlignIO.read(alignment_file, 'stockholm')
+        filtered_alignment = Bio.AlignIO.read(filtered_file, 'fasta')
+        assert len(unfiltered_alignment)==len(filtered_alignment)
+        assert unfiltered_alignment.get_alignment_length() > filtered_alignment.get_alignment_length()
+        assert filtered_alignment.get_alignment_length() == len(expected_filtered_sequence)
+        assert filtered_alignment[0].seq == expected_filtered_sequence
+        
+
+def test_filter_alignment_disk():
+    alignment_file = data_path/'alignments_database'/'PF09696.12.sto'
+    expected_filtered_sequence='-IQTPSGLALLELQGTINLPEDAVDSDGKAT-------------KSIPVGRIDFPDYHPDTQSTAWMKRVYLYVGPHQRLTGEVKKLPKAIAIVRKKDGASNG-----------------------------------------'
+    with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered_disk.sto') as output_handle:
+        output_file = Path(output_handle.name)
+        filtered_file=dca_frustratometer.filter.filter_alignment_no_memory(alignment_file,output_file)
+        assert filtered_file.exists()
+        unfiltered_alignment = Bio.AlignIO.read(alignment_file, 'stockholm')
+        filtered_alignment = Bio.AlignIO.read(filtered_file, 'fasta')
+        assert len(unfiltered_alignment)==len(filtered_alignment)
+        assert unfiltered_alignment.get_alignment_length() > filtered_alignment.get_alignment_length()
+        assert filtered_alignment.get_alignment_length() == len(expected_filtered_sequence)
+        assert filtered_alignment[0].seq == expected_filtered_sequence
    
 @pytest.mark.xfail
 def test_generate_and_filter_hmmer_alignment():
@@ -64,19 +88,11 @@ def test_generate_and_filter_hmmer_alignment():
     assert alignment_file.exists()
     output_text = alignment_file.read_text()
     assert "# STOCKHOLM" in output_text
-    filtered_file=dca_frustratometer.filter.convert_and_filter_alignment(alignment_file,download_all_alignment_files=True)
-    assert filtered_file.exists()
 
 
 def test_create_potts_model_from_aligment():
-    alignment_file=data_path/'alignments_database'/'PF09696.12.sto'
-    filtered_file=dca_frustratometer.filter.convert_and_filter_alignment(alignment_file,download_all_alignment_files=True)
+    filtered_file=data_path/'PF09696.12_gaps_filtered.fasta'
     potts_model = dca_frustratometer.dca.pydca.run(str(filtered_file))
-    # with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as alignment_file,\
-    #      tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered.fa') as filtered_file:
-    #     dca_frustratometer.pfam.download_full_alignment("PF09696", alignment_file.name)
-    #     dca_frustratometer.filter.filter_alignment(alignment_file.name, filtered_file.name)
-    #     potts_model = dca_frustratometer.dca.pydca.run(filtered_file.name)
     assert 'h' in potts_model.keys()
     assert 'J' in potts_model.keys()
 

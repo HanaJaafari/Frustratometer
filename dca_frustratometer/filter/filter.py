@@ -17,8 +17,6 @@ def filter_alignment(alignment_file,
     :return: 
     """
     '''Returns PDB MSA (fasta format) with column-spanning gaps and insertions removed'''
-    import tempfile
-
     # Parse the alignment
     alignment = AlignIO.read(alignment_file, alignment_format)
 
@@ -37,18 +35,13 @@ def filter_alignment(alignment_file,
     not_all_gaps=(alignment_array=='-').sum(axis=0)<len(alignment_array)
     new_alignment=alignment_array[:,not_all_gaps]
 
-    # Create temporary file if needed
-    if output_file is None:
-        # Temporary file
-        output = tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_alignment.fa', delete=False)
-        output_file = Path(output.name)
-    else:
-        # Other file
-        output_file = Path(output_file)
+    output_file = Path(output_file)
 
     # Write filtered alignment to file
+    text=''
     for record,new_seq in zip(alignment,new_alignment):
-        output_file.write_text(f">{record.id}\n{''.join(new_seq)}\n")
+        text+=f">{record.id}\n{''.join(new_seq)}\n"
+    output_file.write_text(text)
         
     return output_file
 
@@ -121,7 +114,9 @@ def filter_fasta(gap_threshold, pfamID, pdbID, chain, seq, resnos):
 
     return fastaseq, sequences_passed_threshold
 
-def convert_and_filter_alignment(alignment_file,download_all_alignment_files=False,alignment_files_directory=os.getcwd()):
+def filter_alignment_no_memory(alignment_file, 
+                               output_file, 
+                               alignment_format = "stockholm"):
     """
     Produces a column gap and insertion filtered MSA file. 
 
@@ -129,9 +124,6 @@ def convert_and_filter_alignment(alignment_file,download_all_alignment_files=Fal
     ----------
     alignment_file :  Path
         MSA file name (full path)
-    download_all_alignment_files:   bool
-        If True, will download all alignment files
-        Arguments: True OR False (Default is False)
     alignment_files_directory:  str
         If selected TRUE for download_all_alignment_files_status, 
         provide filepath. Default is current directory. 
@@ -141,35 +133,25 @@ def convert_and_filter_alignment(alignment_file,download_all_alignment_files=Fal
     filtered_fasta_alignment_file: Path
         Path of the filtered MSA
     """
-    alignment_file_name=alignment_file.name.replace(".sto","")
-    fasta_alignment_file=f"{alignment_files_directory}/{alignment_file_name}.fasta"
-    filtered_fasta_alignment_file=f"{alignment_files_directory}/{alignment_file_name}_gaps_filtered.fasta"
     
-    # Convert full MSA in stockholm format to fasta format
-    output_handle = open(fasta_alignment_file, "w")
-    alignments = AlignIO.parse(alignment_file, "stockholm")
-    AlignIO.write(alignments, output_handle, "fasta")
-    output_handle.close()
-
     # Remove inserts and columns that are completely composed of gaps from MSA
-    alignment = AlignIO.read(fasta_alignment_file, "fasta")
-    output_handle = open(filtered_fasta_alignment_file, "w")
+    alignment = AlignIO.parse(alignment_file, "stockholm")
+    output_handle = open(output_file, "w")
 
-    index_mask = []
-    for i, record in enumerate(alignment):
-        index_mask += [i for i, x in enumerate(list(record.seq)) if x != x.upper()]
-    for i in range(len(alignment[0].seq)):
-        if alignment[:, i] == ''.join(["-"] * len(alignment)):
-            index_mask.append(i)
-    index_mask = sorted(list(set(index_mask)))
+    with open(alignment_file) as alignment_handle:
+        alignment = AlignIO.read(alignment_handle, "stockholm")
+        index_mask = []
+        for i, record in enumerate(alignment):
+            index_mask += [i for i, x in enumerate(list(record.seq)) if x != x.upper()]
+        for i in range(len(alignment[0].seq)):
+            if alignment[:, i] == ''.join(["-"] * len(alignment)):
+                index_mask.append(i)
+        index_mask = sorted(list(set(index_mask)))
+    
+    with open(alignment_file) as alignment_handle, open(output_file, "w") as output_handle:
+        alignment = AlignIO.read(alignment_handle, "stockholm")
+        for i, record in enumerate(alignment):
+            aligned_sequence = [list(record.seq)[i] for i in range(len(list(record.seq))) if i not in index_mask]
+            output_handle.write(">%s\n" % record.id + "".join(aligned_sequence) + '\n')
 
-    for i, record in enumerate(alignment):
-        aligned_sequence = [list(record.seq)[i] for i in range(len(list(record.seq))) if i not in index_mask]
-        output_handle.write(">%s\n" % record.id + "".join(aligned_sequence) + '\n')
-    output_handle.close()
-
-    if download_all_alignment_files is False:
-        os.remove(alignment_file)
-        os.remove(fasta_alignment_file)
-
-    return Path(filtered_fasta_alignment_file)
+    return Path(output_file)
