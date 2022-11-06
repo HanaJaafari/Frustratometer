@@ -37,9 +37,6 @@ jobs:
         df -h
         ulimit -a
 
-    - name: Install hmmer
-      run: sudo apt-get install -y hmmer
-
     - name: checkout source
       uses: actions/checkout@v2
 #      with:
@@ -96,13 +93,13 @@ jobs:
         conda list
         cd ..
         pwd
-
+    
     - name: Install package
 
       # conda setup requires this special shell
       shell: bash -l {0}
       run: |
-        conda install --file requirements.txt 
+        pip install -r requirements.txt
         python -m pip install . --no-deps
         conda list
 
