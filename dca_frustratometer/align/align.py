@@ -1,7 +1,7 @@
 import subprocess
 from pathlib import Path
 import tempfile
-
+import logging
 def jackhmmer(sequence,
               output_file,
               database,
@@ -41,6 +41,10 @@ def jackhmmer(sequence,
                     "E": 1E-8,
                     "noali": True,
                     "incE": 1E-10}
+
+    database=Path(database)
+    if not database.exists():
+      raise IOError(f'Database not found in path:{str(database)}')
     
     #Update arguments
     command_kwargs.update(kwargs)
