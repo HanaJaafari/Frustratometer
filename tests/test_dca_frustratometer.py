@@ -27,12 +27,12 @@ def test_download_pfam_database():
 
 
 def test_get_alignment_from_database():
-    alignment_file = dca_frustratometer.pfam.get_alignment('PF17182', data_path/'alignments_database')
+    alignment_file = dca_frustratometer.pfam.get_alignment('PF17182', data_path/'pfam_database')
     assert alignment_file.exists()
     alignment_text = alignment_file.read_text()
     assert "#=GF AC   PF17182" in alignment_text
 
-    alignment_file = dca_frustratometer.pfam.get_alignment('PF09696', data_path/'alignments_database')
+    alignment_file = dca_frustratometer.pfam.get_alignment('PF09696', data_path/'pfam_database')
     assert alignment_file.exists()
     alignment_text = alignment_file.read_text()
     assert "#=GF AC   PF09696" in alignment_text
@@ -52,7 +52,7 @@ def test_download_pfam_alignment():
 
 
 def test_filter_alignment_memory():
-    alignment_file = data_path/'alignments_database'/'PF09696.12.sto'
+    alignment_file = data_path/'pfam_database'/'PF09696.12.sto'
     expected_filtered_sequence='-IQTPSGLALLELQGTINLPEDAVDSDGKAT-------------KSIPVGRIDFPDYHPDTQSTAWMKRVYLYVGPHQRLTGEVKKLPKAIAIVRKKDGASNG-----------------------------------------'
     with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered_memory.sto') as output_handle:
         output_file = Path(output_handle.name)
@@ -80,14 +80,17 @@ def test_filter_alignment_lowmem():
         assert filtered_alignment.get_alignment_length() == len(expected_filtered_sequence)
         assert filtered_alignment[0].seq == expected_filtered_sequence
    
-@pytest.mark.xfail
 def test_generate_and_filter_hmmer_alignment():
     #PDB ID:1ZR7_1
+    sequence_database = data_path/'selected_sequences.fa'
     protein_sequence="GSWTEHKSPDGRTYYYNTETKQSTWEKPDD"
-    alignment_file = dca_frustratometer.align.generate_hmmer_alignment(pdb_file=None,protein_sequence=protein_sequence,alignment_output_file=True,iterations=1)
-    assert alignment_file.exists()
-    output_text = alignment_file.read_text()
-    assert "# STOCKHOLM" in output_text
+    with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered_disk.sto') as output_handle:
+        output_file = Path(output_handle.name)
+        alignment_file=dca_frustratometer.align.jackhmmer(protein_sequence,output_file,sequence_database)
+        assert alignment_file.exists()
+        output_text = alignment_file.read_text()
+        assert "# STOCKHOLM" in output_text
+        
 
 
 def test_create_potts_model_from_aligment():
