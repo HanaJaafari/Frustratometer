@@ -15,6 +15,10 @@ import Bio.AlignIO
 data_path = dca_frustratometer.utils.create_directory(_path/'..'/'tests'/'data')
 #scratch_path = dca_frustratometer.utils.create_directory(_path/'..'/'tests'/'scratch')
 
+def test_dca_frustratometer_imported():
+    """Sample test, will always pass so long as import statement worked."""
+    assert "dca_frustratometer" in sys.modules
+
 def test_download_pfam_database():
     """ This test downloads a small database from pfam and splits the files in a folder"""
     name='pfam_dead'
@@ -63,12 +67,14 @@ def test_filter_alignment_memory():
         assert len(unfiltered_alignment)==len(filtered_alignment)
         assert unfiltered_alignment.get_alignment_length() > filtered_alignment.get_alignment_length()
         assert filtered_alignment.get_alignment_length() == len(expected_filtered_sequence)
+        print(filtered_alignment[0].seq)
         assert filtered_alignment[0].seq == expected_filtered_sequence
         
 
 def test_filter_alignment_lowmem():
-    alignment_file = data_path/'pfam_database'/'PF09696.12.sto'
-    expected_filtered_sequence='-IQTPSGLALLELQGTINLPEDAVDSDGKAT-------------KSIPVGRIDFPDYHPDTQSTAWMKRVYLYVGPHQRLTGEVKKLPKAIAIVRKKDGASNG-----------------------------------------'
+    alignment_file = data_path/'pfam_database'/'PF17182.6.sto'
+    expected_filtered_sequence='QHDSMFTINSDYDAYLLDFPLLGDDFLLYLARMELRCRFKRTERVLQSGLCVSGQTISGARSRLHHLLVNKTQIIVNIGSVDIMRGRPIVQIQHDFRQLVK'\
+                               'DMHNRGLVPILTTLAPLANYCHDKAMCDKVVKFNQFIWKECASYLKVIDIHSCLVNENGVVRFDCFQYSSRNVTGSKESYVFWNKIGRQRVLQMIEASLE'
     with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered_disk.sto') as output_handle:
         output_file = Path(output_handle.name)
         filtered_file=dca_frustratometer.filter.filter_alignment_lowmem(alignment_file,output_file)
@@ -91,23 +97,11 @@ def test_generate_and_filter_hmmer_alignment():
         output_text = alignment_file.read_text()
         assert "# STOCKHOLM" in output_text
         
-
-
 def test_create_potts_model_from_aligment():
     filtered_file=data_path/'PF09696.12_gaps_filtered.fasta'
     potts_model = dca_frustratometer.dca.pydca.run(str(filtered_file))
     assert 'h' in potts_model.keys()
     assert 'J' in potts_model.keys()
-
-
-def test_create_potts_model_from_pdb():
-    pass
-
-
-def test_dca_frustratometer_imported():
-    """Sample test, will always pass so long as import statement worked."""
-    assert "dca_frustratometer" in sys.modules
-
 
 def test_identify_pfamID():
     pfamID = dca_frustratometer.map.get_pfamID("6U5E","A")
