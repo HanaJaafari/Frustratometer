@@ -3,4 +3,5 @@ scipy
 pandas
 biopython
 prody
+hmmer
 importlib-metadata; python_version < '3.9'
