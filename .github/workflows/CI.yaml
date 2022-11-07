@@ -7,7 +7,6 @@ on:
   push:
     branches:
       - "main"
-      - "Refactoring"
   pull_request:
     branches:
       - "main"
@@ -36,6 +35,17 @@ jobs:
         uname -a
         df -h
         ulimit -a
+
+    - name: Install hmmer
+      run: |
+       wget http://eddylab.org/software/hmmer/hmmer.tar.gz
+       tar zxf hmmer.tar.gz
+       cd hmmer-3.3.2
+       ./configure
+       make
+       make check
+       sudo make install
+       cd ..  
 
     - name: checkout source
       uses: actions/checkout@v2
