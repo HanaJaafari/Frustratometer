@@ -182,3 +182,16 @@ def test_initialize_from_pdb():
     potts_model=dca_frustratometer.PottsModel.from_PFAM(PFAM_id)
     potts_model.set_structure(pdb)
     assert potts_model.compute_native_energy()==expected_energy
+
+
+def test_from_potts_model_file():
+    pass
+
+def from_pfam_alignment():
+    pass
+
+def from_hmmer_alignment():
+    pass
+
+def from_alignment():
+    pass
