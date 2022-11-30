@@ -44,11 +44,11 @@ class PottsModel:
 
         # Compute fast properties
         self._potts_model = dca.matlab.load_potts_model(self.potts_model_file)
-        self._protein_sequence = pdb.get_protein_sequence_from_pdb(self.pdb_file, self.chain)
-        self.distance_matrix = pdb.get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
+        self._sequence = pdb.get_sequence(self.pdb_file, self.chain)
+        self.distance_matrix = pdb.get_distance_matrix(self.pdb_file, self.chain, self.distance_matrix_method)
 
-        self.aa_freq = frustration.compute_aa_freq(self.protein_sequence)
-        self.contact_freq = frustration.compute_contact_freq(self.protein_sequence)
+        self.aa_freq = frustration.compute_aa_freq(self.sequence)
+        self.contact_freq = frustration.compute_contact_freq(self.sequence)
         self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
 
         # Initialize slow properties
@@ -76,10 +76,10 @@ class PottsModel:
         self._distance_matrix_method = distance_matrix_method
 
         # Compute fast properties
-        self._sequence = pdb.get_protein_sequence_from_pdb(self.pdb_file, self.chain)
-        self.distance_matrix = pdb.get_distance_matrix_from_pdb(self.pdb_file, self.chain, self.distance_matrix_method)
-        self.aa_freq = frustration.compute_aa_freq(self.protein_sequence)
-        self.contact_freq = frustration.compute_contact_freq(self.protein_sequence)
+        self._sequence = pdb.get_sequence(self.pdb_file, self.chain)
+        self.distance_matrix = pdb.get_distance_matrix(self.pdb_file, self.chain, self.distance_matrix_method)
+        self.aa_freq = frustration.compute_aa_freq(self.sequence)
+        self.contact_freq = frustration.compute_contact_freq(self.sequence)
         self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
 
         # Initialize slow properties
@@ -89,7 +89,7 @@ class PottsModel:
 
     @classmethod
     def from_pfam_alignment(cls,
-                            protein_sequence:   str,
+                            sequence:   str,
                             PFAM_ID: str,
                             pdb_file:   str,
                             pdb_chain:  str,
@@ -112,26 +112,26 @@ class PottsModel:
         self._distance_matrix_method = distance_matrix_method
 
         # Compute fast properties
-        if protein_sequence==None:
-            self._protein_sequence = pdb.get_protein_sequence_from_pdb(self.pdb_file, self.pdb_chain)
-            self.distance_matrix = pdb.get_distance_matrix_from_pdb(self.pdb_file, self.pdb_chain, self.distance_matrix_method)
+        if sequence==None:
+            self._sequence = pdb.get_sequence(self.pdb_file, self.pdb_chain)
+            self.distance_matrix = pdb.get_distance_matrix(self.pdb_file, self.pdb_chain, self.distance_matrix_method)
             self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
         else:
-            self._protein_sequence=protein_sequence
+            self._sequence=sequence
             self.distance_matrix=None
             self.mask = None
         
         if PFAM_ID==None:
             # TODO Identify protein family given protein sequence
-            if protein_sequence==None:
+            if sequence==None:
                 self._PFAM_ID=map.get_pfamID(self.pdb_file,self.chain)
         else:
             self._PFAM_ID=PFAM_ID
 
         self._alignment_file=pfam.download_full_alignment(self.PFAM_ID,self.alignment_files_directory)
         self._filtered_alignment_file=filter.convert_and_filter_alignment(self.alignment_file,self.download_all_alignment_files,self.alignment_files_directory)
-        self.aa_freq = frustration.compute_aa_freq(self.protein_sequence)
-        self.contact_freq = frustration.compute_contact_freq(self.protein_sequence)
+        self.aa_freq = frustration.compute_aa_freq(self.sequence)
+        self.contact_freq = frustration.compute_contact_freq(self.sequence)
 
         # Initialize slow properties
         self._native_energy = None
@@ -140,7 +140,7 @@ class PottsModel:
 
     @classmethod
     def from_hmmer_alignment(cls,
-                            protein_sequence:   str,
+                            sequence:   str,
                             PFAM_ID: str,
                             pdb_file:   str,
                             pdb_chain:  str,
@@ -167,19 +167,19 @@ class PottsModel:
         self._distance_matrix_method = distance_matrix_method
 
         # Compute fast properties
-        if protein_sequence==None:
-            self._protein_sequence = pdb.get_protein_sequence_from_pdb(self.pdb_file, self.pdb_chain)
-            self.distance_matrix = pdb.get_distance_matrix_from_pdb(self.pdb_file, self.pdb_chain, self.distance_matrix_method)
+        if sequence==None:
+            self._sequence = pdb.get_sequence(self.pdb_file, self.pdb_chain)
+            self.distance_matrix = pdb.get_distance_matrix(self.pdb_file, self.pdb_chain, self.distance_matrix_method)
             self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
         else:
-            self._protein_sequence=protein_sequence
+            self._sequence=sequence
             self.distance_matrix=None
             self.mask = None
 
-        self._alignment_file=align.generate_hmmer_alignment(self.pdb_file,self.protein_sequence,self.alignment_files_directory,self.alignment_output_file,self.alignment_sequence_database)
+        self._alignment_file=align.generate_hmmer_alignment(self.pdb_file,self.sequence,self.alignment_files_directory,self.alignment_output_file,self.alignment_sequence_database)
         self._filtered_alignment_file=filter.convert_and_filter_alignment(self.alignment_file,self.download_all_alignment_files,self.alignment_files_directory)
-        self.aa_freq = frustration.compute_aa_freq(self.protein_sequence)
-        self.contact_freq = frustration.compute_contact_freq(self.protein_sequence)
+        self.aa_freq = frustration.compute_aa_freq(self.sequence)
+        self.contact_freq = frustration.compute_contact_freq(self.sequence)
 
         # Initialize slow properties
         self._native_energy = None
@@ -205,13 +205,14 @@ class PottsModel:
         potts_model = plmdca_inst.get_potts_model()
 
     @property
-    def protein_sequence(self):
-        return self._protein_sequence
-    #The sequence is dependent on the pdb so no need to provide option to set this.
-    # @sequence.setter
-    # def sequence(self, value):
-    #     assert len(value) == len(self._sequence)
-    #     self._sequence = value
+    def sequence(self):
+        return self._sequence
+    
+    # Set a new sequence in case someone needs to calculate the energy of a diferent sequence with the same structure
+    @sequence.setter
+    def sequence(self, value):
+        assert len(value) == len(self._sequence)
+        self._sequence = value
 
     @property
     def pdb_file(self):
@@ -312,7 +313,7 @@ class PottsModel:
 
     @distance_matrix_method.setter
     def distance_matrix_method(self, value):
-        self.distance_matrix = pdb.et_distance_matrix_from_pdb(self._pdb_file, self._chain, value)
+        self.distance_matrix = pdb.get_distance_matrix(self._pdb_file, self._chain, value)
         self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
         self._distance_matrix_method = value
         self._native_energy = None
@@ -326,7 +327,7 @@ class PottsModel:
     def potts_model_file(self, value):
         if value == None:
             print("Generating PDB alignment using Jackhmmer")
-            align.create_alignment_jackhmmer(self.protein_sequence, self.pdb_name,
+            align.create_alignment_jackhmmer(self.sequence, self.pdb_name,
                                        output_file="dcaf_{}_alignment.sto".format(self.pdb_name))
             filter.convert_and_filter_alignment(self.pdb_name)
             dca.matlab.compute_plm(self.pdb_name)
@@ -353,21 +354,21 @@ class PottsModel:
             if self._native_energy:
                 return self._native_energy
             else:
-                return frustration.compute_native_energy(self.protein_sequence, self.potts_model, self.mask)
+                return frustration.compute_native_energy(self.sequence, self.potts_model, self.mask)
         else:
-            return frustration.compute_native_energy(protein_sequence, self.potts_model, self.mask)
+            return frustration.compute_native_energy(sequence, self.potts_model, self.mask)
 
     def decoy_fluctuation(self, kind='singleresidue'):
         if kind in self._decoy_fluctuation:
             return self._decoy_fluctuation[kind]
         if kind == 'singleresidue':
-            fluctuation = frustration.compute_singleresidue_decoy_energy_fluctuation(self.protein_sequence, self.potts_model, self.mask)
+            fluctuation = frustration.compute_singleresidue_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
         elif kind == 'mutational':
-            fluctuation = frustration.compute_mutational_decoy_energy_fluctuation(self.protein_sequence, self.potts_model, self.mask)
+            fluctuation = frustration.compute_mutational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
         elif kind == 'configurational':
-            fluctuation = frustration.compute_configurational_decoy_energy_fluctuation(self.protein_sequence, self.potts_model, self.mask)
+            fluctuation = frustration.compute_configurational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
         elif kind == 'contact':
-            fluctuation = frustration.compute_contact_decoy_energy_fluctuation(self.protein_sequence, self.potts_model, self.mask)
+            fluctuation = frustration.compute_contact_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
 
         else:
             raise Exception("Wrong kind of decoy generation selected")

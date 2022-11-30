@@ -109,8 +109,8 @@ def test_identify_pfamID():
 
 
 def test_functional_compute_native_energy():
-    seq = dca_frustratometer.pdb.get_protein_sequence_from_pdb('examples/data/1cyo.pdb', 'A')
-    distance_matrix = dca_frustratometer.pdb.get_distance_matrix_from_pdb('examples/data/1cyo.pdb', 'A')
+    seq = dca_frustratometer.pdb.get_sequence('examples/data/1cyo.pdb', 'A')
+    distance_matrix = dca_frustratometer.pdb.get_distance_matrix('examples/data/1cyo.pdb', 'A')
     potts_model = dca_frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
     mask = dca_frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff=4, sequence_distance_cutoff=0)
     e = dca_frustratometer.frustration.compute_native_energy(seq, potts_model, mask)
@@ -125,6 +125,12 @@ def test_OOP_compute_native_energy():
                                                                 sequence_cutoff=0)
     e = model.native_energy()
     assert np.round(e, 4) == -61.5248
+
+def test_AWSEM_native_energy():
+    model=dca_frustratometer.AWSEMFrustratometer('examples/data/1l63.pdb','A')
+    e = model.native_energy()
+    assert np.round(e, 4) == -914.9407
+
 
 
 def test_scores():
@@ -141,9 +147,9 @@ def test_compute_singleresidue_decoy_energy():
     pos_x = 30
     distance_cutoff = 4
     sequence_cutoff = 0
-    distance_matrix = dca_frustratometer.pdb.get_distance_matrix_from_pdb('examples/data/1cyo.pdb', 'A')
+    distance_matrix = dca_frustratometer.pdb.get_distance_matrix('examples/data/1cyo.pdb', 'A')
     potts_model = dca_frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
-    seq = dca_frustratometer.pdb.get_protein_sequence_from_pdb('examples/data/1cyo.pdb', 'A')
+    seq = dca_frustratometer.pdb.get_sequence('examples/data/1cyo.pdb', 'A')
     mask = dca_frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff, sequence_cutoff)
     AA = '-ACDEFGHIKLMNPQRSTVWY'
     seq = [aa for aa in seq]
@@ -161,9 +167,9 @@ def test_compute_mutational_decoy_energy():
     pos_y = 69
     distance_cutoff = 4
     sequence_cutoff = 0
-    distance_matrix = dca_frustratometer.pdb.get_distance_matrix_from_pdb('examples/data/1cyo.pdb', 'A')
+    distance_matrix = dca_frustratometer.pdb.get_distance_matrix('examples/data/1cyo.pdb', 'A')
     potts_model = dca_frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
-    seq = dca_frustratometer.pdb.get_protein_sequence_from_pdb('examples/data/1cyo.pdb', 'A')
+    seq = dca_frustratometer.pdb.get_sequence('examples/data/1cyo.pdb', 'A')
     mask = dca_frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff, sequence_cutoff)
     AA = '-ACDEFGHIKLMNPQRSTVWY'
     seq = [aa for aa in seq]

@@ -51,9 +51,9 @@ class AWSEMFrustratometer(PottsModel):
                  pdb_file,
                  chain=None,
                  sequence_cutoff=None):
-        self.pdb_file = pdb_file
-        self.chain = chain
-        self._sequence = pdb.get_protein_sequence_from_pdb(self.pdb_file, self.chain)
+        self._pdb_file = pdb_file
+        self._chain = chain
+        self._sequence = pdb.get_sequence(self.pdb_file, self.chain)
         self.structure = prody.parsePDB(self.pdb_file)
         selection_CB = self.structure.select('name CB or (resname GLY and name CA)')
         resid = selection_CB.getResindices()

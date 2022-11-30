@@ -1,5 +1,3 @@
-import typing
-
 from Bio.PDB import PDBParser
 import prody
 import scipy.spatial.distance as sdist
@@ -8,16 +6,16 @@ import numpy as np
 import itertools
 
 
-def download_pdb(pdbID):
+def download(pdbID: str):
     """
     Downloads a single pdb file
     """
     import urllib.request
     urllib.request.urlretrieve('http://www.rcsb.org/pdb/files/%s.pdb' % pdbID, "%s%s.pdb" % (directory, pdbID))
 
-def get_protein_sequence_from_pdb(pdb: str,
-                                  chain: str
-                                  ) -> str:
+def get_sequence(pdb_file: str, 
+                 chain: str
+                 ) -> str:
     """
     Get a protein sequence from a pdb file
 
@@ -42,7 +40,7 @@ def get_protein_sequence_from_pdb(pdb: str,
     """
 
     parser = PDBParser()
-    structure = parser.get_structure('name', pdb)
+    structure = parser.get_structure('name', pdb_file)
     Letter_code = {'ALA': 'A', 'ARG': 'R', 'ASN': 'N', 'ASP': 'D', 'CYS': 'C',
                    'GLN': 'Q', 'GLU': 'E', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I',
                    'LEU': 'L', 'LYS': 'K', 'MET': 'M', 'PHE': 'F', 'PRO': 'P',
@@ -53,10 +51,10 @@ def get_protein_sequence_from_pdb(pdb: str,
     sequence = ''.join([Letter_code[r.resname] for r in residues])
     return sequence
 
-def get_distance_matrix_from_pdb(pdb_file: str,
-                                 chain: str,
-                                 method: str = 'minimum'
-                                 ) -> np.array:
+def get_distance_matrix(pdb_file: str, 
+                        chain: str, 
+                        method: str = 'minimum'
+                        ) -> np.array:
     """
     Get a residue distance matrix from a pdb protein
     :param pdb_file: PDB file location
