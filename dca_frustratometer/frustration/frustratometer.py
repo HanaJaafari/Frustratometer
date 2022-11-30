@@ -41,6 +41,29 @@ def compute_native_energy(seq: str,
     energy = h.sum() + j_prime.sum() / 2
     return energy
 
+def compute_fields_energy(seq: str,
+                   potts_model: dict,
+                   mask: np.array) -> float:
+    seq_index = np.array([_AA.find(aa) for aa in seq])
+    seq_len = len(seq_index)
+
+    h = -potts_model['h'][range(seq_len), seq_index]
+    energy = h.sum()
+    return h.sum()
+
+def compute_couplings_energy(seq: str,
+                      potts_model: dict,
+                      mask: np.array) -> float:
+    seq_index = np.array([_AA.find(aa) for aa in seq])
+    seq_len = len(seq_index)
+    pos1, pos2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), indexing='ij', sparse=True)
+    aa1, aa2 = np.meshgrid(seq_index, seq_index, indexing='ij', sparse=True)
+
+    j = -potts_model['J'][pos1, pos2, aa1, aa2]
+    j_prime = j * mask
+    energy = j_prime.sum() / 2
+    return energy
+
 
 def compute_singleresidue_decoy_energy_fluctuation(seq: str,
                                                    potts_model: dict,

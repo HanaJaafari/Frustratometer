@@ -38,7 +38,8 @@ class AWSEMFrustratometer(PottsModel):
     gamma_se_map_3_letters = {'ALA': 0, 'ARG': 1, 'ASN': 2, 'ASP': 3, 'CYS': 4,
                               'GLN': 5, 'GLU': 6, 'GLY': 7, 'HIS': 8, 'ILE': 9,
                               'LEU': 10, 'LYS': 11, 'MET': 12, 'PHE': 13, 'PRO': 14,
-                              'SER': 15, 'THR': 16, 'TRP': 17, 'TYR': 18, 'VAL': 19}
+                              'SER': 15, 'THR': 16, 'TRP': 17, 'TYR': 18, 'VAL': 19,
+                              'NGP': 0, 'IPR': 14, 'IGL': 7}
     burial_gamma = np.fromfile(f'{_path}/data/burial_gamma').reshape(20, 3)
     gamma_ijm = np.fromfile(f'{_path}/data/gamma_ijm').reshape(2, 20, 20)
     water_gamma_ijm = np.fromfile(f'{_path}/data/water_gamma_ijm').reshape(2, 20, 20)
@@ -55,7 +56,7 @@ class AWSEMFrustratometer(PottsModel):
         self._chain = chain
         self._sequence = pdb.get_sequence(self.pdb_file, self.chain)
         self.structure = prody.parsePDB(self.pdb_file)
-        selection_CB = self.structure.select('name CB or (resname GLY and name CA)')
+        selection_CB = self.structure.select('name CB or (resname GLY IGL and name CA)')
         resid = selection_CB.getResindices()
         self.N = len(resid)
         resname = [self.gamma_se_map_3_letters[aa] for aa in selection_CB.getResnames()]

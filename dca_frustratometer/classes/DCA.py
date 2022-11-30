@@ -358,6 +358,18 @@ class PottsModel:
         else:
             return frustration.compute_native_energy(sequence, self.potts_model, self.mask)
 
+    def fields_energy(self, sequence=None):
+        if sequence is None:
+            sequence=self._sequence
+        return frustration.compute_fields_energy(sequence, self.potts_model, self.mask)
+
+    def couplings_energy(self, sequence=None):
+        if sequence is None:
+            sequence=self._sequence
+        return frustration.compute_couplings_energy(sequence, self.potts_model, self.mask)
+        
+
+
     def decoy_fluctuation(self, kind='singleresidue'):
         if kind in self._decoy_fluctuation:
             return self._decoy_fluctuation[kind]
