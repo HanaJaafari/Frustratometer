@@ -140,17 +140,17 @@ class PottsModel:
 
     @classmethod
     def from_hmmer_alignment(cls,
-                            sequence:   str,
-                            PFAM_ID: str,
-                            pdb_file:   str,
-                            pdb_chain:  str,
-                            download_all_alignment_files: bool,
-                            alignment_files_directory: str,
-                            alignment_output_file:  bool,
-                            alignment_sequence_database:    str,
-                            sequence_cutoff: typing.Union[float, None] = None,
-                            distance_cutoff: typing.Union[float, None] = None,
-                            distance_matrix_method='minimum'):
+                             sequence:   str,
+                             PFAM_ID: str,
+                             pdb_file:   str,
+                             pdb_chain:  str,
+                             download_all_alignment_files: bool,
+                             alignment_files_directory: str,
+                             alignment_output_file:  bool,
+                             alignment_sequence_database:    str,
+                             sequence_cutoff: typing.Union[float, None] = None,
+                             distance_cutoff: typing.Union[float, None] = None,
+                             distance_matrix_method='minimum'):
         self = cls()
 
         # Set initialization variables
@@ -357,6 +357,9 @@ class PottsModel:
                 return frustration.compute_native_energy(self.sequence, self.potts_model, self.mask)
         else:
             return frustration.compute_native_energy(sequence, self.potts_model, self.mask)
+
+    def sequences_energies(self, sequences, split_couplings_and_fields=False):
+        return frustration.compute_sequences_energy(sequences, self.potts_model, self.mask, split_couplings_and_fields)
 
     def fields_energy(self, sequence=None):
         if sequence is None:

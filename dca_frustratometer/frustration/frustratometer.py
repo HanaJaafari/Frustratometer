@@ -64,6 +64,31 @@ def compute_couplings_energy(seq: str,
     energy = j_prime.sum() / 2
     return energy
 
+def compute_sequences_energy(seqs: list,
+                             potts_model: dict,
+                             mask: np.array,
+                             split_couplings_and_fields = False 
+                             ) -> np.array:
+    seq_index = np.array([[_AA.find(aa) for aa in seq] for seq in seqs])
+    N_seqs, seq_len = seq_index.shape
+    pos_index=np.repeat([np.arange(seq_len)], N_seqs,axis=0)
+
+
+    pos1=np.array([np.meshgrid(p, p, indexing='ij', sparse=True)[0] for p in pos_index])
+    pos2=np.array([np.meshgrid(p, p, indexing='ij', sparse=True)[1] for p in pos_index])
+    aa1=np.array([np.meshgrid(s, s, indexing='ij', sparse=True)[0] for s in seq_index])
+    aa2=np.array([np.meshgrid(s, s, indexing='ij', sparse=True)[1] for s in seq_index])
+    
+    h = -potts_model['h'][pos_index,seq_index]
+    j = -potts_model['J'][pos1, pos2, aa1, aa2]
+    j_prime = j * mask
+
+    if split_couplings_and_fields:
+        return np.array([h.sum(axis=-1),j_prime.sum(axis=-1).sum(axis=-1) / 2])
+    else:
+        energy = h.sum(axis=-1) + j_prime.sum(axis=-1).sum(axis=-1) / 2
+        return energy
+
 
 def compute_singleresidue_decoy_energy_fluctuation(seq: str,
                                                    potts_model: dict,
