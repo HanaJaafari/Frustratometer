@@ -79,8 +79,6 @@ def extract_sequences_from_alignment(alignment_file,
                                      database):
     """
     Extracts the complete sequences of an stockholm alignment from a database to refine the alignment if needed
-
-
     """
     
     import Bio.AlignIO

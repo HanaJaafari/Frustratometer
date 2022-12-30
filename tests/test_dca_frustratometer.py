@@ -99,7 +99,7 @@ def test_generate_and_filter_hmmer_alignment():
         
 def test_create_potts_model_from_aligment():
     filtered_file=data_path/'PF09696.12_gaps_filtered.fasta'
-    potts_model = dca_frustratometer.dca.pydca.run(str(filtered_file))
+    potts_model = dca_frustratometer.dca.pydca.plmdca(str(filtered_file))
     assert 'h' in potts_model.keys()
     assert 'J' in potts_model.keys()
 
