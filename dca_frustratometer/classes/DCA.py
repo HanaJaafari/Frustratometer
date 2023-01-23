@@ -431,3 +431,32 @@ class PottsModel:
                                       max_connections=max_connections)
         frustration.call_vmd(self.pdb_file, tcl_script)
 
+    def view_frustration(self, single='singleresidue', pair='mutational', aa_freq=None, correction=0, max_connections=100):
+        import numpy as np
+        import py3Dmol
+        pdb_filename = self.pdb_file
+        pair_frustration=self.frustration(pair)*np.triu(self.mask)
+        residues=np.arange(len(self.sequence))
+        r1, r2 = np.meshgrid(residues, residues, indexing='ij')
+        sel_frustration = np.array([r1.ravel(), r2.ravel(), pair_frustration.ravel()]).T
+        minimally_frustrated = sel_frustration[sel_frustration[:, -1] < -0.78]
+        frustrated = sel_frustration[sel_frustration[:, -1] > 1]
+        
+        view = py3Dmol.view(js='https://3dmol.org/build/3Dmol.js')
+        view.addModel(open(pdb_filename,'r').read(),'pdb')
+
+        view.setBackgroundColor('white')
+        view.setStyle({'cartoon':{'color':'white'}})
+        
+        for i,j,f in frustrated:
+            view.addLine({'start':{'chain':'A','resi':[str(i+1)]},'end':{'chain':'A','resi':[str(j+1)]},
+                        'color':'red', 'dashed':False,'linewidth':3})
+        
+        for i,j,f in minimally_frustrated:
+            view.addLine({'start':{'chain':'A','resi':[str(i+1)]},'end':{'chain':'A','resi':[str(j+1)]},
+                        'color':'green', 'dashed':False,'linewidth':3})
+
+        view.zoomTo(viewer=(0,0))
+
+        return view
+
