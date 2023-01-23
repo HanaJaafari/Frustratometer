@@ -92,7 +92,7 @@ jobs:
     
     #Install numpy first
     - name: Install numpy
-    - run: conda install numpy
+      run: conda install numpy
 
     #Install pydca
     - name: Check out pydca
