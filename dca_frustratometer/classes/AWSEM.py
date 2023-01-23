@@ -52,14 +52,21 @@ class AWSEMFrustratometer(PottsModel):
                  pdb_file,
                  chain=None,
                  sequence_cutoff = 2,
-                 distance_cutoff = 10):
+                 distance_cutoff = 10,
+                 sequence = None):
         self._pdb_file = pdb_file
         self._chain = chain
-        self._sequence = pdb.get_sequence(self.pdb_file, self.chain)
-        self.structure = prody.parsePDB(self.pdb_file)
+        if sequence is None:
+            self._sequence = pdb.get_sequence(self.pdb_file, self.chain)
+        else:
+            self._sequence = sequence
+        self.structure = prody.parsePDB(self.pdb_file, chain=chain)
+        selection_CA = self.structure.select('name CA')
         selection_CB = self.structure.select('name CB or (resname GLY IGL and name CA)')
         resid = selection_CB.getResindices()
         self.N = len(resid)
+
+        assert len(resid) == len(self._sequence), 'The pdb is incomplete'
         #resname = [self.gamma_se_map_3_letters[aa] for aa in selection_CB.getResnames()]
 
         # Calculate distance matrix
