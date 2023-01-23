@@ -21,11 +21,12 @@ jobs:
     name: Test on ${{ matrix.os }}, Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     strategy:
+      max-parallel: 1
       matrix:
         #os: [macOS-latest, ubuntu-latest, windows-latest]
         #python-version: [3.8, 3.9, "3.10"]
         os: [ubuntu-latest]
-        python-version: [3.8]
+        python-version: [3.8, 3.9, "3.10"]
     steps:
     - uses: actions/checkout@v1
 
@@ -89,6 +90,10 @@ jobs:
 #        cd main
 #        pwd
     
+    #Install numpy first
+    - name: Install numpy
+    - run: conda install numpy
+
     #Install pydca
     - name: Check out pydca
       uses: actions/checkout@v3
