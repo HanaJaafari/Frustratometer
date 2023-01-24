@@ -109,42 +109,42 @@ def test_identify_pfamID():
 
 
 def test_functional_compute_native_energy():
-    seq = dca_frustratometer.pdb.get_sequence('examples/data/1cyo.pdb', 'A')
-    distance_matrix = dca_frustratometer.pdb.get_distance_matrix('examples/data/1cyo.pdb', 'A')
-    potts_model = dca_frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
+    seq = dca_frustratometer.pdb.get_sequence(f'{_path}/../examples/data/1cyo.pdb', 'A')
+    distance_matrix = dca_frustratometer.pdb.get_distance_matrix(f'{_path}/../examples/data/1cyo.pdb', 'A')
+    potts_model = dca_frustratometer.dca.matlab.load_potts_model(f'{_path}/../examples/data/PottsModel1cyoA.mat')
     mask = dca_frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff=4, sequence_distance_cutoff=0)
     e = dca_frustratometer.frustration.compute_native_energy(seq, potts_model, mask)
     assert np.round(e, 4) == -61.5248
 
 
 def test_OOP_compute_native_energy():
-    pdb_file = 'examples/data/1cyo.pdb'
+    pdb_file = f'{_path}/../examples/data/1cyo.pdb'
     chain = 'A'
-    potts_model_file = 'examples/data/PottsModel1cyoA.mat'
+    potts_model_file = f'{_path}/../examples/data/PottsModel1cyoA.mat'
     model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_file, pdb_file, chain, distance_cutoff=4,
                                                                 sequence_cutoff=0)
     e = model.native_energy()
     assert np.round(e, 4) == -61.5248
 
 def test_fields_couplings_energy():
-    pdb_file = 'examples/data/1cyo.pdb'
+    pdb_file = f'{_path}/../examples/data/1cyo.pdb'
     chain = 'A'
-    potts_model_file = 'examples/data/PottsModel1cyoA.mat'
+    potts_model_file = f'{_path}/../examples/data/PottsModel1cyoA.mat'
     model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_file, pdb_file, chain, distance_cutoff=4,
                                                                 sequence_cutoff=0)
     assert model.fields_energy() + model.couplings_energy() - model.native_energy()  < 1E-6
 
 def test_AWSEM_native_energy():
-    model=dca_frustratometer.AWSEMFrustratometer('examples/data/1l63.pdb','A')
+    model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../examples/data/1l63.pdb','A')
     e = model.native_energy()
     assert np.round(e, 4) == -914.9407
 
 
 
 def test_scores():
-    pdb_file = 'examples/data/1cyo.pdb'
+    pdb_file = f'{_path}/../examples/data/1cyo.pdb'
     chain = 'A'
-    potts_model_file = 'examples/data/PottsModel1cyoA.mat'
+    potts_model_file = f'{_path}/../examples/data/PottsModel1cyoA.mat'
     model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_file, pdb_file, chain, distance_cutoff=4,
                                                                 sequence_cutoff=0)
     assert np.round(model.scores()[30, 40], 5) == -0.02234
@@ -155,9 +155,9 @@ def test_compute_singleresidue_decoy_energy():
     pos_x = 30
     distance_cutoff = 4
     sequence_cutoff = 0
-    distance_matrix = dca_frustratometer.pdb.get_distance_matrix('examples/data/1cyo.pdb', 'A')
-    potts_model = dca_frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
-    seq = dca_frustratometer.pdb.get_sequence('examples/data/1cyo.pdb', 'A')
+    distance_matrix = dca_frustratometer.pdb.get_distance_matrix(f'{_path}/../examples/data/1cyo.pdb', 'A')
+    potts_model = dca_frustratometer.dca.matlab.load_potts_model(f'{_path}/../examples/data/PottsModel1cyoA.mat')
+    seq = dca_frustratometer.pdb.get_sequence(f'{_path}/../examples/data/1cyo.pdb', 'A')
     mask = dca_frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff, sequence_cutoff)
     AA = '-ACDEFGHIKLMNPQRSTVWY'
     seq = [aa for aa in seq]
@@ -175,9 +175,9 @@ def test_compute_mutational_decoy_energy():
     pos_y = 69
     distance_cutoff = 4
     sequence_cutoff = 0
-    distance_matrix = dca_frustratometer.pdb.get_distance_matrix('examples/data/1cyo.pdb', 'A')
-    potts_model = dca_frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
-    seq = dca_frustratometer.pdb.get_sequence('examples/data/1cyo.pdb', 'A')
+    distance_matrix = dca_frustratometer.pdb.get_distance_matrix(f'{_path}/../examples/data/1cyo.pdb', 'A')
+    potts_model = dca_frustratometer.dca.matlab.load_potts_model(f'{_path}/../examples/data/PottsModel1cyoA.mat')
+    seq = dca_frustratometer.pdb.get_sequence(f'{_path}/../examples/data/1cyo.pdb', 'A')
     mask = dca_frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff, sequence_cutoff)
     AA = '-ACDEFGHIKLMNPQRSTVWY'
     seq = [aa for aa in seq]

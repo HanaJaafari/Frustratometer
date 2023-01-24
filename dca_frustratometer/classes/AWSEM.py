@@ -1,5 +1,6 @@
 """Provide the primary functions."""
 import prody
+import typing
 import scipy.spatial.distance as sdist
 import numpy as np
 from ..utils import _path
@@ -7,7 +8,8 @@ from ..utils import _path
 #Import other modules
 from .. import pdb
 from .. import frustration
-from .DCA import PottsModel
+# from .DCA import PottsModel
+from .Frustratometer import Frustratometer
 
 __all__ = ['AWSEMFrustratometer']
 
@@ -16,7 +18,7 @@ __all__ = ['AWSEMFrustratometer']
 ##################
 
 
-class AWSEMFrustratometer(PottsModel):
+class AWSEMFrustratometer(Frustratometer):
     # AWSEM parameters
     r_min = 4.5 # A
     r_minII = r_max = 6.5 # A
@@ -47,19 +49,10 @@ class AWSEMFrustratometer(PottsModel):
     q = 20
     aa_map_awsem = [0, 0, 4, 3, 6, 13, 7, 8, 9, 11, 10, 12, 2, 14, 5, 1, 15, 16, 19, 17, 18] #A gap is equivalent to Alanine
     aa_map_awsem_x, aa_map_awsem_y = np.meshgrid(aa_map_awsem, aa_map_awsem, indexing='ij') 
+    
+    def __init__(self, pdb_file:str,chain:str=None,sequence:str= None,sequence_cutoff:typing.Union[float, None] = 2,distance_cutoff:typing.Union[float, None] = 10):
+        super().__init__(pdb_file, chain,sequence,sequence_cutoff,distance_cutoff)
 
-    def __init__(self,
-                 pdb_file,
-                 chain=None,
-                 sequence_cutoff = 2,
-                 distance_cutoff = 10,
-                 sequence = None):
-        self._pdb_file = pdb_file
-        self._chain = chain
-        if sequence is None:
-            self._sequence = pdb.get_sequence(self.pdb_file, self.chain)
-        else:
-            self._sequence = sequence
         self.structure = prody.parsePDB(self.pdb_file, chain=chain)
         selection_CA = self.structure.select('name CA')
         selection_CB = self.structure.select('name CB or (resname GLY IGL and name CA)')
@@ -108,19 +101,9 @@ class AWSEMFrustratometer(PottsModel):
         contact_energy = -self.k_contact * np.array([direct, water_mediated, protein_mediated]) * \
                          sequence_mask_contact[np.newaxis, :, :, np.newaxis, np.newaxis]
 
-        # Set parameters
-        self._distance_cutoff = distance_cutoff
-        self._sequence_cutoff = sequence_cutoff
-
         # Compute fast properties
         self.distance_matrix = r
         self.potts_model = {}
         self.potts_model['h'] = -burial_energy.sum(axis=-1)[:, self.aa_map_awsem]
         self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
-        self.aa_freq = frustration.compute_aa_freq(self.sequence)
-        self.contact_freq = frustration.compute_contact_freq(self.sequence)
         self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
-
-        # Initialize slow properties
-        self._native_energy = None
-        self._decoy_fluctuation = {}
