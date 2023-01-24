@@ -110,7 +110,7 @@ def test_identify_pfamID():
 
 def test_functional_compute_native_energy():
     seq = dca_frustratometer.pdb.get_sequence('examples/data/1cyo.pdb', 'A')
-    distance_matrix = dca_frustratometer.pdb.get_distance_matrix('examples/data/1cyo.pdb', 'A')
+    distance_matrix = dca_frustratometer.pdb.get_distance_matrix('examples/data/1cyo.pdb', 'A', method='minimum')
     potts_model = dca_frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
     mask = dca_frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff=4, sequence_distance_cutoff=0)
     e = dca_frustratometer.frustration.compute_native_energy(seq, potts_model, mask)
