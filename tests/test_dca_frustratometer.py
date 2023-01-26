@@ -157,12 +157,12 @@ def test_subsequence_burial_indicator():
     assert burial_indicator[:, np.newaxis, :].sum(axis=-1)[16:].sum(axis=0)[0]==0
 
 def test_subsequence_mapped_indices():
-    model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../tests/data/1MBA_A.pdb','A',subsequence_initial_boundary=0,subsequence_final_boundary=15)
-    assert model.mapped_sequence_indices[:5]==[15,10,15,0,0]
+    model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../tests/data/1MBA_A.pdb','A',subsequence_initial_boundary=0,subsequence_final_boundary=15)         
+    assert model.seq_index[:5]==[15,10,15,0,0]
 
 def test_removed_subsequence_burial_energy():
     model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../tests/data/1MBA_A.pdb','A',subsequence_initial_boundary=0,subsequence_final_boundary=15)
-    removed_region_burial=-model.burial_energy.sum(axis=-1)[:, model.mapped_sequence_indices][16:]
+    removed_region_burial=-model.burial_energy.sum(axis=-1)[:, model.seq_index][16:]
     assert np.all(removed_region_burial == 0)
 
 def test_selected_subsequence_burial_energy():
