@@ -42,6 +42,10 @@ class AWSEMFrustratometer(Frustratometer):
     water_gamma_ijm = np.fromfile(f'{_path}/data/water_gamma_ijm').reshape(2, 20, 20)
     protein_gamma_ijm = np.fromfile(f'{_path}/data/protein_gamma_ijm').reshape(2, 20, 20)
     q = 20
+    aa_map_awsem = {'A': 0, 'R': 1, 'N': 2, 'D': 3, 'C': 4,
+                'Q': 5, 'E': 6, 'G': 7, 'H': 8, 'I': 9,
+                'L': 10, 'K': 11, 'M': 12, 'F': 13, 'P': 14,
+                'S': 15, 'T': 16, 'W': 17, 'Y': 18, 'V': 19,'-': 0}
 
     aa_map_awsem_list = [0, 0, 4, 3, 6, 13, 7, 8, 9, 11, 10, 12, 2, 14, 5, 1, 15, 16, 19, 17, 18] #A gap is equivalent to Alanine
     aa_map_awsem_x, aa_map_awsem_y = np.meshgrid(aa_map_awsem_list, aa_map_awsem_list, indexing='ij') 
@@ -126,6 +130,7 @@ class AWSEMFrustratometer(Frustratometer):
 
         # Compute fast properties
         self.potts_model = {}
+        self.seq_index=[self.aa_map_awsem[k] for k in list(self.sequence)] 
         self.potts_model['h'] = -burial_energy.sum(axis=-1)
         # self.potts_model['h'] = -burial_energy.sum(axis=-1)[:, self.mapped_sequence_indices]
         self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
