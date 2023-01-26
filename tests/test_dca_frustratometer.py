@@ -139,7 +139,35 @@ def test_AWSEM_native_energy():
     e = model.native_energy()
     assert np.round(e, 4) == -914.9407
 
+def test_subsequence_rho_mask():
+    model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../examples/data/1MBA_A.pdb','A',subsequence_initial_boundary=0,subsequence_final_boundary=15)
+    mask_rho = model.sequence_mask_rho
+    assert np.all(mask_rho[16:,:] == 0)
+    assert np.all(mask_rho[:,16:] == 0)
 
+def test_subsequence_rho():
+    model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../examples/data/1MBA_A.pdb','A',subsequence_initial_boundary=0,subsequence_final_boundary=15)
+    rho = model.rho
+    assert np.all(rho[:,16:] == 0)
+
+def test_subsequence_burial_indicator():
+    model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../examples/data/1MBA_A.pdb','A',subsequence_initial_boundary=0,subsequence_final_boundary=15)
+    burial_indicator = model.burial_indicator
+    assert burial_indicator[:, np.newaxis, :].sum(axis=-1)[16:].sum(axis=0)[0]==0
+
+def test_subsequence_mapped_indices():
+    model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../examples/data/1MBA_A.pdb','A',subsequence_initial_boundary=0,subsequence_final_boundary=15)
+    assert model.mapped_sequence_indices[:5]==[15,10,15,0,0]
+
+def test_removed_subsequence_burial_energy():
+    model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../examples/data/1MBA_A.pdb','A',subsequence_initial_boundary=0,subsequence_final_boundary=15)
+    removed_region_burial=-model.burial_energy.sum(axis=-1)[:, model.mapped_sequence_indices][16:]
+    assert np.all(removed_region_burial == 0)
+
+def test_selected_subsequence_burial_energy():
+    model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../examples/data/1MBA_A.pdb','A',subsequence_initial_boundary=0,subsequence_final_boundary=15)
+    selected_region_burial=model.fields_energy()
+    assert selected_region_burial==-12.80
 
 def test_scores():
     pdb_file = f'{_path}/../examples/data/1cyo.pdb'
