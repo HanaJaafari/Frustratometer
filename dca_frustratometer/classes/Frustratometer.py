@@ -117,7 +117,7 @@ class Frustratometer:
     def fields_energy(self, sequence=None):
         if sequence is None:
             sequence=self._sequence
-        return frustration.compute_fields_energy(sequence, self.potts_model, self.mask)
+        return frustration.compute_fields_energy(sequence, self.potts_model)
 
     def couplings_energy(self, sequence=None):
         if sequence is None:
