@@ -407,11 +407,12 @@ class PottsModel:
                 aa_freq = self.contact_freq
             return frustration.compute_pair_frustration(decoy_fluctuation, aa_freq, correction)
 
-    def plot_decoy_energy(self, kind='singleresidue'):
+    def plot_decoy_energy(self, kind='singleresidue', method='clustermap'):
         native_energy = self.native_energy()
         decoy_energy = self.decoy_energy(kind)
         if kind == 'singleresidue':
-            frustration.plot_singleresidue_decoy_energy(decoy_energy, native_energy)
+            g = frustration.plot_singleresidue_decoy_energy(decoy_energy, native_energy, method)
+            return g
 
     def roc(self):
         return frustration.compute_roc(self.scores(), self.distance_matrix, self.distance_cutoff)

@@ -352,17 +352,26 @@ def plot_roc(roc):
     plt.plot([0, 1], [0, 1], '--')
 
 
-def plot_singleresidue_decoy_energy(decoy_energy, native_energy):
+def plot_singleresidue_decoy_energy(decoy_energy, native_energy, method='clustermap'):
     import seaborn as sns
-    g = sns.clustermap(decoy_energy, cmap='RdBu_r',
-                       vmin=native_energy - decoy_energy.std() * 3,
-                       vmax=native_energy + decoy_energy.std() * 3)
+    if method=='clustermap':
+        f=sns.clustermap
+    elif method == 'heatmap':
+        f = sns.heatmap
+    g = f(decoy_energy, cmap='RdBu_r',
+          vmin=native_energy - decoy_energy.std() * 3,
+          vmax=native_energy + decoy_energy.std() * 3)
     AA_dict = {str(i): _AA[i] for i in range(len(_AA))}
     new_ticklabels = []
-    for t in g.ax_heatmap.get_xticklabels():
+    if method == sns.clustermap:
+        ax_heatmap = g.ax_heatmap
+    else:
+        ax_heatmap = g.axes
+    for t in ax_heatmap.get_xticklabels():
         t.set_text(AA_dict[t.get_text()])
         new_ticklabels += [t]
-    g.ax_heatmap.set_xticklabels(new_ticklabels)
+    ax_heatmap.set_xticklabels(new_ticklabels)
+    return g
 
 
 def write_tcl_script(pdb_file, chain, single_frustration, pair_frustration, tcl_script='frustration.tcl',
