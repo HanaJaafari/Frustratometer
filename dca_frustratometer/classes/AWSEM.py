@@ -131,6 +131,6 @@ class AWSEMFrustratometer(Frustratometer):
         # Compute fast properties
         self.potts_model = {}
         self.seq_index=[self.aa_map_awsem[k] for k in list(self.sequence)] 
-        self.potts_model['h'] = -burial_energy.sum(axis=-1)
+        self.potts_model['h'] = -burial_energy.sum(axis=-1)[:, self.aa_map_awsem_list]
         # self.potts_model['h'] = -burial_energy.sum(axis=-1)[:, self.mapped_sequence_indices]
         self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
