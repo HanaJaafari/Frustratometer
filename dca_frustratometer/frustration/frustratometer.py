@@ -42,7 +42,7 @@ def compute_native_energy(seq: str,
     return energy
 
 def compute_fields_energy(seq: str,
-                   potts_model: dict) -> float:
+                          potts_model: dict) -> float:
     # seq_index = np.array([_AA.find(aa) for aa in seq])
     aa_map_awsem = {'A': 0, 'R': 1, 'N': 2, 'D': 3, 'C': 4,
                     'Q': 5, 'E': 6, 'G': 7, 'H': 8, 'I': 9,
