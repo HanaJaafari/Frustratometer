@@ -168,7 +168,8 @@ def test_removed_subsequence_burial_energy():
 def test_selected_subsequence_burial_energy():
     model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../tests/data/1MBA_A.pdb','A',subsequence_initial_boundary=0,subsequence_final_boundary=15)
     selected_region_burial=model.fields_energy()
-    assert selected_region_burial==-12.80
+    #Energy units are in kJ/mol
+    assert np.round(selected_region_burial, 1) == -53.6
 
 def test_scores():
     pdb_file = 'examples/data/1cyo.pdb'
