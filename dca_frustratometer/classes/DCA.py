@@ -1,6 +1,6 @@
 """Provide the primary functions."""
 import typing
-import os
+import numpy as np
 from pathlib import Path
 
 
@@ -23,6 +23,37 @@ __all__=['PottsModel']
 
 # Class wrapper
 class PottsModel:
+
+    @classmethod
+    def from_distance_matrix(cls,
+                 potts_model: dict,
+                 distance_matrix : np.array,
+                 sequence: str,
+                 sequence_cutoff: typing.Union[float, None] = None,
+                 distance_cutoff: typing.Union[float, None] = None):
+        
+        self = cls()
+        # Set initialization variables
+        self._potts_model = potts_model
+        self._potts_model_file = None
+
+        self._pdb_file = None
+        self._chain = None
+        self._sequence_cutoff = sequence_cutoff
+        self._distance_cutoff = distance_cutoff
+        self._distance_matrix_method = None
+
+        # Compute fast properties
+        self._sequence = sequence
+        self.distance_matrix = distance_matrix
+        self.aa_freq = frustration.compute_aa_freq(self.sequence)
+        self.contact_freq = frustration.compute_contact_freq(self.sequence)
+        self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+
+        # Initialize slow properties
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+        return self
 
     @classmethod
     def from_potts_model_file(cls,
