@@ -116,12 +116,20 @@ def test_functional_compute_native_energy():
     e = dca_frustratometer.frustration.compute_native_energy(seq, potts_model, mask)
     assert np.round(e, 4) == -61.5248
 
-
 def test_OOP_compute_native_energy():
     pdb_file = 'examples/data/1cyo.pdb'
     chain = 'A'
     potts_model_file = 'examples/data/PottsModel1cyoA.mat'
     model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_file, pdb_file, chain, distance_cutoff=4,
+                                                                sequence_cutoff=0)
+    e = model.native_energy()
+    assert np.round(e, 4) == -61.5248
+
+def test_DCA_from_distance_matrix():
+    seq = dca_frustratometer.pdb.get_sequence('examples/data/1cyo.pdb', 'A')
+    distance_matrix = dca_frustratometer.pdb.get_distance_matrix('examples/data/1cyo.pdb', 'A', method='minimum')
+    potts_model = dca_frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
+    model = dca_frustratometer.PottsModel.from_distance_matrix(potts_model,distance_matrix,seq,distance_cutoff=4,
                                                                 sequence_cutoff=0)
     e = model.native_energy()
     assert np.round(e, 4) == -61.5248
