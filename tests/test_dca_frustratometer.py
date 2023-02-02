@@ -139,6 +139,13 @@ def test_AWSEM_native_energy():
     e = model.native_energy()
     assert np.round(e, 4) == -914.9407
 
+# def test_AWSEM_native_energy():
+#     struture = dca_frustratometer.Structure('examples/data/1l63.pdb')
+#     structure = structure.select("resid 20 to 50")
+#     model=dca_frustratometer.AWSEMFrustratometer(structure,'A')
+#     e = model.native_energy()
+#     assert np.round(e, 4) == -914.9407
+
 def test_subsequence_rho_mask():
     model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../tests/data/1MBA_A.pdb','A',subsequence_initial_boundary=0,subsequence_final_boundary=15)
     mask_rho = model.sequence_mask_rho
