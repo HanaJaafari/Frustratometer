@@ -5,13 +5,14 @@ import pandas as pd
 import numpy as np
 import itertools
 
-
-def download(pdbID: str):
+def download(pdbID: str,directory: str):
     """
     Downloads a single pdb file
     """
     import urllib.request
-    urllib.request.urlretrieve('http://www.rcsb.org/pdb/files/%s.pdb' % pdbID, "%s%s.pdb" % (directory, pdbID))
+    pdb_file="%s%s.pdb" % (directory, pdbID)
+    urllib.request.urlretrieve('http://www.rcsb.org/pdb/files/%s.pdb' % pdbID, pdb_file)
+    return pdb_file
 
 def get_sequence(pdb_file: str, 
                  chain: str
