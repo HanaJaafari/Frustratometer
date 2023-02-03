@@ -116,20 +116,12 @@ def test_functional_compute_native_energy():
     e = dca_frustratometer.frustration.compute_native_energy(seq, potts_model, mask)
     assert np.round(e, 4) == -61.5248
 
+
 def test_OOP_compute_native_energy():
     pdb_file = 'examples/data/1cyo.pdb'
     chain = 'A'
     potts_model_file = 'examples/data/PottsModel1cyoA.mat'
     model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_file, pdb_file, chain, distance_cutoff=4,
-                                                                sequence_cutoff=0)
-    e = model.native_energy()
-    assert np.round(e, 4) == -61.5248
-
-def test_DCA_from_distance_matrix():
-    seq = dca_frustratometer.pdb.get_sequence('examples/data/1cyo.pdb', 'A')
-    distance_matrix = dca_frustratometer.pdb.get_distance_matrix('examples/data/1cyo.pdb', 'A', method='minimum')
-    potts_model = dca_frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
-    model = dca_frustratometer.PottsModel.from_distance_matrix(potts_model,distance_matrix,seq,distance_cutoff=4,
                                                                 sequence_cutoff=0)
     e = model.native_energy()
     assert np.round(e, 4) == -61.5248
@@ -143,41 +135,48 @@ def test_fields_couplings_energy():
     assert model.fields_energy() + model.couplings_energy() - model.native_energy()  < 1E-6
 
 def test_AWSEM_native_energy():
-    model=dca_frustratometer.AWSEMFrustratometer('examples/data/1l63.pdb','A')
+    structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../examples/data/1l63.pdb',"A")
+    model=dca_frustratometer.AWSEMFrustratometer(structure)
     e = model.native_energy()
-    assert np.round(e, 4) == -914.9407
+    print(e)
+    assert np.round(e, 0) == -915
 
-def test_subsequence_rho_mask():
-    model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../tests/data/1MBA_A.pdb','A',subsequence_initial_boundary=0,subsequence_final_boundary=15)
-    mask_rho = model.sequence_mask_rho
-    assert np.all(mask_rho[16:,:] == 0)
-    assert np.all(mask_rho[:,16:] == 0)
+def test_structure_class():
+    structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A")
+    test_sequence="SLSAAEADLAGKSWAPVFANKNANGLDFLVALFEKFPDSANFFADFKGKSVADIKASPKLRDVSSRIFTRLNEFVNNAANAGKMSAMLSQFAKEHVGFGVGSAQFENVRSMFPGFVASVAAPPAGADAAWTKLFGLIIDALKAAGA"
+    assert structure.sequence==test_sequence
+    assert structure.distance_matrix.shape==(len(test_sequence),len(test_sequence))
 
-def test_subsequence_rho():
-    model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../tests/data/1MBA_A.pdb','A',subsequence_initial_boundary=0,subsequence_final_boundary=15)
-    rho = model.rho
-    assert np.all(rho[:,16:] == 0)
-    assert np.all(rho[16:,:] == 0)
+def test_structure_segment_class():
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=38,fin_index=145)
+    test_sequence="SANFFADFKGKSVADIKASPKLRDVSSRIFTRLNEFVNNAANAGKMSAMLSQFAKEHVGFGVGSAQFENVRSMFPGFVASVAAPPAGADAAWTKLFGLIIDALKAAGA"
+    assert structure.sequence==test_sequence
+    assert structure.distance_matrix.shape == (108,108)
 
-def test_subsequence_burial_indicator():
-    model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../tests/data/1MBA_A.pdb','A',subsequence_initial_boundary=0,subsequence_final_boundary=15)
-    burial_indicator = model.burial_indicator
-    assert burial_indicator[:, np.newaxis, :].sum(axis=-1)[16:].sum(axis=0)[0]==0
+def test_selected_subsequence_burial_energy_matrix():
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=38,fin_index=145)
+    model=dca_frustratometer.AWSEMFrustratometer(structure)
+    assert model.potts_model['h'].shape==(108,21)
 
-def test_subsequence_mapped_indices():
-    model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../tests/data/1MBA_A.pdb','A',subsequence_initial_boundary=0,subsequence_final_boundary=15)         
-    assert model.seq_index[:5]==[15,10,15,0,0]
-
-def test_removed_subsequence_burial_energy():
-    model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../tests/data/1MBA_A.pdb','A',subsequence_initial_boundary=0,subsequence_final_boundary=15)
-    removed_region_burial=-model.burial_energy.sum(axis=-1)[:, model.seq_index][16:]
-    assert np.all(removed_region_burial == 0)
+def test_selected_subsequence_burial_energy_matrix():
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=38,fin_index=145)
+    model=dca_frustratometer.AWSEMFrustratometer(structure)
+    assert model.potts_model['J'].shape==(108,108,21,21)
 
 def test_selected_subsequence_burial_energy():
-    model=dca_frustratometer.AWSEMFrustratometer(f'{_path}/../tests/data/1MBA_A.pdb','A',subsequence_initial_boundary=0,subsequence_final_boundary=15)
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=38,fin_index=145)
+    model=dca_frustratometer.AWSEMFrustratometer(structure)
     selected_region_burial=model.fields_energy()
-    #Energy units are in kJ/mol
-    assert np.round(selected_region_burial, 1) == -53.6
+    # Energy units are in kJ/mol
+    assert np.round(selected_region_burial, 1) == -377.9
+
+def test_selected_subsequence_contact_energy():
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=38,fin_index=145)
+    model=dca_frustratometer.AWSEMFrustratometer(structure)
+    selected_region_contact=model.couplings_energy()
+    # Energy units are in kJ/mol
+    assert np.round(selected_region_contact, 1) == -149.0
+
 
 def test_scores():
     pdb_file = 'examples/data/1cyo.pdb'

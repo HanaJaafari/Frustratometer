@@ -44,9 +44,15 @@ class AWSEMFrustratometer:
                  distance_cutoff: typing.Union[float, None] = None):
         self.sequence=pdb_structure.sequence
         self.structure=pdb_structure.structure
+        self.chain=pdb_structure.chain
+        self.pdb_file=pdb_structure.pdb_file
+
         self.distance_matrix=pdb_structure.distance_matrix
         self.sequence_cutoff=sequence_cutoff
         self.distance_cutoff=distance_cutoff
+        
+        self._decoy_fluctuation = {}
+        self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
         
         selection_CB = self.structure.select('name CB or (resname GLY IGL and name CA)')
         resid = selection_CB.getResindices()
@@ -142,7 +148,6 @@ class AWSEMFrustratometer:
     #     self._decoy_fluctuation = {}
 
     def native_energy(self, sequence=None):
-        self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
         if sequence is None:
             sequence=self.sequence
         return frustration.compute_native_energy(sequence, self.potts_model, self.mask)
@@ -158,7 +163,6 @@ class AWSEMFrustratometer:
     def couplings_energy(self, sequence=None):
         if sequence is None:
             sequence=self.sequence
-        self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
         return frustration.compute_couplings_energy(sequence, self.potts_model, self.mask)
         
     def decoy_fluctuation(self, kind='singleresidue'):
@@ -172,7 +176,6 @@ class AWSEMFrustratometer:
             fluctuation = frustration.compute_configurational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
         elif kind == 'contact':
             fluctuation = frustration.compute_contact_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
-
         else:
             raise Exception("Wrong kind of decoy generation selected")
         self._decoy_fluctuation[kind] = fluctuation
