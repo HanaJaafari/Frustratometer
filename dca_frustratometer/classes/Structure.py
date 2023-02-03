@@ -2,6 +2,9 @@ from .. import pdb
 import prody
 import os
 import numpy as np
+import subprocess
+
+__all__ = ['Structure']
 
 class Structure:
     
@@ -13,9 +16,11 @@ class Structure:
             pdb_file=pdb.download(self.pdbID, pdb_directory)
         
         self.pdb_file=pdb_file
+        self.pdbID=os.path.basename(pdb_file).replace(".pdb","")
         self.chain=chain
         self.distance_matrix_method=distance_matrix_method
-        self.structure = prody.parsePDB(self.pdb_file, chain=self.chain)
+
+        self.structure = prody.parsePDB(self.pdb_file, chain=self.chain).select('protein')
         self.sequence=pdb.get_sequence(self.pdb_file,self.chain)
         self.distance_matrix=pdb.get_distance_matrix(pdb_file=self.pdb_file,chain=self.chain,
                                                      method=self.distance_matrix_method)
@@ -28,11 +33,20 @@ class Structure:
         if pdb_file[-4:]!=".pdb":
             self.pdbID=pdb_file
             pdb_file=pdb.download(self.pdbID, pdb_directory)
-        
+        #TODO:
+        #remove heteroatoms, fix pdb indexing for those starting off at values other than 1, 
+        #put assertion error for findex greater than protein length
+
         self.pdb_file=pdb_file
+        self.pdbID=os.path.basename(pdb_file).replace(".pdb","")
         self.chain=chain
         self.distance_matrix_method=distance_matrix_method
-        self.structure = prody.parsePDB(self.pdb_file, chain=self.chain).select(f'resnum {str(init_index+1)}to{str(fin_index+1)}')
+
+        #Account for pdbs that have starting indices greater than one.
+        pdb_init_index=subprocess.check_output(["grep","-m","1","^ATOM",self.pdb_file])
+        self.pdb_init_index=int(pdb_init_index.decode().split()[5])
+
+        self.structure = prody.parsePDB(self.pdb_file, chain=self.chain).select(f'resnum {str(init_index+self.pdb_init_index)}to{str(fin_index+self.pdb_init_index)}')
         self.sequence=pdb.get_sequence(self.pdb_file,self.chain)
         self.distance_matrix=pdb.get_distance_matrix(pdb_file=self.pdb_file,chain=self.chain,
                                                      method=self.distance_matrix_method)

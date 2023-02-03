@@ -1,4 +1,5 @@
 from Bio.PDB import PDBParser
+from Bio.PDB.Polypeptide import PPBuilder
 import prody
 import scipy.spatial.distance as sdist
 import pandas as pd
@@ -47,21 +48,24 @@ def get_sequence(pdb_file: str,
                    'LEU': 'L', 'LYS': 'K', 'MET': 'M', 'PHE': 'F', 'PRO': 'P',
                    'SER': 'S', 'THR': 'T', 'TRP': 'W', 'TYR': 'Y', 'VAL': 'V',
                    'NGP': 'A', 'IPR': 'P', 'IGL': 'G'}
-    
-    if chain is None:
-        # If chain is None then chain can be any chain
-        residues = [residue for residue in structure.get_residues() if (
-                        residue.has_id('CA') and
-                        residue.resname not in [' CA','PBC'])]
+    ppb=PPBuilder()
+    for pp in ppb.build_peptides(structure[0][chain]):
+        sequence=pp.get_sequence()
 
-    else:
-        residues = [residue for residue in structure.get_residues() if (
-                        residue.has_id('CA') and
-                        residue.get_parent().get_id() == str(chain) and 
-                        residue.resname not in [' CA','PBC'])]
+    # if chain is None:
+    #     # If chain is None then chain can be any chain
+    #     residues = [residue for residue in structure.get_residues() if (
+    #                     residue.has_id('CA') and
+    #                     residue.resname not in [' CA','PBC'])]
+
+    # else:
+    #     residues = [residue for residue in structure.get_residues() if (
+    #                     residue.has_id('CA') and
+    #                     residue.get_parent().get_id() == str(chain) and 
+    #                     residue.resname not in [' CA','PBC','NDP'])]
         
 
-    sequence = ''.join([Letter_code[r.resname] for r in residues])
+    # sequence = ''.join([Letter_code[r.resname] for r in residues])
     return sequence
 
 def get_distance_matrix(pdb_file: str, 
