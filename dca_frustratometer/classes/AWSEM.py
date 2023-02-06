@@ -64,20 +64,8 @@ class AWSEMFrustratometer:
 
         #Calculate sequence mask
         sequence_mask_rho = abs(np.expand_dims(resid, 0) - np.expand_dims(resid, 1)) >= self.min_sequence_separation_rho
-        # if self.subsequence_initial_boundary!=None and self.subsequence_final_boundary!=None:
-        #     sequence_mask_rho[self.subsequence_final_boundary+1:,:]=False
-        #     sequence_mask_rho[:,self.subsequence_final_boundary+1:]=False
-        #     if self.subsequence_initial_boundary!=0:
-        #         sequence_mask_rho[:self.subsequence_initial_boundary,:]=False
-        #         sequence_mask_rho[:,:self.subsequence_initial_boundary]=False
-
         sequence_mask_contact = abs(np.expand_dims(resid, 0) - np.expand_dims(resid, 1)) >= self.min_sequence_separation_contact
-        # if self.subsequence_initial_boundary!=None and self.subsequence_final_boundary!=None:
-        #     sequence_mask_contact[self.subsequence_final_boundary+1:,:]=False
-        #     sequence_mask_contact[:,self.subsequence_final_boundary+1:]=False
-        #     if self.subsequence_initial_boundary!=0:
-        #         sequence_mask_contact[:self.subsequence_initial_boundary,:]=False
-        #         sequence_mask_contact[:,:self.subsequence_initial_boundary]=False
+
         self.sequence_mask_rho=sequence_mask_rho
         self.sequence_mask_contact=sequence_mask_contact
         # Calculate rho
@@ -102,11 +90,6 @@ class AWSEMFrustratometer:
                            np.tanh(self.burial_kappa * (self.burial_ro_max - rho_b))
         J_index = np.meshgrid(range(self.N), range(self.N), range(self.q), range(self.q), indexing='ij', sparse=False)
         h_index = np.meshgrid(range(self.N), range(self.q), indexing='ij', sparse=False)
-
-        # if self.subsequence_initial_boundary!=None and self.subsequence_final_boundary!=None:
-        #     burial_indicator[self.subsequence_final_boundary+1:,:]=0
-        #     if self.subsequence_initial_boundary!=0:
-        #        burial_indicator[:self.subsequence_initial_boundary,:]=0 
 
         self.burial_indicator=burial_indicator
         burial_energy = -0.5 * self.k_contact * self.burial_gamma[h_index[1]] * burial_indicator[:, np.newaxis, :]

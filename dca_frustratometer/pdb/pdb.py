@@ -49,8 +49,7 @@ def get_sequence(pdb_file: str,
                    'SER': 'S', 'THR': 'T', 'TRP': 'W', 'TYR': 'Y', 'VAL': 'V',
                    'NGP': 'A', 'IPR': 'P', 'IGL': 'G'}
     ppb=PPBuilder()
-    for pp in ppb.build_peptides(structure[0][chain]):
-        sequence=pp.get_sequence()
+    sequence=ppb.build_peptides(structure[0][chain])[0].get_sequence()
 
     # if chain is None:
     #     # If chain is None then chain can be any chain

@@ -142,16 +142,18 @@ def test_AWSEM_native_energy():
     assert np.round(e, 0) == -915
 
 def test_structure_class():
-    structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A")
-    test_sequence="SLSAAEADLAGKSWAPVFANKNANGLDFLVALFEKFPDSANFFADFKGKSVADIKASPKLRDVSSRIFTRLNEFVNNAANAGKMSAMLSQFAKEHVGFGVGSAQFENVRSMFPGFVASVAAPPAGADAAWTKLFGLIIDALKAAGA"
+    #PDB has cofactors and ions
+    structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../tests/data/1rnb.pdb',"A")
+    test_sequence="QVINTFDGVADYLQTYHKLPNDYITKSEAQALGWVASKGNLADVAPGKSIGGDIFSNREGKLPGKSGRTWREADINYTSGFRNSDRILYSSDWLIYKTTDHYQTFTKIR"
     assert structure.sequence==test_sequence
     assert structure.distance_matrix.shape==(len(test_sequence),len(test_sequence))
 
 def test_structure_segment_class():
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=38,fin_index=145)
-    test_sequence="SANFFADFKGKSVADIKASPKLRDVSSRIFTRLNEFVNNAANAGKMSAMLSQFAKEHVGFGVGSAQFENVRSMFPGFVASVAAPPAGADAAWTKLFGLIIDALKAAGA"
+    #PDB has cofactors and ions
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1rnb.pdb',"A",init_index=2,fin_index=21)
+    test_sequence="QVINTFDGVADYLQTYHKLP"
     assert structure.sequence==test_sequence
-    assert structure.distance_matrix.shape == (108,108)
+    assert structure.distance_matrix.shape == (20,20)
 
 def test_selected_subsequence_burial_energy_matrix():
     structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=38,fin_index=145)
@@ -177,6 +179,13 @@ def test_selected_subsequence_contact_energy():
     # Energy units are in kJ/mol
     assert np.round(selected_region_contact, 1) == -149.0
 
+def test_selected_subsequence_first_residue_native_energy():
+    #Comparing with values from the online frustratometer
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=0,fin_index=15)
+    model=dca_frustratometer.AWSEMFrustratometer(structure)
+    selected_region_burial=model.fields_energy()
+    # Energy units are in kJ/mol
+    assert np.round(selected_region_burial, 1) == -377.9
 
 def test_scores():
     pdb_file = 'examples/data/1cyo.pdb'
