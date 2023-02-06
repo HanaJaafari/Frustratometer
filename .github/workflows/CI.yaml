@@ -28,7 +28,7 @@ jobs:
         os: [ubuntu-latest]
         python-version: [3.8, 3.9, "3.10"]
     steps:
-    - uses: actions/checkout
+    - uses: actions/checkout@v1
 
     - name: Additional info about the build
       shell: bash
@@ -49,7 +49,7 @@ jobs:
        cd ..  
 
     - name: checkout source
-      uses: actions/checkout
+      uses: actions/checkout@v2
 #      with:
 #        path: main
     
@@ -73,7 +73,7 @@ jobs:
 #        pwd
 
     # More info on options: https://github.com/conda-incubator/setup-miniconda
-    - uses: conda-incubator/setup-miniconda
+    - uses: conda-incubator/setup-miniconda@v2
       with:
         python-version: ${{ matrix.python-version }}
         environment-file: devtools/conda-envs/test_env.yaml
@@ -96,7 +96,7 @@ jobs:
 
     #Install pydca
     - name: Check out pydca
-      uses: actions/checkout
+      uses: actions/checkout@v3
       with:
         repository: cabb99/pydca
         path: pydca
@@ -128,7 +128,7 @@ jobs:
         pytest -v --cov=dca_frustratometer --cov-report=xml --color=yes tests/
 
     - name: CodeCov
-      uses: codecov/codecov-action
+      uses: codecov/codecov-action@v3.1.1
       with:
         file: ./coverage.xml
         flags: unittests
