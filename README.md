@@ -23,6 +23,7 @@ To install this modules please clone this repository and install it using the fo
 
     git clone HanaJaafari/dca_frustratometer
     cd dca_frustratometer
+    conda install -c conda-forge --file requirements.txt
     pip install -e .
 
 A clean python environment is recommended.
