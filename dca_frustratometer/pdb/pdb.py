@@ -5,6 +5,9 @@ import scipy.spatial.distance as sdist
 import pandas as pd
 import numpy as np
 import itertools
+from pdbfixer import PDBFixer
+from simtk.openmm.app import PDBFile
+import os
 
 def download(pdbID: str,directory: str):
     """
@@ -66,6 +69,22 @@ def get_sequence(pdb_file: str,
 
     # sequence = ''.join([Letter_code[r.resname] for r in residues])
     return sequence
+
+def repair_pdb(pdb_file: str, pdb_directory: str):
+    pdbID=os.path.basename(pdb_file).replace(".pdb","")
+    fixer = PDBFixer(pdb_file)
+    fixer.findMissingResidues()
+    fixer.findNonstandardResidues()
+    fixer.replaceNonstandardResidues()
+    fixer.removeHeterogens(keepWater=False)
+    fixer.findMissingAtoms()
+    try:
+        fixer.addMissingAtoms()
+    except:
+        print("Unable to add missing atoms")
+
+    fixer.addMissingHydrogens(7.0)
+    PDBFile.writeFile(fixer.topology, fixer.positions, open(f"{pdb_directory}/{pdbID}_cleaned.pdb", 'w'))
 
 def get_distance_matrix(pdb_file: str, 
                         chain: str, 

@@ -46,6 +46,7 @@ class AWSEMFrustratometer:
         self.structure=pdb_structure.structure
         self.chain=pdb_structure.chain
         self.pdb_file=pdb_structure.pdb_file
+        self.pdb_init_index=pdb_structure.pdb_init_index
 
         self.distance_matrix=pdb_structure.distance_matrix
         self.sequence_cutoff=sequence_cutoff
@@ -209,6 +210,10 @@ class AWSEMFrustratometer:
         import numpy as np
         import py3Dmol
         pdb_filename = self.pdb_file
+        if "cleaned" in pdb_filename:
+            shift=1
+        else:
+            shift=self.pdb_init_index
         pair_frustration=self.frustration(pair)*np.triu(self.mask)
         residues=np.arange(len(self.sequence))
         r1, r2 = np.meshgrid(residues, residues, indexing='ij')
@@ -223,11 +228,11 @@ class AWSEMFrustratometer:
         view.setStyle({'cartoon':{'color':'white'}})
         
         for i,j,f in frustrated:
-            view.addLine({'start':{'chain':'A','resi':[str(i+1)]},'end':{'chain':'A','resi':[str(j+1)]},
+            view.addLine({'start':{'chain':'A','resi':[str(i+shift)]},'end':{'chain':'A','resi':[str(j+shift)]},
                         'color':'red', 'dashed':False,'linewidth':3})
         
         for i,j,f in minimally_frustrated:
-            view.addLine({'start':{'chain':'A','resi':[str(i+1)]},'end':{'chain':'A','resi':[str(j+1)]},
+            view.addLine({'start':{'chain':'A','resi':[str(i+shift)]},'end':{'chain':'A','resi':[str(j+shift)]},
                         'color':'green', 'dashed':False,'linewidth':3})
 
         view.zoomTo(viewer=(0,0))

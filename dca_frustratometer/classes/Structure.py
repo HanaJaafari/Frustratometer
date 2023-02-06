@@ -1,15 +1,18 @@
 from .. import pdb
 import prody
 import os
-import numpy as np
 import subprocess
+import Bio.PDB.Polypeptide as poly
 
 __all__ = ['Structure']
+
+residue_names=[]
 
 class Structure:
     
     @classmethod
-    def full_pdb(cls,pdb_file:str, chain:str, distance_matrix_method:str = 'CB', pdb_directory: str=os.getcwd()):
+    def full_pdb(cls,pdb_file:str, chain:str, distance_matrix_method:str = 'CB', pdb_directory: str=os.getcwd(),
+                 repair_pdb:bool = False):
         self=cls()
         if pdb_file[-4:]!=".pdb":
             self.pdbID=pdb_file
@@ -22,6 +25,17 @@ class Structure:
 
         if self.chain==None:
             raise ValueError("Please provide a chain name")
+        
+        if repair_pdb:
+            pdb.repair_pdb(pdb_file, pdb_directory)
+            self.pdb_file=f"{pdb_directory}/{self.pdbID}_cleaned.pdb"
+
+        #Account for pdbs that have starting indices greater than one.
+        with open(pdb_file,"r") as f:
+            for line in f:
+                if line.split()[0]=="ATOM" and poly.is_aa(line.split()[3]):
+                    self.pdb_init_index=int(line.split()[5])
+                    break
 
         self.structure = prody.parsePDB(self.pdb_file, chain=self.chain).select('protein')
         self.sequence=pdb.get_sequence(self.pdb_file,self.chain)
@@ -31,14 +45,14 @@ class Structure:
     
     @classmethod
     def spliced_pdb(cls,pdb_file:str, chain:str, init_index:int, fin_index:int, 
-                    distance_matrix_method:str = 'CB', pdb_directory: str = os.getcwd()):
+                    distance_matrix_method:str = 'CB', pdb_directory: str = os.getcwd(),repair_pdb:bool = False):
         #Provide the indices according to the original pdb numbering
         self=cls()
         if pdb_file[-4:]!=".pdb":
             self.pdbID=pdb_file
             pdb_file=pdb.download(self.pdbID, pdb_directory)
         #TODO:
-        #fix backbone, fix pdb indexing for those starting off at values other than 1, 
+        #fix backbone
         #put assertion error for findex greater than protein length
 
         self.pdb_file=pdb_file
@@ -49,11 +63,18 @@ class Structure:
         if self.chain==None:
             raise ValueError("Please provide a chain name")
 
+        if repair_pdb:
+            pdb.repair_pdb(pdb_file, pdb_directory)
+            self.pdb_file=f"{pdb_directory}/{self.pdbID}_cleaned.pdb"
+
         self.init_index=init_index
         self.fin_index=fin_index
         #Account for pdbs that have starting indices greater than one.
-        pdb_init_index=subprocess.check_output(["grep","-m","1","^ATOM",self.pdb_file])
-        self.pdb_init_index=int(pdb_init_index.decode().split()[5])
+        with open(pdb_file,"r") as f:
+            for line in f:
+                if line.split()[0]=="ATOM" and poly.is_aa(line.split()[3]):
+                    self.pdb_init_index=int(line.split()[5])
+                    break
 
         self.structure = prody.parsePDB(self.pdb_file, chain=self.chain).select(f'protein and resnum {str(init_index)}to{str(fin_index)}')
         self.sequence=pdb.get_sequence(self.pdb_file,self.chain)
