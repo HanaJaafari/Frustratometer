@@ -22,20 +22,14 @@ class Structure:
         self.pdbID=os.path.basename(pdb_file).replace(".pdb","")
         self.chain=chain
         self.distance_matrix_method=distance_matrix_method
+        self.init_index=1
 
         if self.chain==None:
             raise ValueError("Please provide a chain name")
         
         if repair_pdb:
-            pdb.repair_pdb(pdb_file, pdb_directory)
+            fixer=pdb.repair_pdb(pdb_file, chain, pdb_directory)
             self.pdb_file=f"{pdb_directory}/{self.pdbID}_cleaned.pdb"
-
-        #Account for pdbs that have starting indices greater than one.
-        with open(pdb_file,"r") as f:
-            for line in f:
-                if line.split()[0]=="ATOM" and poly.is_aa(line.split()[3]):
-                    self.pdb_init_index=int(line.split()[5])
-                    break
 
         self.structure = prody.parsePDB(self.pdb_file, chain=self.chain).select('protein')
         self.sequence=pdb.get_sequence(self.pdb_file,self.chain)
@@ -52,7 +46,6 @@ class Structure:
             self.pdbID=pdb_file
             pdb_file=pdb.download(self.pdbID, pdb_directory)
         #TODO:
-        #fix backbone
         #put assertion error for findex greater than protein length
 
         self.pdb_file=pdb_file
@@ -63,12 +56,6 @@ class Structure:
         if self.chain==None:
             raise ValueError("Please provide a chain name")
 
-        if repair_pdb:
-            pdb.repair_pdb(pdb_file, pdb_directory)
-            self.pdb_file=f"{pdb_directory}/{self.pdbID}_cleaned.pdb"
-
-        self.init_index=init_index
-        self.fin_index=fin_index
         #Account for pdbs that have starting indices greater than one.
         with open(pdb_file,"r") as f:
             for line in f:
@@ -76,14 +63,31 @@ class Structure:
                     self.pdb_init_index=int(line.split()[5])
                     break
 
-        self.structure = prody.parsePDB(self.pdb_file, chain=self.chain).select(f'protein and resnum {str(init_index)}to{str(fin_index)}')
+        if not repair_pdb:
+            self.init_index=init_index
+            self.fin_index=fin_index
+            self.init_index_shift=(self.init_index-self.pdb_init_index)
+            self.fin_index_shift=self.fin_index-self.pdb_init_index+1
+        else:
+            fixer=pdb.repair_pdb(pdb_file, chain, pdb_directory)
+            #Account for missing residues in beginning of PDB
+            keys = fixer.missingResidues.keys()
+            miss_init_residues=[i for i in keys if i[1]==0]
+            self.pdb_file=f"{pdb_directory}/{self.pdbID}_cleaned.pdb"
+            self.init_index=init_index+len(miss_init_residues)-self.pdb_init_index+1
+            self.fin_index=fin_index+len(miss_init_residues)-self.pdb_init_index+1
+            self.init_index_shift=self.init_index-1
+            self.fin_index_shift=self.fin_index
+        
+
+        self.structure = prody.parsePDB(self.pdb_file, chain=self.chain).select(f"protein and resnum `{str(self.init_index)}to{str(self.fin_index)}`")
         self.sequence=pdb.get_sequence(self.pdb_file,self.chain)
         self.distance_matrix=pdb.get_distance_matrix(pdb_file=self.pdb_file,chain=self.chain,
                                                      method=self.distance_matrix_method)
 
-        self.distance_matrix=self.distance_matrix[(self.init_index-self.pdb_init_index):(self.fin_index-self.pdb_init_index+1),
-                                                  (self.init_index-self.pdb_init_index):(self.fin_index-self.pdb_init_index+1)]
-        self.sequence=self.sequence[(init_index-self.pdb_init_index):(fin_index-self.pdb_init_index+1)]
+        self.distance_matrix=self.distance_matrix[self.init_index_shift:self.fin_index_shift,
+                                                  self.init_index_shift:self.fin_index_shift]
+        self.sequence=self.sequence[self.init_index_shift:self.fin_index_shift]
         return self
 
     # @property

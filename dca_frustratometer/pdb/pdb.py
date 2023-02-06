@@ -70,10 +70,21 @@ def get_sequence(pdb_file: str,
     # sequence = ''.join([Letter_code[r.resname] for r in residues])
     return sequence
 
-def repair_pdb(pdb_file: str, pdb_directory: str):
+def repair_pdb(pdb_file: str, chain: str, pdb_directory: str):
     pdbID=os.path.basename(pdb_file).replace(".pdb","")
     fixer = PDBFixer(pdb_file)
+
+    chains = list(fixer.topology.chains())
+    chains_to_remove = [i for i, x in enumerate(chains) if x.id not in chain]
+    fixer.removeChains(chains_to_remove)
+
     fixer.findMissingResidues()
+    # #Filling in missing residues inside chain
+    # chains = list(fixer.topology.chains())
+    # for key in list(keys):
+    #     chain_tmp = chains[key[0]]
+    #     if key[1] == 0 or key[1] == len(list(chain_tmp.residues())):
+    #         del fixer.missingResidues[key]
     fixer.findNonstandardResidues()
     fixer.replaceNonstandardResidues()
     fixer.removeHeterogens(keepWater=False)
@@ -85,6 +96,7 @@ def repair_pdb(pdb_file: str, pdb_directory: str):
 
     fixer.addMissingHydrogens(7.0)
     PDBFile.writeFile(fixer.topology, fixer.positions, open(f"{pdb_directory}/{pdbID}_cleaned.pdb", 'w'))
+    return fixer
 
 def get_distance_matrix(pdb_file: str, 
                         chain: str, 

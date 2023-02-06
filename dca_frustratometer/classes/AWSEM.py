@@ -46,7 +46,7 @@ class AWSEMFrustratometer:
         self.structure=pdb_structure.structure
         self.chain=pdb_structure.chain
         self.pdb_file=pdb_structure.pdb_file
-        self.pdb_init_index=pdb_structure.pdb_init_index
+        self.init_index=pdb_structure.init_index
 
         self.distance_matrix=pdb_structure.distance_matrix
         self.sequence_cutoff=sequence_cutoff
@@ -60,7 +60,7 @@ class AWSEMFrustratometer:
         self.resid=resid
         self.N=len(self.resid)
 
-        assert self.N == len(self.sequence), 'The pdb is incomplete'
+        assert self.N == len(self.sequence), "The pdb is incomplete. Try setting 'repair_pdb=True' when constructing the Structure object."
         #resname = [self.gamma_se_map_3_letters[aa] for aa in selection_CB.getResnames()]
 
         #Calculate sequence mask
@@ -210,10 +210,7 @@ class AWSEMFrustratometer:
         import numpy as np
         import py3Dmol
         pdb_filename = self.pdb_file
-        if "cleaned" in pdb_filename:
-            shift=1
-        else:
-            shift=self.pdb_init_index
+        shift=self.init_index
         pair_frustration=self.frustration(pair)*np.triu(self.mask)
         residues=np.arange(len(self.sequence))
         r1, r2 = np.meshgrid(residues, residues, indexing='ij')
