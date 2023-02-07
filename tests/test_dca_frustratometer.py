@@ -97,7 +97,21 @@ def test_generate_and_filter_hmmer_alignment():
         output_text = alignment_file.read_text()
         assert "# STOCKHOLM" in output_text
         
+
 def test_create_potts_model_from_aligment():
+    """
+    Test to check if the Potts model is created from a filtered alignment file using pydca.
+    
+    The test only executes if the pydca module is installed and if not, it skips with a message.
+    If the module is installed, the filtered alignment file is loaded and a Potts model is created using the plmdca function from the pydca module.
+    The test then asserts that the keys 'h' and 'J' are present in the Potts model.
+    """
+    
+    try:
+        import pydca
+    except ImportError:
+        pytest.skip('pydca module not installed')
+    
     filtered_file=data_path/'PF09696.12_gaps_filtered.fasta'
     potts_model = dca_frustratometer.dca.pydca.plmdca(str(filtered_file))
     assert 'h' in potts_model.keys()
