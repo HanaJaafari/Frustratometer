@@ -5,13 +5,7 @@ from pathlib import Path
 
 #Import other modules
 from ..utils import _path
-from .. import pdb
-from .. import filter
-from .. import dca
-from .. import map
-from .. import align
 from .. import frustration
-from .. import pfam
 
 __all__=['PottsModel']
 ##################
@@ -20,53 +14,27 @@ __all__=['PottsModel']
 
 
 # Class wrapper
-class Frustratometer:
-    def __init__(self,pdb_file:str,chain:str,sequence:str=None,sequence_cutoff: typing.Union[float, None] = None,distance_cutoff: typing.Union[float, None] = None,distance_matrix_method="minimum"):
-        self._pdb_file = Path(pdb_file)
-        self._chain = chain
-        if sequence is None:
-            self._sequence = pdb.get_sequence(self.pdb_file, self.chain)
-        else:
-            self._sequence = sequence
-        self._distance_matrix_method=distance_matrix_method
-        self.distance_matrix = pdb.get_distance_matrix(self.pdb_file, self.chain, self.distance_matrix_method)
+class Frustratometer(pdb_structure):
+    # def __init__(self,pdb_file:str,chain:str,sequence:str=None,sequence_cutoff: typing.Union[float, None] = None,distance_cutoff: typing.Union[float, None] = None,distance_matrix_method="minimum"):
+    #     self._pdb_file = Path(pdb_file)
+    #     self._chain = chain
+    #     if sequence is None:
+    #         self._sequence = pdb.get_sequence(self.pdb_file, self.chain)
+    #     else:
+    #         self._sequence = sequence
+    #     self._distance_matrix_method=distance_matrix_method
+    #     self.distance_matrix = pdb.get_distance_matrix(self.pdb_file, self.chain, self.distance_matrix_method)
 
-        self._sequence_cutoff = sequence_cutoff
-        self._distance_cutoff = distance_cutoff
+    #     self._sequence_cutoff = sequence_cutoff
+    #     self._distance_cutoff = distance_cutoff
 
-        self.aa_freq = frustration.compute_aa_freq(self.sequence)
-        self.contact_freq = frustration.compute_contact_freq(self.sequence)
-        self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+    #     self.aa_freq = frustration.compute_aa_freq(self.sequence)
+    #     self.contact_freq = frustration.compute_contact_freq(self.sequence)
+    #     self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
 
-        # Initialize slow properties
-        self._native_energy = None
-        self._decoy_fluctuation = {}
-
-    @property
-    def sequence(self):
-        return self._sequence
-    
-    # Set a new sequence in case someone needs to calculate the energy of a diferent sequence with the same structure
-    @sequence.setter
-    def sequence(self, value):
-        assert len(value) == len(self._sequence)
-        self._sequence = value
-
-    @property
-    def pdb_file(self):
-        return str(self._pdb_file)
-
-    @property
-    def pdb_name(self, value):
-        """
-        Returns PDBid from pdb name
-        """
-        assert self._pdb_file.exists()
-        return self._pdb_file.stem
-
-    @property
-    def chain(self):
-        return self._chain
+    #     # Initialize slow properties
+    #     self._native_energy = None
+    #     self._decoy_fluctuation = {}
 
     @property
     def sequence_cutoff(self):
@@ -90,18 +58,6 @@ class Frustratometer:
         self._native_energy = None
         self._decoy_fluctuation = {}
 
-    @property
-    def distance_matrix_method(self):
-        return self._distance_matrix_method
-
-    @distance_matrix_method.setter
-    def distance_matrix_method(self, value):
-        self.distance_matrix = pdb.get_distance_matrix(self._pdb_file, self._chain, value)
-        self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
-        self._distance_matrix_method = value
-        self._native_energy = None
-        self._decoy_fluctuation = {}
-
     def native_energy(self, sequence=None):
         if sequence is None:
             if self._native_energy:
@@ -116,12 +72,12 @@ class Frustratometer:
 
     def fields_energy(self, sequence=None):
         if sequence is None:
-            sequence=self._sequence
+            sequence=self.sequence
         return frustration.compute_fields_energy(sequence, self.potts_model)
 
     def couplings_energy(self, sequence=None):
         if sequence is None:
-            sequence=self._sequence
+            sequence=self.sequence
         return frustration.compute_couplings_energy(sequence, self.potts_model, self.mask)
         
     def decoy_fluctuation(self, kind='singleresidue'):

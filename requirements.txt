@@ -4,5 +4,5 @@ pandas
 biopython
 prody
 openmm
-PDBFixer
-importlib-metadata; python_version < '3.9'
+pdbfixer
+#importlib-metadata; python_version < '3.9'
