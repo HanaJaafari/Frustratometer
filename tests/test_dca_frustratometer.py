@@ -170,39 +170,30 @@ def test_structure_segment_class():
     assert structure.distance_matrix.shape == (20,20)
 
 def test_selected_subsequence_burial_energy_matrix():
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=38,fin_index=145)
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=39,fin_index=146)
     model=dca_frustratometer.AWSEMFrustratometer(structure)
     assert model.potts_model['h'].shape==(108,21)
 
 def test_selected_subsequence_burial_energy_matrix():
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=38,fin_index=145)
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=39,fin_index=146)
     model=dca_frustratometer.AWSEMFrustratometer(structure)
     assert model.potts_model['J'].shape==(108,108,21,21)
 
-@pytest.mark.skip
+# @pytest.mark.skip
 def test_selected_subsequence_burial_energy():
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=38,fin_index=145)
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=39,fin_index=146)
     model=dca_frustratometer.AWSEMFrustratometer(structure)
     selected_region_burial=model.fields_energy()
     # Energy units are in kJ/mol
     assert np.round(selected_region_burial, 1) == -377.9
 
-@pytest.mark.skip
+# @pytest.mark.skip
 def test_selected_subsequence_contact_energy():
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=38,fin_index=145)
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=39,fin_index=146)
     model=dca_frustratometer.AWSEMFrustratometer(structure)
     selected_region_contact=model.couplings_energy()
     # Energy units are in kJ/mol
     assert np.round(selected_region_contact, 1) == -149.0
-
-@pytest.mark.skip
-def test_selected_subsequence_first_residue_native_energy():
-    #Comparing with values from the online frustratometer
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=0,fin_index=15)
-    model=dca_frustratometer.AWSEMFrustratometer(structure)
-    selected_region_burial=model.fields_energy()
-    # Energy units are in kJ/mol
-    assert np.round(selected_region_burial, 1) == -377.9
 
 def test_scores():
     pdb_file = 'examples/data/1cyo.pdb'
