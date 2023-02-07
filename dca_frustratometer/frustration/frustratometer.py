@@ -141,15 +141,20 @@ def compute_mutational_decoy_energy_fluctuation(seq: str,
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
 
-    # Create decoys
-    pos1, pos2, aa1, aa2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), np.arange(21), np.arange(21),
-                                       indexing='ij', sparse=True)
+    # Create masked decoys
+    pos1,pos2=np.where(mask>0)
+    contacts_len=len(pos1)
 
-    decoy_energy = np.zeros([seq_len, seq_len, 21, 21])
+    pos1,aa1,aa2=np.meshgrid(pos1, np.arange(21), np.arange(21), indexing='ij', sparse=True)
+    pos2,aa1,aa2=np.meshgrid(pos2, np.arange(21), np.arange(21), indexing='ij', sparse=True)
+
+    #Compute fields
+    decoy_energy = np.zeros([contacts_len, 21, 21])
     decoy_energy -= (potts_model['h'][pos1, aa1] - potts_model['h'][pos1, seq_index[pos1]])  # h correction aa1
     decoy_energy -= (potts_model['h'][pos2, aa2] - potts_model['h'][pos2, seq_index[pos2]])  # h correction aa2
 
-    j_correction = np.zeros([seq_len, seq_len, 21, 21])
+    #Compute couplings
+    j_correction = np.zeros([contacts_len, 21, 21])
     for pos, aa in enumerate(seq_index):
         # J correction interactions with other aminoacids
         reduced_j = potts_model['J'][pos, :, aa, :].astype(np.float32)
@@ -163,8 +168,10 @@ def compute_mutational_decoy_energy_fluctuation(seq: str,
     j_correction += potts_model['J'][pos1, pos2, seq_index[pos1], aa2] * mask[pos1, pos2]  # Added mistakenly
     j_correction -= potts_model['J'][pos1, pos2, aa1, aa2] * mask[pos1, pos2]  # Correct combination
     decoy_energy += j_correction
-
-    return decoy_energy
+    
+    decoy_energy2=np.zeros([seq_len,seq_len,21,21])
+    decoy_energy2[mask]=decoy_energy
+    return decoy_energy2
 
 
 def compute_configurational_decoy_energy_fluctuation(seq: str,
@@ -183,15 +190,20 @@ def compute_configurational_decoy_energy_fluctuation(seq: str,
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
 
-    # Create decoys
-    pos1, pos2, aa1, aa2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), np.arange(21), np.arange(21),
-                                       indexing='ij', sparse=True)
+    # Create masked decoys
+    pos1,pos2=np.where(mask>0)
+    contacts_len=len(pos1)
 
-    decoy_energy = np.zeros([seq_len, seq_len, 21, 21])
+    pos1,aa1,aa2=np.meshgrid(pos1, np.arange(21), np.arange(21), indexing='ij', sparse=True)
+    pos2,aa1,aa2=np.meshgrid(pos2, np.arange(21), np.arange(21), indexing='ij', sparse=True)
+
+    #Compute fields
+    decoy_energy = np.zeros([contacts_len, 21, 21])
     decoy_energy -= (potts_model['h'][pos1, aa1] - potts_model['h'][pos1, seq_index[pos1]])  # h correction aa1
     decoy_energy -= (potts_model['h'][pos2, aa2] - potts_model['h'][pos2, seq_index[pos2]])  # h correction aa2
 
-    j_correction = np.zeros([seq_len, seq_len, 21, 21])
+    #Compute couplings
+    j_correction = np.zeros([contacts_len, 21, 21])
     for pos, aa in enumerate(seq_index):
         # J correction interactions with other aminoacids
         reduced_j = potts_model['J'][pos, :, aa, :].astype(np.float32)
@@ -205,8 +217,10 @@ def compute_configurational_decoy_energy_fluctuation(seq: str,
     j_correction += potts_model['J'][pos1, pos2, seq_index[pos1], aa2] * mask.mean()  # Added mistakenly
     j_correction -= potts_model['J'][pos1, pos2, aa1, aa2] * mask.mean()  # Correct combination
     decoy_energy += j_correction
-
-    return decoy_energy
+    
+    decoy_energy2=np.zeros([seq_len,seq_len,21,21])
+    decoy_energy2[mask]=decoy_energy
+    return decoy_energy2
 
 
 def compute_contact_decoy_energy_fluctuation(seq: str,
@@ -366,7 +380,7 @@ def plot_singleresidue_decoy_energy(decoy_energy, native_energy, method='cluster
           vmax=native_energy + decoy_energy.std() * 3)
     AA_dict = {str(i): _AA[i] for i in range(len(_AA))}
     new_ticklabels = []
-    if method == sns.clustermap:
+    if method == 'clustermap':
         ax_heatmap = g.ax_heatmap
     else:
         ax_heatmap = g.axes
