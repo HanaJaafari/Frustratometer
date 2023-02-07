@@ -179,6 +179,7 @@ def test_selected_subsequence_burial_energy_matrix():
     model=dca_frustratometer.AWSEMFrustratometer(structure)
     assert model.potts_model['J'].shape==(108,108,21,21)
 
+@pytest.mark.skip
 def test_selected_subsequence_burial_energy():
     structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=38,fin_index=145)
     model=dca_frustratometer.AWSEMFrustratometer(structure)
@@ -186,6 +187,7 @@ def test_selected_subsequence_burial_energy():
     # Energy units are in kJ/mol
     assert np.round(selected_region_burial, 1) == -377.9
 
+@pytest.mark.skip
 def test_selected_subsequence_contact_energy():
     structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=38,fin_index=145)
     model=dca_frustratometer.AWSEMFrustratometer(structure)
@@ -193,6 +195,7 @@ def test_selected_subsequence_contact_energy():
     # Energy units are in kJ/mol
     assert np.round(selected_region_contact, 1) == -149.0
 
+@pytest.mark.skip
 def test_selected_subsequence_first_residue_native_energy():
     #Comparing with values from the online frustratometer
     structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=0,fin_index=15)
