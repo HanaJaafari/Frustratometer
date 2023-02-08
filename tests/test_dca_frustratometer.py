@@ -162,12 +162,45 @@ def test_structure_class():
     assert structure.sequence==test_sequence
     assert structure.distance_matrix.shape==(len(test_sequence),len(test_sequence))
 
-def test_structure_segment_class():
+def test_structure_segment_class_original_indices():
     #PDB has cofactors and ions
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1rnb.pdb',"A",init_index=2,fin_index=21)
-    test_sequence="QVINTFDGVADYLQTYHKLP"
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/3ptn.pdb',"A",seq_selection="resnum `16to41`")
+    test_sequence="IVGGYTCGANTVPYQVSLNSGYHF"
+    selection_CB = structure.structure.select('name CB or (resname GLY IGL and name CA)')
+    resid = selection_CB.getResindices()
+    assert structure.pdb_init_index==16
+    assert len(structure.select_gap_indices)==2
     assert structure.sequence==test_sequence
-    assert structure.distance_matrix.shape == (20,20)
+    assert structure.distance_matrix.shape == (len(structure.sequence),len(structure.sequence))
+    assert len(resid)==len(structure.sequence)
+
+def test_structure_segment_class_absolute_indices():
+    #PDB has cofactors and ions
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/3ptn.pdb',"A",seq_selection="resindex `0to23`")
+    test_sequence="IVGGYTCGANTVPYQVSLNSGYHF"
+    selection_CB = structure.structure.select('name CB or (resname GLY IGL and name CA)')
+    resid = selection_CB.getResindices()
+    assert structure.sequence==test_sequence
+    assert structure.distance_matrix.shape == (len(structure.sequence),len(structure.sequence))
+    assert len(resid)==len(structure.sequence)
+
+def test_structure_segment_class_original_indices_no_repair():
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1rnb.pdb',"A",seq_selection="resnum `2to21`",repair_pdb=False)
+    test_sequence="QVINTFDGVADYLQTYHKLP"
+    selection_CB = structure.structure.select('name CB or (resname GLY IGL and name CA)')
+    resid = selection_CB.getResindices()
+    assert structure.sequence==test_sequence
+    assert structure.distance_matrix.shape == (len(structure.sequence),len(structure.sequence))
+    assert len(resid)==len(structure.sequence)
+
+def test_structure_segment_class_absolute_indices_no_repair():
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1rnb.pdb',"A",seq_selection="resindex `0to19`",repair_pdb=False)
+    test_sequence="QVINTFDGVADYLQTYHKLP"
+    selection_CB = structure.structure.select('name CB or (resname GLY IGL and name CA)')
+    resid = selection_CB.getResindices()
+    assert structure.sequence==test_sequence
+    assert structure.distance_matrix.shape == (len(structure.sequence),len(structure.sequence))
+    assert len(resid)==len(structure.sequence)
 
 def test_selected_subsequence_burial_energy_matrix():
     structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=39,fin_index=146)

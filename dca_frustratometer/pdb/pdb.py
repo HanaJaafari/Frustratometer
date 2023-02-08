@@ -79,12 +79,13 @@ def repair_pdb(pdb_file: str, chain: str, pdb_directory: str):
     fixer.removeChains(chains_to_remove)
 
     fixer.findMissingResidues()
-    # #Filling in missing residues inside chain
-    # chains = list(fixer.topology.chains())
-    # for key in list(keys):
-    #     chain_tmp = chains[key[0]]
-    #     if key[1] == 0 or key[1] == len(list(chain_tmp.residues())):
-    #         del fixer.missingResidues[key]
+    #Filling in missing residues inside chain
+    chains = list(fixer.topology.chains())
+    keys = fixer.missingResidues.keys()
+    for key in list(keys):
+        chain_tmp = chains[key[0]]
+        if key[1] == 0 or key[1] == len(list(chain_tmp.residues())):
+            del fixer.missingResidues[key]
     fixer.findNonstandardResidues()
     fixer.replaceNonstandardResidues()
     fixer.removeHeterogens(keepWater=False)
