@@ -345,7 +345,10 @@ def compute_roc(scores, distance_matrix, cutoff):
     distance = sdist.squareform(distance_matrix)
     results = np.array([scores, distance])
     results = results[:, results[0, :].argsort()[::-1]]  # Sort results by score
-    contacts = results[1] <= cutoff
+    if cutoff!= None:
+        contacts = results[1] <= cutoff
+    else:
+        contacts = results[1]
     not_contacts = ~contacts
     tpr = np.concatenate([[0], contacts.cumsum() / contacts.sum()])
     fpr = np.concatenate([[0], not_contacts.cumsum() / not_contacts.sum()])

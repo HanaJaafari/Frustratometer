@@ -22,7 +22,7 @@ class Structure:
         self.pdbID=os.path.basename(pdb_file).replace(".pdb","")
         self.chain=chain
         self.distance_matrix_method=distance_matrix_method
-        self.init_index=1
+        self.init_index_shift=0
 
         if self.chain==None:
             raise ValueError("Please provide a chain name")
@@ -105,8 +105,8 @@ class Structure:
         gap_indices=[]; atom_line_count=0
         with open(pdb_file,"r") as f:
             for line in f:
-                if line.split()[0]=="ATOM" and next(f).split()[0]=="ATOM":
-                    if line.split()[4]==self.chain and next(f).split()[4]==self.chain:
+                if line.split()[0]=="ATOM" and line.split()[4]==self.chain:
+                    try:
                         res_index=''.join(i for i in line.split()[5] if i.isdigit())
                         next_res_index=''.join(i for i in next(f).split()[5] if i.isdigit())
                         if int(next_res_index)-int(res_index)>1:
@@ -114,6 +114,8 @@ class Structure:
                         if atom_line_count==0 and poly.is_aa(line.split()[3]):
                             self.pdb_init_index=int(line.split()[5])
                         atom_line_count+=1
+                    except:
+                        continue
 
         if "resnum" in self.seq_selection:
             assert self.init_index>=self.pdb_init_index, "Please pick an initial index within the pdb's original indices"

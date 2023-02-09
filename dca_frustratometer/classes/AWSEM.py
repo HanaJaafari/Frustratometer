@@ -46,7 +46,7 @@ class AWSEMFrustratometer:
         self.structure=pdb_structure.structure
         self.chain=pdb_structure.chain
         self.pdb_file=pdb_structure.pdb_file
-        self.init_index=pdb_structure.init_index
+        self.init_index_shift=pdb_structure.init_index_shift
 
         self.distance_matrix=pdb_structure.distance_matrix
         self.sequence_cutoff=sequence_cutoff
@@ -166,7 +166,7 @@ class AWSEMFrustratometer:
         return self._decoy_fluctuation[kind]
 
     def decoy_energy(self, kind='singleresidue'):
-        return self.native_energy() + self.decoy_fluctuation(kind)
+        return self.native_energy() + self.decoy_fluctuation(kind).mean()
 
     def scores(self):
         return frustration.compute_scores(self.potts_model)
@@ -210,7 +210,7 @@ class AWSEMFrustratometer:
         import numpy as np
         import py3Dmol
         pdb_filename = self.pdb_file
-        shift=self.init_index
+        shift=self.init_index_shift+1
         pair_frustration=self.frustration(pair)*np.triu(self.mask)
         residues=np.arange(len(self.sequence))
         r1, r2 = np.meshgrid(residues, residues, indexing='ij')
