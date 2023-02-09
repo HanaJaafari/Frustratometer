@@ -14,58 +14,36 @@ __all__=['PottsModel']
 
 
 # Class wrapper
-class Frustratometer(pdb_structure):
-    # def __init__(self,pdb_file:str,chain:str,sequence:str=None,sequence_cutoff: typing.Union[float, None] = None,distance_cutoff: typing.Union[float, None] = None,distance_matrix_method="minimum"):
-    #     self._pdb_file = Path(pdb_file)
-    #     self._chain = chain
-    #     if sequence is None:
-    #         self._sequence = pdb.get_sequence(self.pdb_file, self.chain)
-    #     else:
-    #         self._sequence = sequence
-    #     self._distance_matrix_method=distance_matrix_method
-    #     self.distance_matrix = pdb.get_distance_matrix(self.pdb_file, self.chain, self.distance_matrix_method)
+class Frustratometer:
 
-    #     self._sequence_cutoff = sequence_cutoff
-    #     self._distance_cutoff = distance_cutoff
+    # @property
+    # def sequence_cutoff(self):
+    #     return self._sequence_cutoff
 
-    #     self.aa_freq = frustration.compute_aa_freq(self.sequence)
-    #     self.contact_freq = frustration.compute_contact_freq(self.sequence)
+    # @sequence_cutoff.setter
+    # def sequence_cutoff(self, value):
     #     self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
-
-    #     # Initialize slow properties
+    #     self._sequence_cutoff = value
     #     self._native_energy = None
     #     self._decoy_fluctuation = {}
 
-    @property
-    def sequence_cutoff(self):
-        return self._sequence_cutoff
+    # @property
+    # def distance_cutoff(self):
+    #     return self._distance_cutoff
 
-    @sequence_cutoff.setter
-    def sequence_cutoff(self, value):
-        self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
-        self._sequence_cutoff = value
-        self._native_energy = None
-        self._decoy_fluctuation = {}
+    # @distance_cutoff.setter
+    # def distance_cutoff(self, value):
+    #     self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+    #     self._distance_cutoff = value
+    #     self._native_energy = None
+    #     self._decoy_fluctuation = {}
 
-    @property
-    def distance_cutoff(self):
-        return self._distance_cutoff
-
-    @distance_cutoff.setter
-    def distance_cutoff(self, value):
-        self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
-        self._distance_cutoff = value
-        self._native_energy = None
-        self._decoy_fluctuation = {}
-
-    def native_energy(self, sequence=None):
+    def native_energy(self,sequence=None):
         if sequence is None:
-            if self._native_energy:
-                return self._native_energy
-            else:
-                return frustration.compute_native_energy(self.sequence, self.potts_model, self.mask)
-        else:
-            return frustration.compute_native_energy(sequence, self.potts_model, self.mask)
+            sequence=self.sequence
+        if not self._native_energy:
+            self._native_energy=frustration.compute_native_energy(self.sequence, self.potts_model, self.mask)
+        return self._native_energy
 
     def sequences_energies(self, sequences, split_couplings_and_fields=False):
         return frustration.compute_sequences_energy(sequences, self.potts_model, self.mask, split_couplings_and_fields)
@@ -114,11 +92,12 @@ class Frustratometer(pdb_structure):
                 aa_freq = self.contact_freq
             return frustration.compute_pair_frustration(decoy_fluctuation, aa_freq, correction)
 
-    def plot_decoy_energy(self, kind='singleresidue'):
+    def plot_decoy_energy(self, kind='singleresidue', method='clustermap'):
         native_energy = self.native_energy()
         decoy_energy = self.decoy_energy(kind)
         if kind == 'singleresidue':
-            frustration.plot_singleresidue_decoy_energy(decoy_energy, native_energy)
+            g = frustration.plot_singleresidue_decoy_energy(decoy_energy, native_energy, method)
+            return g
 
     def roc(self):
         return frustration.compute_roc(self.scores(), self.distance_matrix, self.distance_cutoff)
@@ -142,6 +121,7 @@ class Frustratometer(pdb_structure):
         import numpy as np
         import py3Dmol
         pdb_filename = self.pdb_file
+        shift=self.init_index_shift+1
         pair_frustration=self.frustration(pair)*np.triu(self.mask)
         residues=np.arange(len(self.sequence))
         r1, r2 = np.meshgrid(residues, residues, indexing='ij')
@@ -156,11 +136,11 @@ class Frustratometer(pdb_structure):
         view.setStyle({'cartoon':{'color':'white'}})
         
         for i,j,f in frustrated:
-            view.addLine({'start':{'chain':'A','resi':[str(i+1)]},'end':{'chain':'A','resi':[str(j+1)]},
+            view.addLine({'start':{'chain':'A','resi':[str(i+shift)]},'end':{'chain':'A','resi':[str(j+shift)]},
                         'color':'red', 'dashed':False,'linewidth':3})
         
         for i,j,f in minimally_frustrated:
-            view.addLine({'start':{'chain':'A','resi':[str(i+1)]},'end':{'chain':'A','resi':[str(j+1)]},
+            view.addLine({'start':{'chain':'A','resi':[str(i+shift)]},'end':{'chain':'A','resi':[str(j+shift)]},
                         'color':'green', 'dashed':False,'linewidth':3})
 
         view.zoomTo(viewer=(0,0))

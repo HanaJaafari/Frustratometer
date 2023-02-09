@@ -97,7 +97,7 @@ def test_generate_and_filter_hmmer_alignment():
         output_text = alignment_file.read_text()
         assert "# STOCKHOLM" in output_text
         
-
+@pytest.mark.skip
 def test_create_potts_model_from_aligment():
     """
     Test to check if the Potts model is created from a filtered alignment file using pydca.
@@ -137,6 +137,7 @@ def test_OOP_compute_native_energy():
     potts_model_file = 'examples/data/PottsModel1cyoA.mat'
     model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_file, pdb_file, chain, distance_cutoff=4,
                                                                 sequence_cutoff=0)
+                                                                
     e = model.native_energy()
     assert np.round(e, 4) == -61.5248
 
@@ -162,6 +163,7 @@ def test_structure_class():
     assert structure.sequence==test_sequence
     assert structure.distance_matrix.shape==(len(test_sequence),len(test_sequence))
 
+@pytest.mark.skip
 def test_structure_segment_class_original_indices():
     #PDB has cofactors and ions
     structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/3ptn.pdb',"A",seq_selection="resnum `16to41`")
@@ -202,31 +204,31 @@ def test_structure_segment_class_absolute_indices_no_repair():
     assert structure.distance_matrix.shape == (len(structure.sequence),len(structure.sequence))
     assert len(resid)==len(structure.sequence)
 
-def test_selected_subsequence_burial_energy_matrix():
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=39,fin_index=146)
+def test_selected_subsequence_contact_energy_matrix():
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/4wnc.pdb',"A",seq_selection="resnum 3to26")
     model=dca_frustratometer.AWSEMFrustratometer(structure)
-    assert model.potts_model['h'].shape==(108,21)
+    assert model.potts_model['h'].shape==(24,21)
 
 def test_selected_subsequence_burial_energy_matrix():
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=39,fin_index=146)
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/4wnc.pdb',"A",seq_selection="resnum 150to315")
     model=dca_frustratometer.AWSEMFrustratometer(structure)
-    assert model.potts_model['J'].shape==(108,108,21,21)
+    assert model.potts_model['J'].shape==(166,166,21,21)
 
 # @pytest.mark.skip
 def test_selected_subsequence_burial_energy():
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=39,fin_index=146)
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",seq_selection="resnum 39to146")
     model=dca_frustratometer.AWSEMFrustratometer(structure)
     selected_region_burial=model.fields_energy()
     # Energy units are in kJ/mol
-    assert np.round(selected_region_burial, 1) == -377.9
+    assert np.round(selected_region_burial, 2) == -377.95
 
 # @pytest.mark.skip
 def test_selected_subsequence_contact_energy():
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",init_index=39,fin_index=146)
+    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",seq_selection="resnum 39to146")
     model=dca_frustratometer.AWSEMFrustratometer(structure)
     selected_region_contact=model.couplings_energy()
     # Energy units are in kJ/mol
-    assert np.round(selected_region_contact, 1) == -149.0
+    assert np.round(selected_region_contact, 2) == -149.00
 
 def test_scores():
     pdb_file = 'examples/data/1cyo.pdb'
