@@ -21,11 +21,11 @@ class Frustratometer:
         if sequence is None:
             sequence=self._sequence
         if not self._native_energy:
-            self._native_energy=frustration.compute_native_energy(self.sequence, self.potts_model, self.mask)
+            self._native_energy=frustration.compute_native_energy(sequence, self._potts_model, self._mask)
         return self._native_energy
 
     def sequences_energies(self, sequences, split_couplings_and_fields=False):
-        return frustration.compute_sequences_energy(sequences, self.potts_model, self.mask, split_couplings_and_fields)
+        return frustration.compute_sequences_energy(sequences, self._potts_model, self._mask, split_couplings_and_fields)
 
     def fields_energy(self, sequence=None):
         if sequence is None:
@@ -145,6 +145,11 @@ class Frustratometer:
     @pdb_file.setter
     def pdb_file(self, value):
         self._pdb_file = Path(value)
+        self._distance_matrix = pdb.get_distance_matrix(self._pdb_file, self._chain, method=value)
+        self._mask = frustration.compute_mask(self._distance_matrix, self._distance_cutoff, self._sequence_cutoff)
+        self._potts_model = {}
+        self._native_energy = None
+        self._decoy_fluctuation = {}
 
     @property
     def pdbID(self):
@@ -172,28 +177,6 @@ class Frustratometer:
     @pfamID.setter
     def pfamID(self, value):
         self._pfamID=value
-    
-    @property
-    def sequence_cutoff(self):
-        return self._sequence_cutoff
-
-    @sequence_cutoff.setter
-    def sequence_cutoff(self, value):
-        self._mask = frustration.compute_mask(self._distance_matrix, self._distance_cutoff, value)
-        self._sequence_cutoff = value
-        self._native_energy = None
-        self._decoy_fluctuation = {}
-
-    @property
-    def distance_cutoff(self):
-        return self._distance_cutoff
-
-    @distance_cutoff.setter
-    def distance_cutoff(self, value):
-        self.mask = frustration.compute_mask(self._distance_matrix, value, self._sequence_cutoff)
-        self._distance_cutoff = value
-        self._native_energy = None
-        self._decoy_fluctuation = {}
 
     @property
     def alignment_type(self):
@@ -263,9 +246,21 @@ class Frustratometer:
 
     @distance_matrix_method.setter
     def distance_matrix_method(self, value):
-        self._distance_matrix = pdb.get_distance_matrix(self._pdb_file, self._chain, value)
+        self._distance_matrix = pdb.get_distance_matrix(self._pdb_file, self._chain, method=value)
         self._mask = frustration.compute_mask(self._distance_matrix, self._distance_cutoff, self._sequence_cutoff)
         self._distance_matrix_method = value
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+
+    @property
+    def distance_matrix(self):
+        return self._distance_matrix
+
+    @distance_matrix.setter
+    def distance_matrix(self, value):
+        assert value.shape==(len(self._sequence),len(self._sequence)), "Distance matrix dimensions are incorrect"
+        self._distance_matrix = value
+        self._mask = frustration.compute_mask(value, self._distance_cutoff, self._sequence_cutoff)
         self._native_energy = None
         self._decoy_fluctuation = {}
 
@@ -291,6 +286,7 @@ class Frustratometer:
         if value is None:
             self._aa_freq = frustration.compute_aa_freq(sequence)
         else:
+            assert len(value)==20, "AA frequencies must be calculated for all 20 amino acids."
             self._aa_freq=value
         self._decoy_fluctuation={}
 
@@ -303,6 +299,7 @@ class Frustratometer:
         if value is None:
             self._contact_freq = frustration.compute_contact_freq(sequence)
         else:
+            assert value.shape==(20,20), "Contact frequencies must be calculated for all 20 amino acids."
             self._contact_freq=value
         self._decoy_fluctuation={}             
 
