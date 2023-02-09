@@ -1,7 +1,8 @@
 """Provide the primary functions."""
-import typing
-import os
 from pathlib import Path
+from .. import pdb
+from .. import align
+from .. import dca
 
 #Import other modules
 from ..utils import _path
@@ -16,31 +17,9 @@ __all__=['PottsModel']
 # Class wrapper
 class Frustratometer:
 
-    # @property
-    # def sequence_cutoff(self):
-    #     return self._sequence_cutoff
-
-    # @sequence_cutoff.setter
-    # def sequence_cutoff(self, value):
-    #     self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
-    #     self._sequence_cutoff = value
-    #     self._native_energy = None
-    #     self._decoy_fluctuation = {}
-
-    # @property
-    # def distance_cutoff(self):
-    #     return self._distance_cutoff
-
-    # @distance_cutoff.setter
-    # def distance_cutoff(self, value):
-    #     self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
-    #     self._distance_cutoff = value
-    #     self._native_energy = None
-    #     self._decoy_fluctuation = {}
-
     def native_energy(self,sequence=None):
         if sequence is None:
-            sequence=self.sequence
+            sequence=self._sequence
         if not self._native_energy:
             self._native_energy=frustration.compute_native_energy(self.sequence, self.potts_model, self.mask)
         return self._native_energy
@@ -50,25 +29,25 @@ class Frustratometer:
 
     def fields_energy(self, sequence=None):
         if sequence is None:
-            sequence=self.sequence
-        return frustration.compute_fields_energy(sequence, self.potts_model)
+            sequence=self._sequence
+        return frustration.compute_fields_energy(sequence, self._potts_model)
 
     def couplings_energy(self, sequence=None):
         if sequence is None:
-            sequence=self.sequence
-        return frustration.compute_couplings_energy(sequence, self.potts_model, self.mask)
+            sequence=self._sequence
+        return frustration.compute_couplings_energy(sequence, self._potts_model, self._mask)
         
     def decoy_fluctuation(self, kind='singleresidue'):
         if kind in self._decoy_fluctuation:
             return self._decoy_fluctuation[kind]
         if kind == 'singleresidue':
-            fluctuation = frustration.compute_singleresidue_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+            fluctuation = frustration.compute_singleresidue_decoy_energy_fluctuation(self._sequence, self._potts_model, self._mask)
         elif kind == 'mutational':
-            fluctuation = frustration.compute_mutational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+            fluctuation = frustration.compute_mutational_decoy_energy_fluctuation(self._sequence, self._potts_model, self._mask)
         elif kind == 'configurational':
-            fluctuation = frustration.compute_configurational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+            fluctuation = frustration.compute_configurational_decoy_energy_fluctuation(self._sequence, self._potts_model, self._mask)
         elif kind == 'contact':
-            fluctuation = frustration.compute_contact_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+            fluctuation = frustration.compute_contact_decoy_energy_fluctuation(self._sequence, self._potts_model, self._mask)
 
         else:
             raise Exception("Wrong kind of decoy generation selected")
@@ -82,18 +61,18 @@ class Frustratometer:
         return frustration.compute_scores(self.potts_model)
 
     def frustration(self, kind='singleresidue', aa_freq=None, correction=0):
-        decoy_fluctuation = self.decoy_fluctuation(kind)
+        decoy_fluctuation = self._decoy_fluctuation(kind)
         if kind == 'singleresidue':
             if aa_freq is None:
-                aa_freq = self.aa_freq
+                aa_freq = self._aa_freq
             return frustration.compute_single_frustration(decoy_fluctuation, aa_freq, correction)
         elif kind in ['mutational', 'configurational', 'contact']:
             if aa_freq is None:
-                aa_freq = self.contact_freq
+                aa_freq = self._contact_freq
             return frustration.compute_pair_frustration(decoy_fluctuation, aa_freq, correction)
 
     def plot_decoy_energy(self, kind='singleresidue', method='clustermap'):
-        native_energy = self.native_energy()
+        native_energy = self._native_energy()
         decoy_energy = self.decoy_energy(kind)
         if kind == 'singleresidue':
             g = frustration.plot_singleresidue_decoy_energy(decoy_energy, native_energy, method)
@@ -146,4 +125,214 @@ class Frustratometer:
         view.zoomTo(viewer=(0,0))
 
         return view
+
+
+    @property
+    def sequence(self):
+        return self._sequence
+    
+    @sequence.setter
+    def sequence(self, value):
+        assert len(value) == len(self._sequence)
+        self._sequence = value
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+
+    @property
+    def pdb_file(self):
+        return str(self._pdb_file)
+
+    @pdb_file.setter
+    def pdb_file(self, value):
+        self._pdb_file = Path(value)
+
+    @property
+    def pdbID(self):
+        """
+        Returns PDBid from pdb name
+        """
+        assert self._pdb_file.exists()
+        return self._pdbID
+
+    @property
+    def chain(self):
+        return self._chain
+
+    @chain.setter
+    def chain(self, value):
+        self._chain = value
+
+    @property
+    def pfamID(self):
+        """
+        Returns pfamID from pdb name
+        """
+        return self._pfamID
+    
+    @pfamID.setter
+    def pfamID(self, value):
+        self._pfamID=value
+    
+    @property
+    def sequence_cutoff(self):
+        return self._sequence_cutoff
+
+    @sequence_cutoff.setter
+    def sequence_cutoff(self, value):
+        self._mask = frustration.compute_mask(self._distance_matrix, self._distance_cutoff, value)
+        self._sequence_cutoff = value
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+
+    @property
+    def distance_cutoff(self):
+        return self._distance_cutoff
+
+    @distance_cutoff.setter
+    def distance_cutoff(self, value):
+        self.mask = frustration.compute_mask(self._distance_matrix, value, self._sequence_cutoff)
+        self._distance_cutoff = value
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+
+    @property
+    def alignment_type(self):
+        return self._alignment_type
+
+    @alignment_type.setter
+    def alignment_type(self, value):
+        self._alignment_type = value
+
+    @property
+    def alignment_sequence_database(self):
+        return self._alignment_sequence_database
+
+    @alignment_sequence_database.setter
+    def alignment_sequence_database(self, value):
+        self._alignment_sequence_database = value
+
+    @property
+    def download_all_alignment_files(self):
+        return self._download_all_alignment_files
+
+    @download_all_alignment_files.setter
+    def download_all_alignment_files(self, value):
+        self._download_all_alignment_files = value
+
+    @property
+    def alignment_files_directory(self):
+        return self._alignment_files_directory
+
+    @alignment_files_directory.setter
+    def alignment_files_directory(self, value):
+        self._alignment_files_directory = value
+
+    @property
+    def alignment_output_file(self):
+        return self._alignment_output_file
+
+    @alignment_output_file.setter
+    def alignment_output_file(self, value):
+        self._alignment_output_file = value
+
+    @property
+    def sequence_cutoff(self):
+        return self._sequence_cutoff
+
+    @sequence_cutoff.setter
+    def sequence_cutoff(self, value):
+        self._mask = frustration.compute_mask(self._distance_matrix, self._distance_cutoff, value)
+        self._sequence_cutoff = value
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+
+    @property
+    def distance_cutoff(self):
+        return self._distance_cutoff
+
+    @distance_cutoff.setter
+    def distance_cutoff(self, value):
+        self._mask = frustration.compute_mask(self._distance_matrix, value, self._sequence_cutoff)
+        self._distance_cutoff = value
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+
+    @property
+    def distance_matrix_method(self):
+        return self._distance_matrix_method
+
+    @distance_matrix_method.setter
+    def distance_matrix_method(self, value):
+        self._distance_matrix = pdb.get_distance_matrix(self._pdb_file, self._chain, value)
+        self._mask = frustration.compute_mask(self._distance_matrix, self._distance_cutoff, self._sequence_cutoff)
+        self._distance_matrix_method = value
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+
+    @property
+    def mask(self):
+        return self._mask
+
+    @mask.setter
+    def mask(self, value):
+        self._distance_matrix=None
+        self._sequence_cutoff=None
+        self._distance_cutoff=None
+        self._mask = value
+        self._native_energy = None
+        self._decoy_fluctuation = {}
+
+    @property
+    def aa_freq(self):
+        return self._aa_freq
+
+    @aa_freq.setter
+    def aa_freq(self, value, sequence=None):
+        if value is None:
+            self._aa_freq = frustration.compute_aa_freq(sequence)
+        else:
+            self._aa_freq=value
+        self._decoy_fluctuation={}
+
+    @property
+    def contact_freq(self):
+        return self._contact_freq
+
+    @contact_freq.setter
+    def contact_freq(self, value, sequence=None):
+        if value is None:
+            self._contact_freq = frustration.compute_contact_freq(sequence)
+        else:
+            self._contact_freq=value
+        self._decoy_fluctuation={}             
+
+    @property
+    def potts_model_file(self):
+        return self._potts_model_file
+
+    @potts_model_file.setter
+    def potts_model_file(self, value):
+        if value == None:
+            print("Generating PDB alignment using Jackhmmer")
+            align.create_alignment_jackhmmer(self._sequence, self._pdbID,
+                                       output_file="dcaf_{}_alignment.sto".format(self._pdbID))
+            filter.convert_and_filter_alignment(self._pdbID)
+            dca.matlab.compute_plm(self._pdbID)
+            raise ValueError("Need to generate potts model")
+        else:
+            self._potts_model = dca.matlab.load_potts_model(value)
+            self._potts_model_file = value
+            self._native_energy = None
+            self._decoy_fluctuation = {}
+
+    @property
+    def potts_model(self):
+        return self._potts_model
+
+    @potts_model.setter
+    def potts_model(self, value):
+        self._potts_model = value
+        self._potts_model_file = None
+        self._native_energy = None
+        self._decoy_fluctuation = {}
 
