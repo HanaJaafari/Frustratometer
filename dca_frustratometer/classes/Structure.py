@@ -13,6 +13,33 @@ class Structure:
     @classmethod
     def full_pdb(cls,pdb_file:str, chain:str, distance_matrix_method:str = 'CB', pdb_directory: str=os.getcwd(),
                  repair_pdb:bool = True):
+        """
+        Generates structure object 
+
+        Parameters
+        ----------
+        pdb_file :  str
+            PDB file path
+
+        chain : str
+            PDB chain name
+
+        distance_matrix_method: str
+            The method to use for calculating the distance matrix. 
+            Defaults to 'CB', which uses the CB atom for all residues except GLY, which uses the CA atom. 
+            Other options are 'CA' for using only the CA atom, 
+            and 'minimum' for using the minimum distance between all atoms in each residue.    
+
+        pdb_directory: str
+            Directory where repaired pdb will be downloaded
+
+        repair_pdb: bool
+            If True, provided pdb file will be repaired with missing residues inserted and heteroatoms removed.
+
+        Returns
+        -------
+        Structure object
+        """
         self=cls()
         if pdb_file[-4:]!=".pdb":
             self.pdbID=pdb_file

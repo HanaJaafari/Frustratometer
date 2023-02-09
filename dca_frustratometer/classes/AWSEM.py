@@ -47,7 +47,9 @@ class AWSEMFrustratometer(Frustratometer):
         self.structure=pdb_structure.structure
         self.chain=pdb_structure.chain
         self.pdb_file=pdb_structure.pdb_file
-        self.init_index_shift=pdb_structure.init_index_shift
+
+        self.aa_freq = frustration.compute_aa_freq(self.sequence)
+        self.contact_freq = frustration.compute_contact_freq(self.sequence)
 
         self.distance_matrix=pdb_structure.distance_matrix
         self.sequence_cutoff=sequence_cutoff
