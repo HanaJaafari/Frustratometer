@@ -138,7 +138,7 @@ def test_OOP_compute_native_energy():
     model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_file, pdb_file, chain, distance_cutoff=4,
                                                                 sequence_cutoff=0)
                                                                 
-    e = model.native_energy()
+    e = model.native_energy
     assert np.round(e, 4) == -61.5248
 
 def test_fields_couplings_energy():
@@ -147,12 +147,12 @@ def test_fields_couplings_energy():
     potts_model_file = 'examples/data/PottsModel1cyoA.mat'
     model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_file, pdb_file, chain, distance_cutoff=4,
                                                                 sequence_cutoff=0)
-    assert model.fields_energy() + model.couplings_energy() - model.native_energy()  < 1E-6
+    assert model.fields_energy() + model.couplings_energy() - model.native_energy  < 1E-6
 
 def test_AWSEM_native_energy():
     structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../examples/data/1l63.pdb',"A")
     model=dca_frustratometer.AWSEMFrustratometer(structure)
-    e = model.native_energy()
+    e = model.native_energy
     print(e)
     assert np.round(e, 0) == -915
 
