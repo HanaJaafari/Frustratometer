@@ -1,7 +1,7 @@
 import subprocess
 from pathlib import Path
 import tempfile
-import logging
+
 def jackhmmer(sequence,
               output_file,
               database,

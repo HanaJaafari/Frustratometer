@@ -12,7 +12,7 @@ class Structure:
     
     @classmethod
     def full_pdb(cls,pdb_file:str, chain:str, distance_matrix_method:str = 'CB', pdb_directory: str=os.getcwd(),
-                 repair_pdb:bool = True):
+                 repair_pdb:bool = False):
         self=cls()
         if pdb_file[-4:]!=".pdb":
             self.pdbID=pdb_file

@@ -84,11 +84,11 @@ class Frustratometer:
     def frustration(self, kind='singleresidue', aa_freq=None, correction=0):
         decoy_fluctuation = self.decoy_fluctuation(kind)
         if kind == 'singleresidue':
-            if aa_freq is not None:
+            if aa_freq is None:
                 aa_freq = self.aa_freq
             return frustration.compute_single_frustration(decoy_fluctuation, aa_freq, correction)
         elif kind in ['mutational', 'configurational', 'contact']:
-            if aa_freq is not None:
+            if aa_freq is None:
                 aa_freq = self.contact_freq
             return frustration.compute_pair_frustration(decoy_fluctuation, aa_freq, correction)
 
