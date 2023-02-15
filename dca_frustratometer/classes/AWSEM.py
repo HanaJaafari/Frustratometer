@@ -66,15 +66,23 @@ class AWSEMFrustratometer(Frustratometer):
         self.sequence_cutoff=sequence_cutoff
         self.distance_cutoff=distance_cutoff
         
-        self._decoy_fluctuation = {}
-        self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        self._sequence=pdb_structure.sequence
+        self._structure=pdb_structure.structure
+        self._chain=pdb_structure.chain
+        self._pdb_file=pdb_structure.pdb_file
+        self._pdbID=pdb_structure.pdbID
+        self._distance_matrix=pdb_structure.distance_matrix
+
+        self._sequence_cutoff=sequence_cutoff
+        self._distance_cutoff=distance_cutoff
+        self._mask = frustration.compute_mask(self._distance_matrix, self._distance_cutoff, self._sequence_cutoff)
         
-        selection_CB = self.structure.select('name CB or (resname GLY IGL and name CA)')
+        selection_CB = self._structure.select('name CB or (resname GLY IGL and name CA)')
         resid = selection_CB.getResindices()
         self.resid=resid
         self.N=len(self.resid)
 
-        assert self.N == len(self.sequence), "The pdb is incomplete. Try setting 'repair_pdb=True' when constructing the Structure object."
+        assert self.N == len(self._sequence), "The pdb is incomplete. Try setting 'repair_pdb=True' when constructing the Structure object."
         #resname = [self.gamma_se_map_3_letters[aa] for aa in selection_CB.getResnames()]
 
         #Calculate sequence mask
@@ -85,8 +93,8 @@ class AWSEMFrustratometer(Frustratometer):
         self.sequence_mask_contact=sequence_mask_contact
         # Calculate rho
         rho = 0.25 
-        rho *= (1 + np.tanh(self.eta * (self.distance_matrix- self.r_min))) 
-        rho *= (1 + np.tanh(self.eta * (self.r_max - self.distance_matrix)))
+        rho *= (1 + np.tanh(self.eta * (self._distance_matrix- self.r_min))) 
+        rho *= (1 + np.tanh(self.eta * (self.r_max - self._distance_matrix)))
         rho *= sequence_mask_rho
         self.rho=rho
         
@@ -99,8 +107,8 @@ class AWSEMFrustratometer(Frustratometer):
         sigma_water = 0.25 * (1 - np.tanh(self.eta_sigma * (rho1 - self.rho_0))) * (
                 1 - np.tanh(self.eta_sigma * (rho2 - self.rho_0)))
         sigma_protein = 1 - sigma_water
-        theta = 0.25 * (1 + np.tanh(self.eta * (self.distance_matrix - self.r_min))) * (1 + np.tanh(self.eta * (self.r_max - self.distance_matrix)))
-        thetaII = 0.25 * (1 + np.tanh(self.eta * (self.distance_matrix - self.r_minII))) * (1 + np.tanh(self.eta * (self.r_maxII - self.distance_matrix)))
+        theta = 0.25 * (1 + np.tanh(self.eta * (self._distance_matrix - self.r_min))) * (1 + np.tanh(self.eta * (self.r_max - self._distance_matrix)))
+        thetaII = 0.25 * (1 + np.tanh(self.eta * (self._distance_matrix - self.r_minII))) * (1 + np.tanh(self.eta * (self.r_maxII - self._distance_matrix)))
         burial_indicator = np.tanh(self.burial_kappa * (rho_b - self.burial_ro_min)) + \
                            np.tanh(self.burial_kappa * (self.burial_ro_max - rho_b))
         J_index = np.meshgrid(range(self.N), range(self.N), range(self.q), range(self.q), indexing='ij', sparse=False)
@@ -135,7 +143,9 @@ class AWSEMFrustratometer(Frustratometer):
 
 
         # Compute fast properties
-        self.potts_model = {}
-        self.potts_model['h'] = -burial_energy.sum(axis=-1)[:, self.aa_map_awsem_list]
-        self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
+        self._potts_model = {}
+        self._potts_model['h'] = -burial_energy.sum(axis=-1)[:, self.aa_map_awsem_list]
+        self._potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
+
         self._native_energy=None
+        self._decoy_fluctuation = {}

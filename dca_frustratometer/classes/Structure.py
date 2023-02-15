@@ -1,8 +1,9 @@
 from .. import pdb
+from .. import frustration
 import prody
 import os
-import subprocess
 import Bio.PDB.Polypeptide as poly
+from Bio.PDB import *
 
 __all__ = ['Structure']
 
@@ -12,7 +13,34 @@ class Structure:
     
     @classmethod
     def full_pdb(cls,pdb_file:str, chain:str, distance_matrix_method:str = 'CB', pdb_directory: str=os.getcwd(),
-                 repair_pdb:bool = False):
+                 repair_pdb:bool = True):
+        """
+        Generates structure object 
+
+        Parameters
+        ----------
+        pdb_file :  str
+            PDB file path
+
+        chain : str
+            PDB chain name
+
+        distance_matrix_method: str
+            The method to use for calculating the distance matrix. 
+            Defaults to 'CB', which uses the CB atom for all residues except GLY, which uses the CA atom. 
+            Other options are 'CA' for using only the CA atom, 
+            and 'minimum' for using the minimum distance between all atoms in each residue.    
+
+        pdb_directory: str
+            Directory where repaired pdb will be downloaded
+
+        repair_pdb: bool
+            If True, provided pdb file will be repaired with missing residues inserted and heteroatoms removed.
+
+        Returns
+        -------
+        Structure object
+        """
         self=cls()
         if pdb_file[-4:]!=".pdb":
             self.pdbID=pdb_file
@@ -35,6 +63,9 @@ class Structure:
         self.sequence=pdb.get_sequence(self.pdb_file,self.chain)
         self.distance_matrix=pdb.get_distance_matrix(pdb_file=self.pdb_file,chain=self.chain,
                                                      method=self.distance_matrix_method)
+        
+        self.aa_freq = frustration.compute_aa_freq(self.sequence)
+        self.contact_freq = frustration.compute_contact_freq(self.sequence)  
         return self
     
     @classmethod
@@ -91,31 +122,24 @@ class Structure:
         self.pdb_file=pdb_file
         self.pdbID=os.path.basename(pdb_file).replace(".pdb","")
         self.chain=chain
+        self.distance_matrix_method=distance_matrix_method
+
+        assert self.chain!=None, "Please provide a chain name"
+
         self.seq_selection=seq_selection
         self.init_index=int(self.seq_selection.replace("to"," to ").replace(":"," : ").split()[1].replace("`",""))
         self.fin_index=int(self.seq_selection.replace("to"," to ").replace(":"," : ").split()[3].replace("`",""))
-        self.distance_matrix_method=distance_matrix_method
-
+        
         assert len(self.seq_selection.replace("to"," to ").replace(":"," : ").split())>=4, "Please correctly input your residue selection"
 
-        if self.chain==None:
-            raise ValueError("Please provide a chain name")
-
         #Account for pdbs that have starting indices greater than one and find any gaps in the pdb.
-        gap_indices=[]; atom_line_count=0
-        with open(pdb_file,"r") as f:
-            for line in f:
-                if line.split()[0]=="ATOM" and line.split()[4]==self.chain:
-                    try:
-                        res_index=''.join(i for i in line.split()[5] if i.isdigit())
-                        next_res_index=''.join(i for i in next(f).split()[5] if i.isdigit())
-                        if int(next_res_index)-int(res_index)>1:
-                            gap_indices.extend(list(range(int(res_index)+1,int(next_res_index))))
-                        if atom_line_count==0 and poly.is_aa(line.split()[3]):
-                            self.pdb_init_index=int(line.split()[5])
-                        atom_line_count+=1
-                    except:
-                        continue
+        p = PDBParser()
+        pdb_structure = p.get_structure("X",self.pdb_file)
+        res_list = Selection.unfold_entities(pdb_structure[0][self.chain], "R")
+        all_pdb_indices=[int(i.__repr__().split()[3].split("=")[-1]) for i in res_list if len(i.__repr__().split()[2].split("="))==2]
+        self.pdb_init_index=all_pdb_indices[0]
+        all_correct_pdb_indices=[x for x in range(all_pdb_indices[0], all_pdb_indices[-1] + 1)]
+        gap_indices=list(set(all_pdb_indices) ^ set(all_correct_pdb_indices))
 
         if "resnum" in self.seq_selection:
             assert self.init_index>=self.pdb_init_index, "Please pick an initial index within the pdb's original indices"
@@ -148,64 +172,17 @@ class Structure:
                 # self.init_index_shift=self.init_index
                 # self.fin_index_shift=self.fin_index+1  
     
-
-
         self.structure = prody.parsePDB(self.pdb_file, chain=self.chain).select(f"protein and {self.seq_selection}")
         self.sequence=pdb.get_sequence(self.pdb_file,self.chain)
         self.distance_matrix=pdb.get_distance_matrix(pdb_file=self.pdb_file,chain=self.chain,
                                                      method=self.distance_matrix_method)
-
+        #Splice distance matrix
         self.distance_matrix=self.distance_matrix[self.init_index_shift:self.fin_index_shift,
                                                   self.init_index_shift:self.fin_index_shift]
-        self.sequence=self.sequence[self.init_index_shift:self.fin_index_shift]
+
+        self.aa_freq = frustration.compute_aa_freq(self.sequence)
+        self.contact_freq = frustration.compute_contact_freq(self.sequence)
+        #Splice sequence
+        self.sequence=self.sequence[self.init_index_shift:self.fin_index_shift]     
         return self
-
-    # @property
-    # def sequence(self):
-    #     return self._sequence
     
-    # # Set a new sequence in case someone needs to calculate the energy of a diferent sequence with the same structure
-    # @sequence.setter
-    # def sequence(self, value :str):
-    #     assert len(value) == len(self._sequence)
-    #     self._sequence = value
-
-    # @property
-    # def pdb_file(self):
-    #     return str(self._pdb_file)
-    
-    # @pdb_file.setter
-    # def pdb_file(self,value: str):
-    #     self._pdb_file=value
-
-    # @property
-    # def chain(self):
-    #     return self._chain
-    
-    # @chain.setter
-    # def chain(self,value):
-    #     self._chain=value
-    
-    # @property
-    # def distance_matrix_method(self):
-    #     return self._distance_matrix_method
-    
-    # @distance_matrix_method.setter
-    # def distance_matrix_method(self,value):
-    #     self._distance_matrix_method = value
-
-    # @property
-    # def init_index(self):
-    #     return self._init_index
-    
-    # @init_index.setter
-    # def init_index(self,value):
-    #     self._init_index = value
-
-    # @property
-    # def fin_index(self):
-    #     return self._fin_index
-    
-    # @fin_index.setter
-    # def fin_index(self,value):
-    #     self._fin_index = value
