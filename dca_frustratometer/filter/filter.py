@@ -22,6 +22,8 @@ def filter_alignment(alignment_file,
     output_file : Path
         location of the output_file
     """
+    filter_query=False
+    
     # Parse the alignment
     alignment = AlignIO.read(alignment_file, alignment_format)
 
@@ -29,7 +31,14 @@ def filter_alignment(alignment_file,
     alignment_array=[]
     for record in alignment:
         alignment_array+=[np.array(record.seq)]
+        if record.name=='Query':
+            query_seq=np.array(record.seq)
+            filter_query=True
     alignment_array=np.array(alignment_array)
+
+    # If there is a query sequence only take sequences in query
+    if filter_query:
+        alignment_array=alignment_array[:,query_seq!='-']
 
     # Substitute lower case letters with gaps
     for letter in np.unique(alignment_array):
@@ -71,7 +80,8 @@ def filter_alignment_lowmem(alignment_file,
     output_file : Path
         location of the output_file
     """
-    
+    #TODO: Implement filter query for jackhmmer
+
     # Remove inserts and columns that are completely composed of gaps from MSA
     alignment = AlignIO.parse(alignment_file, "stockholm")
     output_handle = open(output_file, "w")
