@@ -32,9 +32,9 @@ else:
         potts_model = plmdca_inst.get_potts_model()
         # Move gaps to the beginning
         qq = [20, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-        potts_model['h'] =  potts_model['h'][:,qq]
-        potts_model['J'] =  potts_model['J'][:,:,qq,:][:,:,:,qq]
-        potts_model['L'] = plmdca_inst.num_sequences()
+        potts_model['h'] = potts_model['h'][:,qq]
+        potts_model['J'] = potts_model['J'][:,:,qq,:][:,:,:,qq]
+        potts_model['L'] = plmdca_inst.num_sequences
         return potts_model
 
     def mfdca(filtered_alignment_file):
