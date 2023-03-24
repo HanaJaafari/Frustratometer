@@ -11,19 +11,24 @@ except ImportError as e:
         print("Function mfdca cannot be called as the module pydca is not available.")
 else:
     def plmdca(filtered_alignment_file,
-            sequence_type='protein',
-            seqid=0.8, 
-            lambda_h=1.0,
-            lambda_J=20.0,
-            num_threads=10,
-            max_iterations=500):
-        plmdca_inst = pydca.plmdca.PlmDCA(filtered_alignment_file,
-                                        sequence_type,
-                                        seqid,
-                                        lambda_h,
-                                        lambda_J,
-                                        num_threads,
-                                        max_iterations)
+               sequence_type='protein',
+               seqid=0.8, 
+               lambda_h=1.0,
+               lambda_J=20.0,
+               num_threads=10,
+               max_iterations=500,
+               verbose=False,
+               msa_file_format='fasta'):
+        plmdca_inst = pydca.plmdca.PlmDCA(msa_file=filtered_alignment_file,
+                                          biomolecule=sequence_type, 
+                                          seqid = seqid,
+                                          lambda_h=lambda_h,
+                                          lambda_J = lambda_J,
+                                          max_iterations = max_iterations,
+                                          num_threads = num_threads, 
+                                          verbose = verbose,
+                                          msa_file_format=msa_file_format)
+                
         potts_model = plmdca_inst.get_potts_model()
         # Move gaps to the beginning
         qq = [20, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
