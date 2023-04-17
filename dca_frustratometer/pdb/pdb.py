@@ -1,5 +1,5 @@
 from Bio.PDB import PDBParser
-from Bio.PDB.Polypeptide import PPBuilder
+from Bio.PDB.Polypeptide import PPBuilder,three_to_one
 import prody
 import scipy.spatial.distance as sdist
 import pandas as pd
@@ -14,7 +14,7 @@ def download(pdbID: str,directory: str):
     Downloads a single pdb file
     """
     import urllib.request
-    pdb_file="%s%s.pdb" % (directory, pdbID)
+    pdb_file="%s/%s.pdb" % (directory, pdbID)
     urllib.request.urlretrieve('http://www.rcsb.org/pdb/files/%s.pdb' % pdbID, pdb_file)
     return pdb_file
 
@@ -46,14 +46,30 @@ def get_sequence(pdb_file: str,
 
     parser = PDBParser()
     structure = parser.get_structure('name', pdb_file)
-    Letter_code = {'ALA': 'A', 'ARG': 'R', 'ASN': 'N', 'ASP': 'D', 'CYS': 'C',
-                   'GLN': 'Q', 'GLU': 'E', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I',
-                   'LEU': 'L', 'LYS': 'K', 'MET': 'M', 'PHE': 'F', 'PRO': 'P',
-                   'SER': 'S', 'THR': 'T', 'TRP': 'W', 'TYR': 'Y', 'VAL': 'V',
-                   'NGP': 'A', 'IPR': 'P', 'IGL': 'G'}
-    ppb=PPBuilder()
-    sequence=ppb.build_peptides(structure[0][chain])[0].get_sequence()
-
+    if chain==None:
+        all_chains=[i.get_id() for i in structure.get_chains()]
+    else:
+        all_chains=[chain]
+    sequence = ""
+    for chain in all_chains:
+        c = structure[0][chain]
+        chain_seq = ""
+        for residue in c:
+            is_regular_res = residue.has_id('CA') and residue.has_id('O')
+            res_id = residue.get_id()[0]
+            if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L' or res_id=='H_CAS') and is_regular_res:
+                residue_name = residue.get_resname()
+                chain_seq += three_to_one(residue_name)
+        sequence += chain_seq
+    # ppb=PPBuilder()
+    # if chain!=None:
+    #     sequence=ppb.build_peptides(structure[0][chain])[0].get_sequence()
+    # else:
+    #     total_sequence=[]
+    #     for chain in structure.get_chains():
+    #         chain_sequence=ppb.build_peptides(structure[0][chain.get_id()])[0].get_sequence() 
+    #         total_sequence.append(str(chain_sequence))
+    #     sequence="".join(total_sequence)
     # if chain is None:
     #     # If chain is None then chain can be any chain
     #     residues = [residue for residue in structure.get_residues() if (
@@ -67,7 +83,7 @@ def get_sequence(pdb_file: str,
     #                     residue.resname not in [' CA','PBC','NDP'])]
         
 
-    # sequence = ''.join([Letter_code[r.resname] for r in residues])
+    # sequence = ''.join([threetoone(r.resname) for r in residues])
     return sequence
 
 def repair_pdb(pdb_file: str, chain: str, pdb_directory: str):
@@ -75,8 +91,9 @@ def repair_pdb(pdb_file: str, chain: str, pdb_directory: str):
     fixer = PDBFixer(pdb_file)
 
     chains = list(fixer.topology.chains())
-    chains_to_remove = [i for i, x in enumerate(chains) if x.id not in chain]
-    fixer.removeChains(chains_to_remove)
+    if chain!=None:
+        chains_to_remove = [i for i, x in enumerate(chains) if x.id not in chain]
+        fixer.removeChains(chains_to_remove)
 
     fixer.findMissingResidues()
     #Filling in missing residues inside chain
