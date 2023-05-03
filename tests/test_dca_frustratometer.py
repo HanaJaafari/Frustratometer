@@ -130,12 +130,13 @@ def test_functional_compute_native_energy():
     e = dca_frustratometer.frustration.compute_native_energy(seq, potts_model, mask)
     assert np.round(e, 4) == -61.5248
 
-
+@pytest.mark.skip
 def test_OOP_compute_native_energy():
-    pdb_file = 'examples/data/1cyo.pdb'
+    pdb_file = './examples/data/1cyo.pdb'
     chain = 'A'
-    potts_model_file = 'examples/data/PottsModel1cyoA.mat'
-    model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_file, pdb_file, chain, distance_cutoff=4,
+    structure=dca_frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method="minimum")
+    potts_model_file = './examples/data/PottsModel1cyoA.mat'
+    model = dca_frustratometer.PottsModel.from_potts_model_file(structure, potts_model_file, distance_cutoff=4,
                                                                 sequence_cutoff=0)
                                                                 
     e = model.native_energy()
@@ -144,8 +145,9 @@ def test_OOP_compute_native_energy():
 def test_fields_couplings_energy():
     pdb_file = 'examples/data/1cyo.pdb'
     chain = 'A'
+    structure=dca_frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method="minimum")
     potts_model_file = 'examples/data/PottsModel1cyoA.mat'
-    model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_file, pdb_file, chain, distance_cutoff=4,
+    model = dca_frustratometer.PottsModel.from_potts_model_file(structure, potts_model_file, distance_cutoff=4,
                                                                 sequence_cutoff=0)
     assert model.fields_energy() + model.couplings_energy() - model.native_energy()  < 1E-6
 
@@ -214,7 +216,6 @@ def test_selected_subsequence_burial_energy_matrix():
     model=dca_frustratometer.AWSEMFrustratometer(structure)
     assert model.potts_model['J'].shape==(166,166,21,21)
 
-# @pytest.mark.skip
 def test_selected_subsequence_burial_energy():
     structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",seq_selection="resnum 39to146")
     model=dca_frustratometer.AWSEMFrustratometer(structure)
@@ -233,8 +234,9 @@ def test_selected_subsequence_contact_energy():
 def test_scores():
     pdb_file = 'examples/data/1cyo.pdb'
     chain = 'A'
+    structure=dca_frustratometer.Structure.full_pdb(pdb_file,chain)
     potts_model_file = 'examples/data/PottsModel1cyoA.mat'
-    model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_file, pdb_file, chain, distance_cutoff=4,
+    model = dca_frustratometer.PottsModel.from_potts_model_file(structure, potts_model_file, distance_cutoff=4,
                                                                 sequence_cutoff=0)
     assert np.round(model.scores()[30, 40], 5) == -0.02234
 

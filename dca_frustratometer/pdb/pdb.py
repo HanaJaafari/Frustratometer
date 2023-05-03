@@ -167,3 +167,20 @@ def get_distance_matrix(pdb_file: str,
             dm[j, i] = d
         return dm
 
+def full_to_filtered_aligned_mapping(aligned_sequence: str,
+                                    filtered_aligned_sequence: str):
+
+    full_to_aligned_index_dict={}; counter=0
+    for i,x in enumerate(aligned_sequence):
+        if x != "-" and x==x.upper():
+            full_to_aligned_index_dict[counter]=i
+        if x!="-":
+            counter+=1
+
+    dash_indices=[i for i,x in enumerate(filtered_aligned_sequence) if x!="-"]
+    counter=0
+    for entry in full_to_aligned_index_dict:
+        full_to_aligned_index_dict[entry]=dash_indices[counter]
+        counter+=1
+
+    return full_to_aligned_index_dict
