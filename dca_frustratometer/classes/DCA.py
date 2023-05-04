@@ -220,21 +220,24 @@ class PottsModel(Frustratometer):
 
 
     @classmethod
-    def from_alignment(cls):
+    def from_alignment(cls,
+                       alignment: str,
+                       pdb_file: str,
+                       chain: str,
+                       sequence_cutoff: typing.Union[float, None] = None,
+                       distance_cutoff: typing.Union[float, None] = None,
+                       distance_matrix_method='minimum'):
+        
         # Compute dca
-        import pydca.plmdca
-        plmdca_inst = pydca.plmdca.PlmDCA(
-            'test',
-            'protein',
-            seqid=0.8,
-            lambda_h=1.0,
-            lambda_J=20.0,
-            num_threads=10,
-            max_iterations=500,
-        )
+        potts_model = dca.pydca.plmdca(alignment)
+        return cls.from_pottsmodel(potts_model, 
+                                   pdb_file=pdb_file, 
+                                   chain=chain, 
+                                   sequence_cutoff=sequence_cutoff, 
+                                   distance_cutoff=distance_cutoff, 
+                                   distance_matrix_method=distance_matrix_method)
 
-        # compute DCA scores summarized by Frobenius norm and average product corrected
-        potts_model = plmdca_inst.get_potts_model()
+
 
     @property
     def sequence(self):
