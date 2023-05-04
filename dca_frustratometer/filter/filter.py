@@ -2,6 +2,9 @@ from Bio import AlignIO
 import numpy as np
 from pathlib import Path
 
+import logging
+logger = logging.getLogger(__name__)
+
 def filter_alignment(alignment_file, 
                      output_file = None,
                      alignment_format = "stockholm"):
@@ -31,7 +34,8 @@ def filter_alignment(alignment_file,
     alignment_array=[]
     for record in alignment:
         alignment_array+=[np.array(record.seq)]
-        if record.name=='Query':
+        if 'Query' in record.name:
+            logging.debug(f'Query sequence found: >{record.name}')
             query_seq=np.array(record.seq)
             filter_query=True
     alignment_array=np.array(alignment_array)
@@ -50,7 +54,7 @@ def filter_alignment(alignment_file,
     new_alignment=alignment_array[:,not_all_gaps]
 
     output_file = Path(output_file)
-
+    logging.debug(f'{"".join(new_alignment[0])}')
     # Write filtered alignment to file
     text=''
     for record,new_seq in zip(alignment,new_alignment):
