@@ -6,6 +6,7 @@ def jackhmmer(sequence,
               output_file,
               database,
               log=subprocess.DEVNULL,
+              dry_run: bool = False,
               **kwargs):
     """
     Generates alignment using jackhmmer
@@ -21,6 +22,8 @@ def jackhmmer(sequence,
         Location of the sequence database used to generation MSA
     log: File handle
         jackhmmer output Default:DEVNULL
+    dry_run: bool (default: False)
+        Save the temporary fasta_file and print the command instead of running
     **kwargs: 
         Other arguments that can be passed to jackhmmer.
         More information can be found by executing `jackhmmer -h`
@@ -66,6 +69,15 @@ def jackhmmer(sequence,
         else:
             commands+=[key,str(value)]
        
+    #Creates a temporary file with the Query sequence to run jackhmmer
+    if dry_run:
+        with open(output_file+'_sequence.fasta','w+') as fasta_file:
+            fasta_file.write(f'>Query\n{sequence}\n')
+            fasta_file.flush()
+            commands+=[fasta_file.name, database]
+            print(' '.join([str(a) for a in commands]))
+        return
+
     with tempfile.NamedTemporaryFile(mode="w", prefix=f"dcaf_", suffix='_sequence.fasta') as fasta_file:
         fasta_file.write(f'>Query\n{sequence}\n')
         fasta_file.flush()
