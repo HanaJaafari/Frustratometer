@@ -20,68 +20,101 @@ def test_dca_frustratometer_imported():
     assert "dca_frustratometer" in sys.modules
 
 def test_download_pfam_database():
-    """ This test downloads a small database from pfam and splits the files in a folder"""
-    name='pfam_dead'
-    url='https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.dead.gz'
-    with tempfile.TemporaryDirectory() as scratch_path:
-        alignments_path = dca_frustratometer.pfam.download_database(scratch_path, url=url, name=name)
-        print(alignments_path)
-        assert (alignments_path / 'Unknown.sto').exists() is False
-        assert (alignments_path / 'PF00065.sto').exists() is True
+    """Downloads a small database from Pfam and tests that the files are splitted correctly."""
 
+    # Define the input parameters and expected output file names
+    name = 'pfam_dead'
+    url = 'https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.dead.gz' #Small database
+    non_existent_file = 'Unknown.sto'
+    expected_file = 'PF00065.sto'
+
+    # Use a temporary directory to store the downloaded and split files
+    with tempfile.TemporaryDirectory() as scratch_path:
+        scratch_path = Path(scratch_path)
+
+        # Call the download_database function with the specified URL and name
+        alignments_path = dca_frustratometer.pfam.download_database(scratch_path, url=url, name=name)
+
+        # Check that the non-existent file is not present in the downloaded files
+        assert not (alignments_path / non_existent_file).exists(), f"{non_existent_file} should not exist in the downloaded files."
+
+        # Check that the expected file is present in the downloaded files
+        assert (alignments_path / expected_file).exists(), f"{expected_file} should exist in the downloaded files."
 
 def test_get_alignment_from_database():
-    alignment_file = dca_frustratometer.pfam.get_alignment('PF17182', data_path/'pfam_database')
+    """Test that the get_alignment function retrieves the correct alignment files."""
+    # Test the first alignment (PF17182)
+    alignment_file = dca_frustratometer.pfam.get_alignment('PF17182', data_path / 'pfam_database')
     assert alignment_file.exists()
     alignment_text = alignment_file.read_text()
     assert "#=GF AC   PF17182" in alignment_text
 
-    alignment_file = dca_frustratometer.pfam.get_alignment('PF09696', data_path/'pfam_database')
+    # Test the second alignment (PF09696)
+    alignment_file = dca_frustratometer.pfam.get_alignment('PF09696', data_path / 'pfam_database')
     assert alignment_file.exists()
     alignment_text = alignment_file.read_text()
     assert "#=GF AC   PF09696" in alignment_text
 
-
 def test_download_pfam_alignment():
+    """Test that the download_pfam_alignment function downloads the correct alignment."""
+    
+    # Create a temporary output file
     with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_interpro.sto') as output_handle:
         output = Path(output_handle.name)
         assert output.exists()
+
+        # Check that the output file is initially empty
         output_text = output.read_text()
-        assert output_text==""
-        output = dca_frustratometer.pfam.alignment('PF09696',output)
+        assert output_text == ""
+
+        # Download the PF09696 alignment
+        output = dca_frustratometer.pfam.alignment('PF09696', output)
         assert output.exists()
+
+        # Check that the downloaded alignment is correct
         output_text = output.read_text()
         assert "#=GF AC   PF09696" in output_text
+
+    # Check that the temporary output file is deleted after the context is closed
     assert not output.exists()
 
-
 def test_filter_alignment_memory():
-    alignment_file = data_path/'pfam_database'/'PF09696.12.sto'
-    expected_filtered_sequence='-IQTPSGLALLELQGTINLPEDAVDSDGKAT-------------KSIPVGRIDFPDYHPDTQSTAWMKRVYLYVGPHQRLTGEVKKLPKAIAIVRKKDGASNG-----------------------------------------'
+    """Test the filter_alignment function using the in-memory method."""
+    alignment_file = data_path / 'pfam_database' / 'PF09696.12.sto'
+    expected_filtered_sequence = '-IQTPSGLALLELQGTINLPEDAVDSDGKAT-------------KSIPVGRIDFPDYHPDTQSTAWMKRVYLYVGPHQRLTGEVKKLPKAIAIVRKKDGASNG-----------------------------------------'
+
     with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered_memory.sto') as output_handle:
         output_file = Path(output_handle.name)
-        filtered_file=dca_frustratometer.filter.filter_alignment(alignment_file, output_file)
+
+        # Filter the alignment using the in-memory method
+        filtered_file = dca_frustratometer.filter.filter_alignment(alignment_file, output_file)
+
+        # Check the results of the filtering
         assert filtered_file.exists()
         unfiltered_alignment = Bio.AlignIO.read(alignment_file, 'stockholm')
         filtered_alignment = Bio.AlignIO.read(filtered_file, 'fasta')
-        assert len(unfiltered_alignment)==len(filtered_alignment)
+        assert len(unfiltered_alignment) == len(filtered_alignment)
         assert unfiltered_alignment.get_alignment_length() > filtered_alignment.get_alignment_length()
         assert filtered_alignment.get_alignment_length() == len(expected_filtered_sequence)
-        print(filtered_alignment[0].seq)
         assert filtered_alignment[0].seq == expected_filtered_sequence
-        
 
 def test_filter_alignment_lowmem():
-    alignment_file = data_path/'pfam_database'/'PF17182.6.sto'
-    expected_filtered_sequence='QHDSMFTINSDYDAYLLDFPLLGDDFLLYLARMELRCRFKRTERVLQSGLCVSGQTISGARSRLHHLLVNKTQIIVNIGSVDIMRGRPIVQIQHDFRQLVK'\
-                               'DMHNRGLVPILTTLAPLANYCHDKAMCDKVVKFNQFIWKECASYLKVIDIHSCLVNENGVVRFDCFQYSSRNVTGSKESYVFWNKIGRQRVLQMIEASLE'
+    """Test the filter_alignment function using the low-memory method."""
+    alignment_file = data_path / 'pfam_database' / 'PF17182.6.sto'
+    expected_filtered_sequence = 'QHDSMFTINSDYDAYLLDFPLLGDDFLLYLARMELRCRFKRTERVLQSGLCVSGQTISGARSRLHHLLVNKTQIIVNIGSVDIMRGRPIVQIQHDFRQLVK'\
+                                 'DMHNRGLVPILTTLAPLANYCHDKAMCDKVVKFNQFIWKECASYLKVIDIHSCLVNENGVVRFDCFQYSSRNVTGSKESYVFWNKIGRQRVLQMIEASLE'
+
     with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered_disk.sto') as output_handle:
         output_file = Path(output_handle.name)
-        filtered_file=dca_frustratometer.filter.filter_alignment_lowmem(alignment_file,output_file)
+
+        # Filter the alignment using the low-memory method
+        filtered_file = dca_frustratometer.filter.filter_alignment_lowmem(alignment_file, output_file)
+
+        # Check the results of the filtering
         assert filtered_file.exists()
         unfiltered_alignment = Bio.AlignIO.read(alignment_file, 'stockholm')
         filtered_alignment = Bio.AlignIO.read(filtered_file, 'fasta')
-        assert len(unfiltered_alignment)==len(filtered_alignment)
+        assert len(unfiltered_alignment) == len(filtered_alignment)
         assert unfiltered_alignment.get_alignment_length() > filtered_alignment.get_alignment_length()
         assert filtered_alignment.get_alignment_length() == len(expected_filtered_sequence)
         assert filtered_alignment[0].seq == expected_filtered_sequence
@@ -97,7 +130,6 @@ def test_generate_and_filter_hmmer_alignment():
         output_text = alignment_file.read_text()
         assert "# STOCKHOLM" in output_text
         
-@pytest.mark.skip
 def test_create_potts_model_from_aligment():
     """
     Test to check if the Potts model is created from a filtered alignment file using pydca.
@@ -118,35 +150,55 @@ def test_create_potts_model_from_aligment():
     assert 'J' in potts_model.keys()
 
 def test_identify_pfamID():
-    pfamID = dca_frustratometer.map.get_pfamID("6U5E","A")
-    assert pfamID=="PF00160"
+    """Test the get_pfamID function to ensure it correctly identifies the Pfam ID."""
+    pdb_id = "6U5E"
+    chain_id = "A"
+    expected_pfam_id = "PF00160"
+
+    pfam_id = dca_frustratometer.map.get_pfamID(pdb_id, chain_id)
+    assert pfam_id == expected_pfam_id
 
 
 def test_functional_compute_native_energy():
-    seq = dca_frustratometer.pdb.get_sequence('examples/data/1cyo.pdb', 'A')
-    distance_matrix = dca_frustratometer.pdb.get_distance_matrix('examples/data/1cyo.pdb', 'A', method='minimum')
-    potts_model = dca_frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
+    """Test the functional approach to compute the native energy of a protein."""
+    pdb_path = 'examples/data/1cyo.pdb'
+    chain_id = 'A'
+    potts_model_path = 'examples/data/PottsModel1cyoA.mat'
+    expected_energy = -61.5248
+
+    sequence = dca_frustratometer.pdb.get_sequence(pdb_path, chain_id)
+    distance_matrix = dca_frustratometer.pdb.get_distance_matrix(pdb_path, chain_id, method='minimum')
+    potts_model = dca_frustratometer.dca.matlab.load_potts_model(potts_model_path)
     mask = dca_frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff=4, sequence_distance_cutoff=0)
-    e = dca_frustratometer.frustration.compute_native_energy(seq, potts_model, mask)
-    assert np.round(e, 4) == -61.5248
+    energy = dca_frustratometer.frustration.compute_native_energy(sequence, potts_model, mask)
+
+    assert np.round(energy, 4) == expected_energy
 
 
 def test_OOP_compute_native_energy():
-    pdb_file = 'examples/data/1cyo.pdb'
-    chain = 'A'
-    potts_model_file = 'examples/data/PottsModel1cyoA.mat'
-    model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_file, pdb_file, chain, distance_cutoff=4,
-                                                                sequence_cutoff=0)
-                                                                
-    e = model.native_energy()
-    assert np.round(e, 4) == -61.5248
+    """Test the object-oriented approach to compute the native energy of a protein."""
+    pdb_path = 'examples/data/1cyo.pdb'
+    chain_id = 'A'
+    potts_model_path = 'examples/data/PottsModel1cyoA.mat'
+    sequence_cutoff = 0
+    distance_cutoff = 4
+    expected_energy = -61.5248
+
+    model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_path, pdb_path, chain_id, sequence_cutoff, distance_cutoff)
+    energy = model.native_energy()
+
+    assert np.round(energy, 4) == expected_energy
 
 def test_fields_couplings_energy():
-    pdb_file = 'examples/data/1cyo.pdb'
-    chain = 'A'
-    potts_model_file = 'examples/data/PottsModel1cyoA.mat'
-    model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_file, pdb_file, chain, distance_cutoff=4,
-                                                                sequence_cutoff=0)
+    """Test the PottsModel object construction and native energy calculation."""
+    pdb_path = 'examples/data/1cyo.pdb'
+    chain_id = 'A'
+    potts_model_path = 'examples/data/PottsModel1cyoA.mat'
+    distance_cutoff = 4
+    sequence_cutoff = 0
+
+    model = dca_frustratometer.PottsModel.from_potts_model_file(potts_model_path, pdb_path, chain_id, distance_cutoff, sequence_cutoff)
+
     assert model.fields_energy() + model.couplings_energy() - model.native_energy()  < 1E-6
 
 def test_AWSEM_native_energy():
@@ -225,7 +277,7 @@ def test_selected_subsequence_burial_energy():
 # @pytest.mark.skip
 def test_selected_subsequence_contact_energy():
     structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",seq_selection="resnum 39to146")
-    model=dca_frustratometer.AWSEMFrustratometer(structure)
+    model=dca_frustratometer.AWSEMFrustratometer(structure, distance_cutoff_contact=None)
     selected_region_contact=model.couplings_energy()
     # Energy units are in kJ/mol
     assert np.round(selected_region_contact, 2) == -149.00
