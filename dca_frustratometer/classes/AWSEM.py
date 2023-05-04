@@ -36,10 +36,6 @@ class AWSEMFrustratometer(Frustratometer):
     # ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I',
     #  'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
 
-    burial_gamma = np.fromfile(f'{_path}/data/burial_gamma').reshape(20, 3)
-    gamma_ijm = np.fromfile(f'{_path}/data/gamma_ijm').reshape(2, 20, 20)
-    water_gamma_ijm = np.fromfile(f'{_path}/data/water_gamma_ijm').reshape(2, 20, 20)
-    protein_gamma_ijm = np.fromfile(f'{_path}/data/protein_gamma_ijm').reshape(2, 20, 20)
     q = 20
 
     #Map of AWSEM order to Frustratometer order
@@ -50,12 +46,24 @@ class AWSEMFrustratometer(Frustratometer):
     
     def __init__(self, 
                  pdb_structure,
-                 sequence_cutoff: typing.Union[float, None] = None,
-                 distance_cutoff: typing.Union[float, None] = None,     
+                 distance_cutoff_contact = None, #9.5 for frustratometer    
                  min_sequence_separation_rho = 2,
                  min_sequence_separation_contact = 10,
                  min_sequence_separation_electrostatics = 3,
-                 electrostatics = False):
+                 expose_indicator_functions=False,
+                 electrostatics = False,
+                 burial_gamma_file = f'{_path}/data/burial_gamma',
+                 gamma_ijm_file = f'{_path}/data/gamma_ijm',
+                 water_gamma_ijm_file = f'{_path}/data/water_gamma_ijm',
+                 protein_gamma_ijm_file =f'{_path}/data/protein_gamma_ijm',
+                 ):
+        
+        self.burial_gamma = np.fromfile(burial_gamma_file).reshape(20, 3)
+        self.gamma_ijm = np.fromfile(gamma_ijm_file).reshape(2, 20, 20)
+        self.water_gamma_ijm = np.fromfile(water_gamma_ijm_file).reshape(2, 20, 20)
+        self.protein_gamma_ijm = np.fromfile(protein_gamma_ijm_file).reshape(2, 20, 20)
+
+
         self.sequence=pdb_structure.sequence
         self.structure=pdb_structure.structure
         self.chain=pdb_structure.chain
@@ -63,12 +71,12 @@ class AWSEMFrustratometer(Frustratometer):
         self.init_index_shift=pdb_structure.init_index_shift
 
         self.distance_matrix=pdb_structure.distance_matrix
-        self.sequence_cutoff=sequence_cutoff
-        self.distance_cutoff=distance_cutoff
+        self.sequence_cutoff=None
+        self.distance_cutoff=None
         
         self._decoy_fluctuation = {}
-        self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
-        
+        #self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        self.mask = frustration.compute_mask(self.distance_matrix, distance_cutoff=None, sequence_distance_cutoff = None)
         selection_CB = self.structure.select('name CB or (resname GLY IGL and name CA)')
         resid = selection_CB.getResindices()
         self.resid=resid
@@ -78,8 +86,8 @@ class AWSEMFrustratometer(Frustratometer):
         #resname = [self.gamma_se_map_3_letters[aa] for aa in selection_CB.getResnames()]
 
         #Calculate sequence mask
-        sequence_mask_rho = abs(np.expand_dims(resid, 0) - np.expand_dims(resid, 1)) >= min_sequence_separation_rho
-        sequence_mask_contact = abs(np.expand_dims(resid, 0) - np.expand_dims(resid, 1)) >= min_sequence_separation_contact
+        sequence_mask_rho = frustration.compute_mask(self.distance_matrix, distance_cutoff=None, sequence_distance_cutoff = min_sequence_separation_rho)#abs(np.expand_dims(resid, 0) - np.expand_dims(resid, 1)) >= min_sequence_separation_rho
+        sequence_mask_contact = frustration.compute_mask(self.distance_matrix, distance_cutoff=distance_cutoff_contact, sequence_distance_cutoff = min_sequence_separation_contact)#abs(np.expand_dims(resid, 0) - np.expand_dims(resid, 1)) >= min_sequence_separation_contact
 
         self.sequence_mask_rho=sequence_mask_rho
         self.sequence_mask_contact=sequence_mask_contact
@@ -99,29 +107,38 @@ class AWSEMFrustratometer(Frustratometer):
         sigma_water = 0.25 * (1 - np.tanh(self.eta_sigma * (rho1 - self.rho_0))) * (
                 1 - np.tanh(self.eta_sigma * (rho2 - self.rho_0)))
         sigma_protein = 1 - sigma_water
+
+        #Calculate theta and indicators
         theta = 0.25 * (1 + np.tanh(self.eta * (self.distance_matrix - self.r_min))) * (1 + np.tanh(self.eta * (self.r_max - self.distance_matrix)))
         thetaII = 0.25 * (1 + np.tanh(self.eta * (self.distance_matrix - self.r_minII))) * (1 + np.tanh(self.eta * (self.r_maxII - self.distance_matrix)))
-        burial_indicator = np.tanh(self.burial_kappa * (rho_b - self.burial_ro_min)) + \
-                           np.tanh(self.burial_kappa * (self.burial_ro_max - rho_b))
+        burial_indicator = np.tanh(self.burial_kappa * (rho_b - self.burial_ro_min)) + np.tanh(self.burial_kappa * (self.burial_ro_max - rho_b))
+        direct_indicator = theta[:, :, np.newaxis, np.newaxis]
+        water_indicator = thetaII[:, :, np.newaxis, np.newaxis] * sigma_water[:, :, np.newaxis, np.newaxis]
+        protein_indicator = thetaII[:, :, np.newaxis, np.newaxis] * sigma_protein[:, :, np.newaxis, np.newaxis]
+        
+        if expose_indicator_functions:
+            self.burial_indicator = burial_indicator
+            self.direct_indicator = direct_indicator
+            self.water_indicator = water_indicator
+            self.protein_indicator = protein_indicator
+
+
         J_index = np.meshgrid(range(self.N), range(self.N), range(self.q), range(self.q), indexing='ij', sparse=False)
         h_index = np.meshgrid(range(self.N), range(self.q), indexing='ij', sparse=False)
 
-        self.burial_indicator=burial_indicator
+        #Burial energy
         burial_energy = -0.5 * self.k_contact * self.burial_gamma[h_index[1]] * burial_indicator[:, np.newaxis, :]
         self.burial_energy=burial_energy
-        direct = self.gamma_ijm[0, J_index[2], J_index[3]] * theta[:, :, np.newaxis, np.newaxis]
 
-        water_mediated = thetaII[:, :, np.newaxis, np.newaxis] * sigma_water[:, :, np.newaxis, np.newaxis] * \
-                         self.water_gamma_ijm[0, J_index[2], J_index[3]]
-        protein_mediated = thetaII[:, :, np.newaxis, np.newaxis] * sigma_protein[:, :, np.newaxis, np.newaxis] * \
-                           self.protein_gamma_ijm[0, J_index[2], J_index[3]]
-        contact_energy = -self.k_contact * np.array([direct, water_mediated, protein_mediated]) * \
-                         sequence_mask_contact[np.newaxis, :, :, np.newaxis, np.newaxis]
+        #Contact energy
+        direct = direct_indicator * self.gamma_ijm[0, J_index[2], J_index[3]]
+        water_mediated = water_indicator * self.water_gamma_ijm[0, J_index[2], J_index[3]]
+        protein_mediated = protein_indicator  * self.protein_gamma_ijm[0, J_index[2], J_index[3]]
+        contact_energy = -self.k_contact * np.array([direct, water_mediated, protein_mediated]) * sequence_mask_contact[np.newaxis, :, :, np.newaxis, np.newaxis]
 
         # Compute electrostatics
-        print(electrostatics)
         if electrostatics:
-            electrostatics_mask = frustration.compute_mask(self.distance_matrix, sequence_distance_cutoff=min_sequence_separation_electrostatics)
+            electrostatics_mask = frustration.compute_mask(self.distance_matrix, distance_cutoff=None, sequence_distance_cutoff=min_sequence_separation_electrostatics)
             # ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
             charges = np.array([0, 1, 0, -1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
             charges2 = charges[:,np.newaxis]*charges[np.newaxis,:]
@@ -132,7 +149,6 @@ class AWSEMFrustratometer(Frustratometer):
 
             contact_energy = np.append(contact_energy, electrostatics_energy[np.newaxis,:,:,:,:], axis=0)
         self.contact_energy = contact_energy
-
 
         # Compute fast properties
         self.potts_model = {}
