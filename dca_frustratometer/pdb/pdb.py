@@ -111,8 +111,12 @@ def get_distance_matrix(pdb_file: str,
         chain (str): The chainID or chainIDs (space separated) of the protein.
         method (str): The method to use for calculating the distance matrix. 
                       Defaults to 'CB', which uses the CB atom for all residues except GLY, which uses the CA atom. 
-                      Other options are 'CA' for using only the CA atom, 
-                      and 'minimum' for using the minimum distance between all atoms in each residue.
+                      Options:
+                       'CA' for using only the CA atom,
+                       'minimum' for using the minimum distance between all atoms in each residue
+                       'CB_force' computes a new coordinate for the CB atom bassed on the CA, C and N atoms and uses CB distance even for glycine
+
+
     
     Returns:
         np.array: The distance matrix of the selected atoms.
@@ -149,4 +153,29 @@ def get_distance_matrix(pdb_file: str,
             dm[i, j] = d
             dm[j, i] = d
         return dm
+    elif method == 'CB_force':
+        sel_CA = structure.select('name CA')
+        sel_N = structure.select('name N')
+        sel_C = structure.select('name C')
+
+        # Base vectors
+        vector_CA_C=sel_C.getCoords() - sel_CA.getCoords()
+        vector_CA_N=sel_N.getCoords() - sel_CA.getCoords()
+
+        vector_CA_C/=np.linalg.norm(vector_CA_C,axis=1,keepdims=True)
+        vector_CA_N/=np.linalg.norm(vector_CA_N,axis=1,keepdims=True)
+
+        #First Ortogonal vector
+        cross_CA_C_CA_N=np.cross(vector_CA_C,vector_CA_N)
+        cross_CA_C_CA_N/=np.linalg.norm(cross_CA_C_CA_N,axis=1,keepdims=True)
+
+        #Second Ortogonal vector
+        cross_cross_CA_N=np.cross(cross_CA_C_CA_N,vector_CA_N)
+        cross_cross_CA_N/= np.linalg.norm(cross_cross_CA_N,axis=1,keepdims=True)
+        
+        #Precomputed CB coordinates
+        new_CB = -0.531020*vector_CA_N-1.206181*cross_CA_C_CA_N+0.789162*cross_cross_CA_N+sel_CA.getCoords()
+
+        distance_matrix = sdist.squareform(sdist.pdist(new_CB))
+        return distance_matrix
 
