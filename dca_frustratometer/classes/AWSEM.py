@@ -143,7 +143,7 @@ class AWSEMFrustratometer(Frustratometer):
             charges = np.array([0, 1, 0, -1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
             charges2 = charges[:,np.newaxis]*charges[np.newaxis,:]
 
-            electrostatics_indicator = 4.184 / (self.distance_matrix + 1E-6) *\
+            electrostatics_indicator = 4.15 * 4.184 / (self.distance_matrix + 1E-6) *\
                                        np.exp(-self.distance_matrix / self.electrostatics_screening_length) * electrostatics_mask
             electrostatics_energy = (charges2[np.newaxis,np.newaxis,:,:]*electrostatics_indicator[:,:,np.newaxis,np.newaxis])
 
@@ -151,6 +151,7 @@ class AWSEMFrustratometer(Frustratometer):
         self.contact_energy = contact_energy
 
         # Compute fast properties
+        self.aa_freq = frustration.compute_aa_freq(self.sequence)
         self.potts_model = {}
         self.potts_model['h'] = -burial_energy.sum(axis=-1)[:, self.aa_map_awsem_list]
         self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
