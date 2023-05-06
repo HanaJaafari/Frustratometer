@@ -3,6 +3,7 @@ import prody
 import os
 import subprocess
 import Bio.PDB.Polypeptide as poly
+import numpy as np
 
 __all__ = ['Structure']
 
@@ -11,8 +12,36 @@ residue_names=[]
 class Structure:
     
     @classmethod
-    def full_pdb(cls,pdb_file:str, chain:str, distance_matrix_method:str = 'CB', pdb_directory: str=os.getcwd(),
-                 repair_pdb:bool = False):
+    def full_pdb(cls,pdb_file: str, chain: str, aligned_sequence: str = None, filtered_aligned_sequence: str = None,
+                distance_matrix_method:str = 'CB', pdb_directory: str=os.getcwd(), repair_pdb:bool = False):
+
+        """
+        Generates structure object 
+
+        Parameters
+        ----------
+        pdb_file :  str
+            PDB file path
+
+        chain : str
+            PDB chain name. If "chain=None", all chains will be included.
+            
+        distance_matrix_method: str
+            The method to use for calculating the distance matrix. 
+            Defaults to 'CB', which uses the CB atom for all residues except GLY, which uses the CA atom. 
+            Other options are 'CA' for using only the CA atom, 
+            and 'minimum' for using the minimum distance between all atoms in each residue.    
+
+        pdb_directory: str
+            Directory where repaired pdb will be downloaded
+
+        repair_pdb: bool
+            If False, provided pdb file will be repaired with missing residues inserted and heteroatoms removed.
+
+        Returns
+        -------
+        Structure object
+        """
         self=cls()
         if pdb_file[-4:]!=".pdb":
             self.pdbID=pdb_file
@@ -22,10 +51,9 @@ class Structure:
         self.pdbID=os.path.basename(pdb_file).replace(".pdb","")
         self.chain=chain
         self.distance_matrix_method=distance_matrix_method
+        self.filtered_aligned_sequence=filtered_aligned_sequence
+        self.aligned_sequence=aligned_sequence
         self.init_index_shift=0
-
-        if self.chain==None:
-            raise ValueError("Please provide a chain name")
         
         if repair_pdb:
             fixer=pdb.repair_pdb(pdb_file, chain, pdb_directory)
@@ -35,11 +63,26 @@ class Structure:
         self.sequence=pdb.get_sequence(self.pdb_file,self.chain)
         self.distance_matrix=pdb.get_distance_matrix(pdb_file=self.pdb_file,chain=self.chain,
                                                      method=self.distance_matrix_method)
+
+        if (self.filtered_aligned_sequence is not None and self.aligned_sequence is not None):
+            self.full_to_aligned_index_dict=pdb.full_to_filtered_aligned_mapping(self.aligned_sequence,self.filtered_aligned_sequence)
+            self.mapped_distance_matrix=np.full((len(self.filtered_aligned_sequence), len(self.filtered_aligned_sequence)), np.inf)
+            # self.full_to_aligned_index_dict = {key-1:value for (key,value) in self.full_to_aligned_index_dict.items()}
+            pos1, pos2 = np.meshgrid(list(self.full_to_aligned_index_dict.keys()), list(self.full_to_aligned_index_dict.keys()), 
+                                    indexing='ij', sparse=True)
+            modpos1, modpos2 = np.meshgrid(list(self.full_to_aligned_index_dict.values()), list(self.full_to_aligned_index_dict.values()), 
+                                    indexing='ij', sparse=True)
+            self.mapped_distance_matrix[modpos1,modpos2]=self.distance_matrix[pos1,pos2]
+
+        else:
+            self.full_to_aligned_index_dict=None
+            self.mapped_distance_matrix=self.distance_matrix
         return self
     
     @classmethod
-    def spliced_pdb(cls,pdb_file:str, chain:str, seq_selection: str, 
-                    distance_matrix_method:str = 'CB',repair_pdb:bool = True,pdb_directory: str = os.getcwd()):
+    def spliced_pdb(cls,pdb_file:str, chain:str, seq_selection: str, aligned_sequence: str = None,
+                    filtered_aligned_sequence: str = None, distance_matrix_method:str = 'CB',repair_pdb:bool = True, 
+                    pdb_directory: str = os.getcwd()):
         """
         Generates substructure object 
 

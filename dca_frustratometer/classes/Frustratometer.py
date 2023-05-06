@@ -41,8 +41,10 @@ class Frustratometer:
     def native_energy(self,sequence=None):
         if sequence is None:
             sequence=self.sequence
+        else:
+            self._native_energy=frustration.compute_native_energy(sequence, self.potts_model, self.mask)
         if not self._native_energy:
-            self._native_energy=frustration.compute_native_energy(self.sequence, self.potts_model, self.mask)
+            self._native_energy=frustration.compute_native_energy(sequence, self.potts_model, self.mask)
         return self._native_energy
 
     def sequences_energies(self, sequences, split_couplings_and_fields=False):
