@@ -44,11 +44,6 @@ def compute_native_energy(seq: str,
 def compute_fields_energy(seq: str,
                           potts_model: dict) -> float:
     seq_index = np.array([_AA.find(aa) for aa in seq])
-    # aa_map_awsem = {'A': 0, 'R': 1, 'N': 2, 'D': 3, 'C': 4,
-    #                 'Q': 5, 'E': 6, 'G': 7, 'H': 8, 'I': 9,
-    #                 'L': 10, 'K': 11, 'M': 12, 'F': 13, 'P': 14,
-    #                 'S': 15, 'T': 16, 'W': 17, 'Y': 18, 'V': 19,'-': 0}
-    # seq_index=np.array([aa_map_awsem[k] for k in list(seq)])
     seq_len = len(seq_index)
 
     h = -potts_model['h'][range(seq_len), seq_index]
@@ -348,7 +343,7 @@ def compute_roc(scores, distance_matrix, cutoff):
     if cutoff!= None:
         contacts = results[1] <= cutoff
     else:
-        contacts = results[1]
+        contacts = results[1]>0
     not_contacts = ~contacts
     tpr = np.concatenate([[0], contacts.cumsum() / contacts.sum()])
     fpr = np.concatenate([[0], not_contacts.cumsum() / not_contacts.sum()])
