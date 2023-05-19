@@ -289,7 +289,7 @@ def compute_single_frustration(decoy_fluctuation,
     std_energy = np.sqrt(
         ((aa_freq * (decoy_fluctuation - mean_energy[:, np.newaxis]) ** 2) / aa_freq.sum()).sum(axis=1))
     frustration = -mean_energy / (std_energy + correction)
-    return frustration
+    return -frustration
 
 
 def compute_pair_frustration(decoy_fluctuation,
@@ -305,7 +305,7 @@ def compute_pair_frustration(decoy_fluctuation,
     mean_energy = average.reshape(seq_len, seq_len)
     std_energy = np.sqrt(variance).reshape(seq_len, seq_len)
     contact_frustration = -mean_energy / (std_energy + correction)
-    return contact_frustration
+    return -contact_frustration
 
 
 def compute_scores(potts_model: dict) -> np.array:
