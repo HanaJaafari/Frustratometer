@@ -60,18 +60,19 @@ class Frustratometer:
             sequence=self.sequence
         return frustration.compute_couplings_energy(sequence, self.potts_model, self.mask)
         
-    def decoy_fluctuation(self, kind='singleresidue'):
-        if kind in self._decoy_fluctuation:
-            return self._decoy_fluctuation[kind]
+    def decoy_fluctuation(self, sequence=None,kind='singleresidue'):
+        if sequence is None:
+            sequence=self.sequence
+            if kind in self._decoy_fluctuation:
+                return self._decoy_fluctuation[kind]
         if kind == 'singleresidue':
-            fluctuation = frustration.compute_singleresidue_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+            fluctuation = frustration.compute_singleresidue_decoy_energy_fluctuation(sequence, self.potts_model, self.mask)
         elif kind == 'mutational':
-            fluctuation = frustration.compute_mutational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+            fluctuation = frustration.compute_mutational_decoy_energy_fluctuation(sequence, self.potts_model, self.mask)
         elif kind == 'configurational':
-            fluctuation = frustration.compute_configurational_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
+            fluctuation = frustration.compute_configurational_decoy_energy_fluctuation(sequence, self.potts_model, self.mask)
         elif kind == 'contact':
-            fluctuation = frustration.compute_contact_decoy_energy_fluctuation(self.sequence, self.potts_model, self.mask)
-
+            fluctuation = frustration.compute_contact_decoy_energy_fluctuation(sequence, self.potts_model, self.mask)
         else:
             raise Exception("Wrong kind of decoy generation selected")
         self._decoy_fluctuation[kind] = fluctuation
@@ -83,8 +84,10 @@ class Frustratometer:
     def scores(self):
         return frustration.compute_scores(self.potts_model)
 
-    def frustration(self, kind='singleresidue', aa_freq=None, correction=0):
-        decoy_fluctuation = self.decoy_fluctuation(kind)
+    def frustration(self, sequence=None, kind='singleresidue', aa_freq=None, correction=0):
+        if sequence is None:
+            sequence=self.sequence
+        decoy_fluctuation = self.decoy_fluctuation(sequence=sequence,kind=kind)
         if kind == 'singleresidue':
             if aa_freq is not None:
                 aa_freq = self.aa_freq
