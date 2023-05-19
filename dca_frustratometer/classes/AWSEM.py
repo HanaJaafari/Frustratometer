@@ -71,12 +71,13 @@ class AWSEMFrustratometer(Frustratometer):
         self.init_index_shift=pdb_structure.init_index_shift
 
         self.distance_matrix=pdb_structure.distance_matrix
+        self.distance_cutoff_contact=distance_cutoff_contact
         self.sequence_cutoff=None
         self.distance_cutoff=None
         
         self._decoy_fluctuation = {}
         #self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
-        self.mask = frustration.compute_mask(self.distance_matrix, distance_cutoff=None, sequence_distance_cutoff = None)
+        self.mask = frustration.compute_mask(self.distance_matrix, distance_cutoff=self.distance_cutoff_contact, sequence_distance_cutoff = min_sequence_separation_contact)
         selection_CB = self.structure.select('name CB or (resname GLY IGL and name CA)')
         resid = selection_CB.getResindices()
         self.resid=resid
@@ -87,7 +88,7 @@ class AWSEMFrustratometer(Frustratometer):
 
         #Calculate sequence mask
         sequence_mask_rho = frustration.compute_mask(self.distance_matrix, distance_cutoff=None, sequence_distance_cutoff = min_sequence_separation_rho)#abs(np.expand_dims(resid, 0) - np.expand_dims(resid, 1)) >= min_sequence_separation_rho
-        sequence_mask_contact = frustration.compute_mask(self.distance_matrix, distance_cutoff=distance_cutoff_contact, sequence_distance_cutoff = min_sequence_separation_contact)#abs(np.expand_dims(resid, 0) - np.expand_dims(resid, 1)) >= min_sequence_separation_contact
+        sequence_mask_contact = frustration.compute_mask(self.distance_matrix, distance_cutoff=self.distance_cutoff_contact, sequence_distance_cutoff = min_sequence_separation_contact)#abs(np.expand_dims(resid, 0) - np.expand_dims(resid, 1)) >= min_sequence_separation_contact
 
         self.sequence_mask_rho=sequence_mask_rho
         self.sequence_mask_contact=sequence_mask_contact
