@@ -23,21 +23,30 @@ def compute_mask(distance_matrix: np.array,
         mask *= sequence_distance >= sequence_distance_cutoff
     if distance_cutoff is not None:
         mask *= distance_matrix <= distance_cutoff
+
     return mask.astype(np.bool8)
 
 
 def compute_native_energy(seq: str,
                           potts_model: dict,
-                          mask: np.array) -> float:
+                          mask: np.array,
+                          ignore_contacts_with_gaps=False) -> float:
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
+
     pos1, pos2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), indexing='ij', sparse=True)
     aa1, aa2 = np.meshgrid(seq_index, seq_index, indexing='ij', sparse=True)
 
     h = -potts_model['h'][range(seq_len), seq_index]
     j = -potts_model['J'][pos1, pos2, aa1, aa2]
+    j_prime = j * mask        
 
-    j_prime = j * mask
+    if ignore_contacts_with_gaps==True:
+        gap_indices=[int(i) for i,j in enumerate(seq) if j=="-"]
+        if len(gap_indices)>0:
+            pos1, pos2 = np.meshgrid(gap_indices, gap_indices, indexing='ij', sparse=True)
+            j_prime[pos1,pos2]=False
+
     energy = h.sum() + j_prime.sum() / 2
     return energy
 
@@ -51,7 +60,8 @@ def compute_fields_energy(seq: str,
 
 def compute_couplings_energy(seq: str,
                       potts_model: dict,
-                      mask: np.array) -> float:
+                      mask: np.array,
+                      ignore_contacts_with_gaps=False) -> float:
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
     pos1, pos2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), indexing='ij', sparse=True)
@@ -59,14 +69,18 @@ def compute_couplings_energy(seq: str,
 
     j = -potts_model['J'][pos1, pos2, aa1, aa2]
     j_prime = j * mask
+    if ignore_contacts_with_gaps==True:
+        gap_indices=[i for i,j in enumerate(seq) if j=="-"]
+        if len(gap_indices)>0:
+            pos1, pos2 = np.meshgrid(gap_indices, gap_indices, indexing='ij', sparse=True)
+            j_prime[pos1,pos2]=False
     energy = j_prime.sum() / 2
     return energy
 
 def compute_sequences_energy(seqs: list,
                              potts_model: dict,
                              mask: np.array,
-                             split_couplings_and_fields = False 
-                             ) -> np.array:
+                             split_couplings_and_fields = False) -> np.array:
     seq_index = np.array([[_AA.find(aa) for aa in seq] for seq in seqs])
     N_seqs, seq_len = seq_index.shape
     pos_index=np.repeat([np.arange(seq_len)], N_seqs,axis=0)
