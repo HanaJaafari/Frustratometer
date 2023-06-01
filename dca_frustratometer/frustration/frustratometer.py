@@ -44,8 +44,8 @@ def compute_native_energy(seq: str,
     if ignore_contacts_with_gaps==True:
         gap_indices=[int(i) for i,j in enumerate(seq) if j=="-"]
         if len(gap_indices)>0:
-            pos1, pos2 = np.meshgrid(gap_indices, gap_indices, indexing='ij', sparse=True)
-            j_prime[pos1,pos2]=False
+            j_prime[gap_indices,:]=False
+            j_prime[:,gap_indices]=False
 
     energy = h.sum() + j_prime.sum() / 2
     return energy
@@ -72,8 +72,8 @@ def compute_couplings_energy(seq: str,
     if ignore_contacts_with_gaps==True:
         gap_indices=[i for i,j in enumerate(seq) if j=="-"]
         if len(gap_indices)>0:
-            pos1, pos2 = np.meshgrid(gap_indices, gap_indices, indexing='ij', sparse=True)
-            j_prime[pos1,pos2]=False
+            j_prime[:,gap_indices]=False
+            j_prime[gap_indices,:]=False
     energy = j_prime.sum() / 2
     return energy
 
