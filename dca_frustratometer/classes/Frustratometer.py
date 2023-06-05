@@ -79,7 +79,7 @@ class Frustratometer:
         return self._decoy_fluctuation[kind]
 
     def decoy_energy(self, kind='singleresidue'):
-        return self.native_energy() + self.decoy_fluctuation(kind)
+        return self.native_energy() + self.decoy_fluctuation(kind=kind)
 
     def scores(self):
         return frustration.compute_scores(self.potts_model)
@@ -99,7 +99,7 @@ class Frustratometer:
 
     def plot_decoy_energy(self, kind='singleresidue', method='clustermap'):
         native_energy = self.native_energy()
-        decoy_energy = self.decoy_energy(kind)
+        decoy_energy = self.decoy_energy(kind=kind)
         if kind == 'singleresidue':
             g = frustration.plot_singleresidue_decoy_energy(decoy_energy, native_energy, method)
             return g
@@ -127,7 +127,7 @@ class Frustratometer:
         import py3Dmol
         pdb_filename = self.pdb_file
         shift=self.init_index_shift+1
-        pair_frustration=self.frustration(pair)*np.triu(self.mask)
+        pair_frustration=self.frustration(kind=pair)*np.triu(self.mask)
         residues=np.arange(len(self.sequence))
         r1, r2 = np.meshgrid(residues, residues, indexing='ij')
         sel_frustration = np.array([r1.ravel(), r2.ravel(), pair_frustration.ravel()]).T
@@ -151,4 +151,41 @@ class Frustratometer:
         view.zoomTo(viewer=(0,0))
 
         return view
+
+    def view_frustration_distribution(self,kind="mutational"):
+        import pandas as pd
+        import numpy as np
+
+        if kind in ['mutational', 'configurational']:
+            frustration_values=self.frustration(kind=kind)
+            #Calculate each residue's center of mass (COM)
+            import MDAnalysis as mda
+            from scipy.spatial.distance import pdist,squareform
+
+            u = mda.Universe(self.pdb_file)
+            protein = u.select_atoms('protein')
+            residue_COM_values=protein.center_of_mass(compound="residues")
+            COM_distance_matrix = squareform(pdist(residue_COM_values))
+
+            flattened_COM_distance_matrix=COM_distance_matrix[np.triu_indices(COM_distance_matrix.shape[0], k = 1)]
+            flattened_frustration_values=frustration_values[np.triu_indices(frustration_values.shape[0], k = 1)]
+            frustration_class=[]
+            for i in flattened_frustration_values:
+                if i<-1:
+                    frustration_class.append("Frustrated")
+                elif i>0.78:
+                    frustration_class.append("Minimally Frustrated")
+                else:
+                    frustration_class.append("Neutral")
+            
+            frustration_dataframe=pd.DataFrame(data=np.array([flattened_COM_distance_matrix,flattened_frustration_values,frustration_class]).T,
+                                                columns=["Distance_ij","F_ij","Type"])
+            frustration_dataframe[["Distance_ij","F_ij"]]=frustration_dataframe[["Distance_ij","F_ij"]].astype(float)
+
+            return frustration_dataframe
+
+            
+            
+
+
 
