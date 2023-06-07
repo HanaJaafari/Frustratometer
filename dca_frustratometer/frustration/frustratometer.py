@@ -30,7 +30,7 @@ def compute_mask(distance_matrix: np.array,
 def compute_native_energy(seq: str,
                           potts_model: dict,
                           mask: np.array,
-                          ignore_contacts_with_gaps=False) -> float:
+                          ignore_contacts_with_gaps: bool = False) -> float:
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
 
@@ -61,7 +61,7 @@ def compute_fields_energy(seq: str,
 def compute_couplings_energy(seq: str,
                       potts_model: dict,
                       mask: np.array,
-                      ignore_contacts_with_gaps=False) -> float:
+                      ignore_contacts_with_gaps: bool = False) -> float:
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
     pos1, pos2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), indexing='ij', sparse=True)
