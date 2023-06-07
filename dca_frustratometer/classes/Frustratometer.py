@@ -131,8 +131,8 @@ class Frustratometer:
         residues=np.arange(len(self.sequence))
         r1, r2 = np.meshgrid(residues, residues, indexing='ij')
         sel_frustration = np.array([r1.ravel(), r2.ravel(), pair_frustration.ravel()]).T
-        minimally_frustrated = sel_frustration[sel_frustration[:, -1] < -0.78]
-        frustrated = sel_frustration[sel_frustration[:, -1] > 1]
+        minimally_frustrated = sel_frustration[sel_frustration[:, -1] > 1]
+        frustrated = sel_frustration[sel_frustration[:, -1] < -.78]
         
         view = py3Dmol.view(js='https://3dmol.org/build/3Dmol.js')
         view.addModel(open(pdb_filename,'r').read(),'pdb')
@@ -152,37 +152,83 @@ class Frustratometer:
 
         return view
 
-    def view_frustration_distribution(self,kind="mutational"):
+    def view_frustration_pair_distribution(self,kind="mutational"):
         import pandas as pd
         import numpy as np
+        import matplotlib.pyplot as plt
+        import seaborn as sns
 
-        if kind in ['mutational', 'configurational']:
-            frustration_values=self.frustration(kind=kind)
-            #Calculate each residue's center of mass (COM)
-            import MDAnalysis as mda
-            from scipy.spatial.distance import pdist,squareform
+        def frustration_type(x):
+            if x>.78:
+                frustration_class="Minimally Frustrated"
+            elif x<-1:
+                frustration_class="Frustrated"
+            else:
+                frustration_class="Neutral"
+            return frustration_class
+        ###
+        frustration_values=self.frustration(kind=kind)
 
-            u = mda.Universe(self.pdb_file)
-            protein = u.select_atoms('protein')
-            residue_COM_values=protein.center_of_mass(compound="residues")
-            COM_distance_matrix = squareform(pdist(residue_COM_values))
+        ca_distance_matrix=pdb.get_distance_matrix(self.pdb_file,self.chain,method="CA")
+        i_index,j_index=np.triu_indices(ca_distance_matrix.shape[0], k = 1)
 
-            flattened_COM_distance_matrix=COM_distance_matrix[np.triu_indices(COM_distance_matrix.shape[0], k = 1)]
-            flattened_frustration_values=frustration_values[np.triu_indices(frustration_values.shape[0], k = 1)]
-            frustration_class=[]
-            for i in flattened_frustration_values:
-                if i<-1:
-                    frustration_class.append("Frustrated")
-                elif i>0.78:
-                    frustration_class.append("Minimally Frustrated")
-                else:
-                    frustration_class.append("Neutral")
+        midpoint_ca_distance_matrix=ca_distance_matrix/2
+        flattened_ca_distance_matrix=ca_distance_matrix[i_index,j_index]
+        flattened_midpoint_ca_distance_matrix=midpoint_ca_distance_matrix[i_index,j_index]
+        contact_pairs=list((zip(i_index,j_index)))
+        ###
+        if kind=="singleresidue":
+            residue_i_frustration=[];residue_j_frustration=[]
+            for pair in contact_pairs:
+                residue_i_frustration.append(frustration_values[pair[0]])
+                residue_j_frustration.append(frustration_values[pair[1]])
+
+            frustration_dataframe=pd.DataFrame(data=np.array([contact_pairs,flattened_ca_distance_matrix,residue_i_frustration,residue_j_frustration]).T,
+                                    columns=["i,j Pair","Distance_ij","F_i","F_j"])
+            #Classify frustration type
+            frustration_dataframe["F_i_Type"]=frustration_dataframe["F_i"].apply(lambda x: frustration_type(x))
+            frustration_dataframe["F_j_Type"]=frustration_dataframe["F_j"].apply(lambda x: frustration_type(x))
+            #Keep only residues with same frustration classes
+            frustration_dataframe=frustration_dataframe.loc[frustration_dataframe["F_i_Type"]==frustration_dataframe["F_j_Type"]]
+            frustration_dataframe["F_ij_Type"]=frustration_dataframe["F_j_Type"]
+
+        elif kind in ['mutational', 'configurational']:
+            flattened_frustration_values=frustration_values[i_index,j_index]
             
-            frustration_dataframe=pd.DataFrame(data=np.array([flattened_COM_distance_matrix,flattened_frustration_values,frustration_class]).T,
-                                                columns=["Distance_ij","F_ij","Type"])
-            frustration_dataframe[["Distance_ij","F_ij"]]=frustration_dataframe[["Distance_ij","F_ij"]].astype(float)
+            frustration_dataframe=pd.DataFrame(data=np.array([contact_pairs,flattened_midpoint_ca_distance_matrix,flattened_frustration_values]).T,
+                                                columns=["i,j Pair","Distance_ij","F_ij"])
+            frustration_dataframe=frustration_dataframe.dropna(subset=["F_ij"])
+            #Classify frustration type
+            frustration_dataframe["F_ij_Type"]=frustration_dataframe["F_ij"].apply(lambda x: frustration_type(x))
+        ###
+        maximum_distance=frustration_dataframe['Distance_ij'].max()
+        #Bin by residue pair distances
+        frustration_dataframe['bin'] = pd.cut(frustration_dataframe['Distance_ij'], bins=np.arange(0,maximum_distance,.1), labels=[f'{l}-{l+.1}' for l in np.arange(0,maximum_distance-.1,.1)])
+        frustration_dataframe=frustration_dataframe.dropna(subset=["bin"]).sort_values('bin')
 
-            return frustration_dataframe
+        frustration_distribution_dictionary={"Distances":[],"Minimally Frustrated":[],"Frustrated":[],"Neutral":[]}
+        for bin_value in frustration_dataframe['bin'].unique():
+            lower_bin_value=float(bin_value.split("-")[0])
+            upper_bin_value=float(bin_value.split("-")[1])
+            frustration_distribution_dictionary["Distances"].append(lower_bin_value)
+            
+            for frustration_class in ["Minimally Frustrated","Frustrated","Neutral"]:
+                bin_select_frustration_values_dataframe=frustration_dataframe.loc[((frustration_dataframe["bin"]==bin_value) & (frustration_dataframe["F_ij_Type"]==frustration_class))]
+                hollow_sphere_volume=((4*np.pi)/3)*((upper_bin_value**3)-(lower_bin_value**3))
+                distribution_function=len(bin_select_frustration_values_dataframe)/hollow_sphere_volume
+                frustration_distribution_dictionary[frustration_class].append(distribution_function)
+        ###
+        frustration_distribution_dataframe=pd.DataFrame.from_dict(frustration_distribution_dictionary)
+
+        plt.figure(figsize=(10,5))
+
+        sns.lineplot(data=frustration_distribution_dataframe,x="Distances",y="Minimally Frustrated",color="green",label="Minimally Frustrated")
+        sns.lineplot(data=frustration_distribution_dataframe,x="Distances",y="Frustrated",color="red",label="Frustrated")
+        sns.lineplot(data=frustration_distribution_dataframe,x="Distances",y="Neutral",color="gray",label="Neutral")
+        plt.xlabel("Distance (A)");plt.ylabel("g(r)")
+        plt.xlim([0,20])
+        plt.legend(loc="best")
+        plt.show()
 
             
             

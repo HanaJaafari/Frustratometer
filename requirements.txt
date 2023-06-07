@@ -4,5 +4,4 @@ pandas
 biopython
 prody
 pdbfixer
-MDAnalysis
 #importlib-metadata; python_version < '3.9'
