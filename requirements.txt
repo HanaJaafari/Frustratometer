@@ -3,6 +3,5 @@ scipy
 pandas
 biopython
 prody
-openmm
 pdbfixer
 #importlib-metadata; python_version < '3.9'
