@@ -161,15 +161,6 @@ class Frustratometer:
         return view
 
     def view_frustration_pair_distribution(self,kind:str ="singleresidue",include_long_range_contacts:bool =True):
-        def frustration_type(x):
-            if x>.78:
-                frustration_class="Minimally Frustrated"
-            elif x<-1:
-                frustration_class="Frustrated"
-            else:
-                frustration_class="Neutral"
-            return frustration_class
-        ###
         #Ferrerio et al. (2007) pair distribution analysis included long-range contacts.
         if include_long_range_contacts==True:
             mask=frustration.compute_mask(self.distance_matrix, distance_cutoff=None, sequence_distance_cutoff = 2)
@@ -177,66 +168,61 @@ class Frustratometer:
             mask=self.mask
 
         frustration_values=self.frustration(kind=kind,mask=mask)
-        ca_distance_matrix=pdb.get_distance_matrix(self.pdb_file,self.chain,method="CA")
-        i_index,j_index=np.triu_indices(ca_distance_matrix.shape[0], k = 1)
 
-        midpoint_ca_distance_matrix=ca_distance_matrix/2
-        flattened_ca_distance_matrix=ca_distance_matrix[i_index,j_index]
-        flattened_midpoint_ca_distance_matrix=midpoint_ca_distance_matrix[i_index,j_index]
-        contact_pairs=list((zip(i_index,j_index)))
-        ###
+        residue_ca_coordinates=(self.structure.select('calpha').getCoords())
+        all_pairs=[]
+        for i in range(0,frustration_values.shape[0]):
+            for j in range(0,frustration_values.shape[0]): 
+                all_pairs.append([i,j]) 
+        all_pairs=np.array(all_pairs)
+        print(all_pairs)
         if kind=="singleresidue":
-            residue_i_frustration=[];residue_j_frustration=[]
-            for pair in contact_pairs:
-                residue_i_frustration.append(frustration_values[pair[0]])
-                residue_j_frustration.append(frustration_values[pair[1]])
-
-            frustration_dataframe=pd.DataFrame(data=np.array([contact_pairs,flattened_ca_distance_matrix,residue_i_frustration,residue_j_frustration]).T,
-                                    columns=["i,j Pair","Distance_ij","F_i","F_j"])
-            #Classify frustration type
-            frustration_dataframe["F_i_Type"]=frustration_dataframe["F_i"].apply(lambda x: frustration_type(x))
-            frustration_dataframe["F_j_Type"]=frustration_dataframe["F_j"].apply(lambda x: frustration_type(x))
-            #Keep only residues with same frustration classes
-            frustration_dataframe=frustration_dataframe.loc[frustration_dataframe["F_i_Type"]==frustration_dataframe["F_j_Type"]]
-            frustration_dataframe["F_ij_Type"]=frustration_dataframe["F_j_Type"]
-
+            frustration_values = np.array(frustration_values)*4
         elif kind in ['mutational', 'configurational']:
-            frustration_values=frustration_values[i_index,j_index]
-            
-            frustration_dataframe=pd.DataFrame(data=np.array([contact_pairs,flattened_midpoint_ca_distance_matrix,frustration_values]).T,
-                                                columns=["i,j Pair","Distance_ij","F_ij"])
-            frustration_dataframe=frustration_dataframe.dropna(subset=["F_ij"])
-            #Classify frustration type
-            frustration_dataframe["F_ij_Type"]=frustration_dataframe["F_ij"].apply(lambda x: frustration_type(x))
-       ###
-        maximum_distance=frustration_dataframe['Distance_ij'].max()
-        #Bin by residue pair distances
-        frustration_dataframe['bin'] = pd.cut(frustration_dataframe['Distance_ij'], bins=np.arange(0,maximum_distance,.1), labels=[f'{l}-{l+.1}' for l in np.arange(0,maximum_distance-.1,.1)])
-        frustration_dataframe=frustration_dataframe.dropna(subset=["bin"]).sort_values('bin')
+            frustration_values = frustration_values.flatten()*4
+        print(frustration_values)
+        minimally_fustrated = frustration_values>0.78
+        neutrally_fustrated = (frustration_values>=-1) & (frustration_values<=0.78) 
+        maximally_fustrated = frustration_values<-1
 
-        frustration_distribution_dictionary={"Distances":[],"Minimally Frustrated":[],"Frustrated":[],"Neutral":[]}
-        for bin_value in frustration_dataframe['bin'].unique():
-            lower_bin_value=float(bin_value.split("-")[0])
-            upper_bin_value=float(bin_value.split("-")[1])
-            frustration_distribution_dictionary["Distances"].append(lower_bin_value)
-            
-            for frustration_class in ["Minimally Frustrated","Frustrated","Neutral"]:
-                bin_select_frustration_values_dataframe=frustration_dataframe.loc[((frustration_dataframe["bin"]==bin_value) & (frustration_dataframe["F_ij_Type"]==frustration_class))]
-                hollow_sphere_volume=((4*np.pi)/3)*((upper_bin_value**3)-(lower_bin_value**3))
-                distribution_function=len(bin_select_frustration_values_dataframe)/hollow_sphere_volume
-                frustration_distribution_dictionary[frustration_class].append(distribution_function)
+        pair_groups={'All':all_pairs,
+                    'Minimally frustrated':all_pairs[minimally_fustrated],
+                    'Neutrally frustrated':all_pairs[neutrally_fustrated],
+                    'Maximally frustrated':all_pairs[maximally_fustrated],}  
+        print(pair_groups)
         ###
-        frustration_distribution_dataframe=pd.DataFrame.from_dict(frustration_distribution_dictionary)
-        with sns.plotting_context("poster"):
-            plt.figure(figsize=(10,5))
+        for group,pairs in pair_groups.items():
+            # Calculate centers
+            centers = (residue_ca_coordinates[pairs[:, 0]] + residue_ca_coordinates[pairs[:, 1]]) # Px3 array
+            if kind in ['mutational', 'configurational']:
+                centers=centers/2
+            #Calculate distances between centers
+            diff = centers[:, np.newaxis] - centers 
+            distances = np.sqrt((diff ** 2).sum(axis=-1)) # PxP array
 
-            sns.lineplot(data=frustration_distribution_dataframe,x="Distances",y="Minimally Frustrated",color="green",label="Minimally Frustrated")
-            sns.lineplot(data=frustration_distribution_dataframe,x="Distances",y="Frustrated",color="red",label="Frustrated")
-            sns.lineplot(data=frustration_distribution_dataframe,x="Distances",y="Neutral",color="gray",label="Neutral")
-            plt.xlabel("Distance (A)");plt.ylabel("g(r)")
-            plt.xlim([0,20])
-            plt.legend(loc="best")
-            plt.show()
+            # Set a step size (dr) and a maximum radius (max_r)
+            n_bins = 100
+            max_r = 30.0
+
+            #Number of points
+            N = len(pairs) # if needed
+
+            # Calculate the volume of a spherical shell of thickness dr
+            r=np.linspace(0,max_r,n_bins)
+            r_m=(r[1:]+r[:-1])/2
+            shell_vol = 4/3 * np.pi * (r[1:]**3-r[:-1]**3)
+
+            # Histogram the distances; these are our "raw" g(r)
+            dist_hist = np.histogram(distances, bins=r)[0]
+            # Normalize the histogram
+            rdf_pairs = dist_hist / (N)
+            if kind in ['mutational', 'configurational']:
+                rdf_pairs=rdf_pairs/shell_vol
+            plt.plot(r_m,rdf_pairs,label=group)
+
+        plt.xlim(0.01,20)
+        plt.legend() 
+
 
     def view_frustration_histogram(self,kind:str = "singleresidue"):
         def frustration_type(x):
