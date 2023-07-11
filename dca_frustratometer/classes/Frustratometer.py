@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import scipy.spatial.distance as sdist
 
 #Import other modules
 from ..utils import _path
@@ -168,129 +169,96 @@ class Frustratometer:
             mask=self.mask
 
         frustration_values=self.frustration(kind=kind,mask=mask)
-
         residue_ca_coordinates=(self.structure.select('calpha').getCoords())
-        all_pairs=[]
-        for i in range(0,frustration_values.shape[0]):
-            for j in range(0,frustration_values.shape[0]): 
-                all_pairs.append([i,j]) 
-        all_pairs=np.array(all_pairs)
-        print(all_pairs)
+
         if kind=="singleresidue":
-            frustration_values = np.array(frustration_values)*4
-        elif kind in ['mutational', 'configurational']:
-            frustration_values = frustration_values.flatten()*4
-        print(frustration_values)
-        minimally_fustrated = frustration_values>0.78
-        neutrally_fustrated = (frustration_values>=-1) & (frustration_values<=0.78) 
-        maximally_fustrated = frustration_values<-1
+            sel_frustration = np.column_stack((residue_ca_coordinates,np.expand_dims(frustration_values, axis=1)))
 
-        pair_groups={'All':all_pairs,
-                    'Minimally frustrated':all_pairs[minimally_fustrated],
-                    'Neutrally frustrated':all_pairs[neutrally_fustrated],
-                    'Maximally frustrated':all_pairs[maximally_fustrated],}  
-        print(pair_groups)
-        ###
-        for group,pairs in pair_groups.items():
-            # Calculate centers
-            centers = (residue_ca_coordinates[pairs[:, 0]] + residue_ca_coordinates[pairs[:, 1]]) # Px3 array
-            if kind in ['mutational', 'configurational']:
-                centers=centers/2
-            #Calculate distances between centers
-            diff = centers[:, np.newaxis] - centers 
-            distances = np.sqrt((diff ** 2).sum(axis=-1)) # PxP array
+        elif kind in ["configurational","mutational"]:
+            i,j=np.meshgrid(range(0,len(self.sequence)),range(0,len(self.sequence)))
+            midpoint_coordinates=(residue_ca_coordinates[i.flatten(),:]+ residue_ca_coordinates[j.flatten(),:])/2
+            sel_frustration = np.column_stack((midpoint_coordinates, frustration_values.ravel()))
+            
+        bins=100
+        r=np.linspace(0,25,num=bins)
+        r_m=(r[1:]+r[:-1])/2
+        shell_vol = 4/3 * np.pi * (r[1:]**3-r[:-1]**3)
+        maximum_shell_vol=4/3 * np.pi *(25**3)
 
-            # Set a step size (dr) and a maximum radius (max_r)
-            n_bins = 100
-            max_r = 30.0
+        minimally_frustrated_contacts=(sdist.pdist(sel_frustration[sel_frustration[:, -1] >.78][:,:-1]))
+        frustrated_contacts=(sdist.pdist(sel_frustration[sel_frustration[:, -1] <-1][:,:-1]))
+        neutral_contacts=(sdist.pdist(sel_frustration[(sel_frustration[:, -1] > -1) & (sel_frustration[:, -1] < .78)][:,:-1]))
+        total_contacts_count=len(sdist.pdist(sel_frustration))
 
-            #Number of points
-            N = len(pairs) # if needed
+        minimally_frustrated_hist,_ = np.histogram(minimally_frustrated_contacts,bins=r)
+        frustrated_hist,_ = np.histogram(frustrated_contacts,bins=r)
+        neutral_hist,_=np.histogram(neutral_contacts,bins=r)
+        
+        with sns.plotting_context("poster"):
+            plt.figure(figsize=(10,8))
 
-            # Calculate the volume of a spherical shell of thickness dr
-            r=np.linspace(0,max_r,n_bins)
-            r_m=(r[1:]+r[:-1])/2
-            shell_vol = 4/3 * np.pi * (r[1:]**3-r[:-1]**3)
-
-            # Histogram the distances; these are our "raw" g(r)
-            dist_hist = np.histogram(distances, bins=r)[0]
-            # Normalize the histogram
-            rdf_pairs = dist_hist / (N)
-            if kind in ['mutational', 'configurational']:
-                rdf_pairs=rdf_pairs/shell_vol
-            plt.plot(r_m,rdf_pairs,label=group)
-
-        plt.xlim(0.01,20)
-        plt.legend() 
+            g=sns.lineplot(x=r_m,y=np.divide(maximum_shell_vol*minimally_frustrated_hist,total_contacts_count*shell_vol),color="green",label="Minimally Frustrated")
+            g=sns.lineplot(x=r_m,y=np.divide(maximum_shell_vol*frustrated_hist,total_contacts_count*shell_vol),color="red",label="Frustrated")
+            g=sns.lineplot(x=r_m,y=np.divide(maximum_shell_vol*neutral_hist,total_contacts_count*shell_vol),color="gray",label="Neutral")
+            plt.xlabel("Pair Distance (A)"); plt.ylabel("g(r)")
+            plt.legend()
+            plt.show()
 
 
     def view_frustration_histogram(self,kind:str = "singleresidue"):
-        def frustration_type(x):
-            if x>.78:
-                frustration_class="Minimally Frustrated"
-            elif x<-1:
-                frustration_class="Frustrated"
-            else:
-                frustration_class="Neutral"
-            return frustration_class
-
         frustration_values=self.frustration(kind=kind)
-        cb_distance_matrix=self.distance_matrix
-        i_index,j_index=np.triu_indices(cb_distance_matrix.shape[0], k = 1)
 
-        flattened_cb_distance_matrix=cb_distance_matrix[i_index,j_index]
-        contact_pairs=list((zip(i_index,j_index)))
-        ###
+        r=np.linspace(-4,4,num=100)
+
         if kind=="singleresidue":
-            frustration_dataframe=pd.DataFrame(data=np.array([range(0,len(frustration_values)),frustration_values]).T,
-                                    columns=["Residue Index","F_i"])
-            #Classify frustration type
-            frustration_dataframe["F_i_Type"]=frustration_dataframe["F_i"].apply(lambda x: frustration_type(x))
+            minimally_frustrated=[i for i in frustration_values if i>.78]
+            frustrated=[i for i in frustration_values if i<-1]
+            neutral=[i for i in frustration_values if -1<i<.78]
 
             #Plot histogram of all frustration values.
             with sns.plotting_context("poster"):
                 plt.figure(figsize=(10,5))
 
-                g=sns.histplot(data=frustration_dataframe,x="F_i",bins=20)
-                ymin, ymax = g.get_ylim()
-                g.vlines(x=[-1, .78], ymin=ymin, ymax=ymax, colors=['gray', 'gray'], ls='--', lw=2)
-                plt.title(f"N={len(frustration_dataframe)}")
-                plt.show()
-            ###
-            print(f"{((len(frustration_dataframe.loc[frustration_dataframe['F_i_Type']=='Minimally Frustrated'])/len(frustration_dataframe))*100):.2f}% Residues are Minimally Frustrated")
-            print(f"{((len(frustration_dataframe.loc[frustration_dataframe['F_i_Type']=='Frustrated'])/len(frustration_dataframe))*100):.2f}% Residues are Frustrated")
-            print(f"{((len(frustration_dataframe.loc[frustration_dataframe['F_i_Type']=='Neutral'])/len(frustration_dataframe))*100):.2f}% Residues are Neutral")
+                g=sns.histplot(x=minimally_frustrated,bins=r,color="green")
+                g=sns.histplot(x=frustrated,bins=r,color="red")
+                g=sns.histplot(x=neutral,bins=r,color="gray")
 
-        elif kind in ['mutational', 'configurational']:
-            frustration_values=frustration_values[i_index,j_index]
-            
-            frustration_dataframe=pd.DataFrame(data=np.array([contact_pairs,flattened_cb_distance_matrix,frustration_values]).T,
-                                                columns=["i,j Pair","Original_Distance_ij","F_ij"])
-            frustration_dataframe=frustration_dataframe.dropna(subset=["F_ij"])
-            #Classify frustration type
-            frustration_dataframe["F_ij_Type"]=frustration_dataframe["F_ij"].apply(lambda x: frustration_type(x))
-            frustration_dataframe["Contact_Type"]=np.where(frustration_dataframe["Original_Distance_ij"]<6.5,"Direct","Water-Mediated")
+                ymin, ymax = g.get_ylim()
+                g.vlines(x=[-1, .78], ymin=ymin, ymax=ymax, colors=['black', 'black'], ls='--', lw=2)
+                plt.title(f"N={len(frustration_values)}")
+                plt.show()
+
+        elif kind in ["configurational","mutational"]:
+            cb_distance_matrix=self.distance_matrix
+
+            sel_frustration = np.array([cb_distance_matrix.ravel(), frustration_values.ravel()]).T
+            minimally_frustrated = sel_frustration[sel_frustration[:, 1] > .78]
+            frustrated = sel_frustration[sel_frustration[:, 1] < -1]
+            neutral=sel_frustration[(sel_frustration[:, 1] > -1) & (sel_frustration[:, 1] < .78)]
+
             #Plot histogram of all frustration values.
             with sns.plotting_context("poster"):
                 fig,axes=plt.subplots(1,2,figsize=(15,5),sharex=True)
 
-                g=sns.histplot(data=frustration_dataframe.loc[frustration_dataframe["Contact_Type"]=="Direct"],x="F_ij",bins=20,ax=axes[0])
+                g=sns.histplot(x=minimally_frustrated[minimally_frustrated[:,0]<6.5][:,1],bins=r,ax=axes[0],color="green")
+                g=sns.histplot(x=frustrated[frustrated[:,0]<6.5][:,1],bins=r,ax=axes[0],color="red")
+                g=sns.histplot(x=neutral[neutral[:,0]<6.5][:,1],bins=r,ax=axes[0],color="gray")
+
                 ymin, ymax = g.get_ylim()
-                g.vlines(x=[-1, .78], ymin=ymin, ymax=ymax, colors=['gray', 'gray'], ls='--', lw=2)
-                axes[0].title.set_text(f"Direct Contacts (N={len(frustration_dataframe.loc[frustration_dataframe['Contact_Type']=='Direct'])})")
+                g.vlines(x=[-1, .78], ymin=ymin, ymax=ymax, colors=['black', 'black'], ls='--', lw=2)
+                axes[0].title.set_text(f"Direct Contacts\n(N={len(sel_frustration[sel_frustration[:,0]<6.5][:,1])})")
                 ###
-                g=sns.histplot(data=frustration_dataframe.loc[frustration_dataframe["Contact_Type"]=="Water-Mediated"],x="F_ij",bins=20,ax=axes[1])
+                g=sns.histplot(x=minimally_frustrated[minimally_frustrated[:,0]>6.5][:,1],bins=r,ax=axes[1],color="green")
+                g=sns.histplot(x=frustrated[frustrated[:,0]>6.5][:,1],bins=r,ax=axes[1],color="red")
+                g=sns.histplot(x=neutral[neutral[:,0]>6.5][:,1],bins=r,ax=axes[1],color="gray")
+
                 ymin, ymax = g.get_ylim()
-                g.vlines(x=[-1, .78], ymin=ymin, ymax=ymax, colors=['gray', 'gray'], ls='--', lw=2)
-                axes[1].title.set_text(f"Protein- & Water-\nMediated Contacts (N={len(frustration_dataframe.loc[frustration_dataframe['Contact_Type']=='Water-Mediated'])})")
+                g.vlines(x=[-1, .78], ymin=ymin, ymax=ymax, colors=['black', 'black'], ls='--', lw=2)
+                axes[1].title.set_text(f"Water-Mediated and\nProtein-Mediated Contacts\n(N={len(sel_frustration[sel_frustration[:,0]>6.5][:,1])})")
 
                 plt.tight_layout()
                 plt.show()
-            ###
-            direct_contact_frustration_dataframe=frustration_dataframe.loc[frustration_dataframe["Contact_Type"]=="Direct"]
-            print(f"{((len(direct_contact_frustration_dataframe.loc[direct_contact_frustration_dataframe['F_ij_Type']=='Minimally Frustrated'])/len(direct_contact_frustration_dataframe))*100):.2f}% Direct Contacts are Minimally Frustrated")
-            print(f"{((len(direct_contact_frustration_dataframe.loc[direct_contact_frustration_dataframe['F_ij_Type']=='Frustrated'])/len(direct_contact_frustration_dataframe))*100):.2f}% Direct Contacts are Frustrated")
-            print(f"{((len(direct_contact_frustration_dataframe.loc[direct_contact_frustration_dataframe['F_ij_Type']=='Neutral'])/len(direct_contact_frustration_dataframe))*100):.2f}% Direct Contacts are Neutral")
+
 
 
 
