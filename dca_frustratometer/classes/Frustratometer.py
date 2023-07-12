@@ -178,17 +178,18 @@ class Frustratometer:
             i,j=np.meshgrid(range(0,len(self.sequence)),range(0,len(self.sequence)))
             midpoint_coordinates=(residue_ca_coordinates[i.flatten(),:]+ residue_ca_coordinates[j.flatten(),:])/2
             sel_frustration = np.column_stack((midpoint_coordinates, frustration_values.ravel()))
-            
+
         bins=100
-        r=np.linspace(0,25,num=bins)
+        maximum_shell_radius=20
+        r=np.linspace(0,maximum_shell_radius,num=bins)
         r_m=(r[1:]+r[:-1])/2
         shell_vol = 4/3 * np.pi * (r[1:]**3-r[:-1]**3)
-        maximum_shell_vol=4/3 * np.pi *(25**3)
+        maximum_shell_vol=4/3 * np.pi *(maximum_shell_radius**3)
 
         minimally_frustrated_contacts=(sdist.pdist(sel_frustration[sel_frustration[:, -1] >.78][:,:-1]))
         frustrated_contacts=(sdist.pdist(sel_frustration[sel_frustration[:, -1] <-1][:,:-1]))
         neutral_contacts=(sdist.pdist(sel_frustration[(sel_frustration[:, -1] > -1) & (sel_frustration[:, -1] < .78)][:,:-1]))
-        total_contacts_count=len(sdist.pdist(sel_frustration))
+        total_contacts_count=(len(sel_frustration[sel_frustration[:,-1]!=np.nan][:,-1]))
 
         minimally_frustrated_hist,_ = np.histogram(minimally_frustrated_contacts,bins=r)
         frustrated_hist,_ = np.histogram(frustrated_contacts,bins=r)
@@ -197,9 +198,9 @@ class Frustratometer:
         with sns.plotting_context("poster"):
             plt.figure(figsize=(10,8))
 
-            g=sns.lineplot(x=r_m,y=np.divide(maximum_shell_vol*minimally_frustrated_hist,total_contacts_count*shell_vol),color="green",label="Minimally Frustrated")
-            g=sns.lineplot(x=r_m,y=np.divide(maximum_shell_vol*frustrated_hist,total_contacts_count*shell_vol),color="red",label="Frustrated")
-            g=sns.lineplot(x=r_m,y=np.divide(maximum_shell_vol*neutral_hist,total_contacts_count*shell_vol),color="gray",label="Neutral")
+            g=sns.lineplot(x=r_m,y=np.divide(maximum_shell_vol*minimally_frustrated_hist,(total_contacts_count**2)*shell_vol),color="green",label="Minimally Frustrated")
+            g=sns.lineplot(x=r_m,y=np.divide(maximum_shell_vol*frustrated_hist,(total_contacts_count**2)*shell_vol),color="red",label="Frustrated")
+            g=sns.lineplot(x=r_m,y=np.divide(maximum_shell_vol*neutral_hist,(total_contacts_count**2)*shell_vol),color="gray",label="Neutral")
             plt.xlabel("Pair Distance (A)"); plt.ylabel("g(r)")
             plt.legend()
             plt.show()
