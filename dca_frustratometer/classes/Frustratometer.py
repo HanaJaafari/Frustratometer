@@ -162,7 +162,7 @@ class Frustratometer:
         return view
 
     def view_frustration_pair_distribution(self,kind:str ="singleresidue",include_long_range_contacts:bool =True):
-        #Ferrerio et al. (2007) pair distribution analysis included long-range contacts.
+        #Ferrerio et al. (2007) pair distribution analysis included long-range contacts (distance>9.5).
         if include_long_range_contacts==True:
             mask=frustration.compute_mask(self.distance_matrix, distance_cutoff=None, sequence_distance_cutoff = 2)
         else:
@@ -196,7 +196,7 @@ class Frustratometer:
         neutral_hist,_=np.histogram(neutral_contacts,bins=r)
         
         with sns.plotting_context("poster"):
-            plt.figure(figsize=(10,8))
+            plt.figure(figsize=(15,12))
 
             g=sns.lineplot(x=r_m,y=np.divide(maximum_shell_vol*minimally_frustrated_hist,(total_contacts_count**2)*shell_vol),color="green",label="Minimally Frustrated")
             g=sns.lineplot(x=r_m,y=np.divide(maximum_shell_vol*frustrated_hist,(total_contacts_count**2)*shell_vol),color="red",label="Frustrated")
@@ -226,13 +226,18 @@ class Frustratometer:
 
                 ymin, ymax = g.get_ylim()
                 g.vlines(x=[-1, .78], ymin=ymin, ymax=ymax, colors=['black', 'black'], ls='--', lw=2)
-                plt.title(f"N={len(frustration_values)}")
+                plt.title(f"{len(frustration_values)} Residues")
+                plt.xlabel("$F_{i}$")
                 plt.show()
+            print(f"{(len(minimally_frustrated)/len(frustration_values))*100:.2f}% of Residues are Minimally Frustrated")
+            print(f"{(len(frustrated)/len(frustration_values))*100:.2f}% of Residues are Frustrated")
+            print(f"{(len(neutral)/len(frustration_values))*100:.2f}% of Residues are Neutral")
 
         elif kind in ["configurational","mutational"]:
             cb_distance_matrix=self.distance_matrix
 
             sel_frustration = np.array([cb_distance_matrix.ravel(), frustration_values.ravel()]).T
+            sel_frustration=sel_frustration[~np.isnan(sel_frustration[:, 1])]
             minimally_frustrated = sel_frustration[sel_frustration[:, 1] > .78]
             frustrated = sel_frustration[sel_frustration[:, 1] < -1]
             neutral=sel_frustration[(sel_frustration[:, 1] > -1) & (sel_frustration[:, 1] < .78)]
@@ -247,7 +252,8 @@ class Frustratometer:
 
                 ymin, ymax = g.get_ylim()
                 g.vlines(x=[-1, .78], ymin=ymin, ymax=ymax, colors=['black', 'black'], ls='--', lw=2)
-                axes[0].title.set_text(f"Direct Contacts\n(N={len(sel_frustration[sel_frustration[:,0]<6.5][:,1])})")
+                axes[0].title.set_text(f"Direct Contacts\n(N={len(sel_frustration[sel_frustration[:,0]<6.5])})")
+                axes[0].set_xlabel("$F_{ij}$")
                 ###
                 g=sns.histplot(x=minimally_frustrated[minimally_frustrated[:,0]>6.5][:,1],bins=r,ax=axes[1],color="green")
                 g=sns.histplot(x=frustrated[frustrated[:,0]>6.5][:,1],bins=r,ax=axes[1],color="red")
@@ -255,11 +261,19 @@ class Frustratometer:
 
                 ymin, ymax = g.get_ylim()
                 g.vlines(x=[-1, .78], ymin=ymin, ymax=ymax, colors=['black', 'black'], ls='--', lw=2)
-                axes[1].title.set_text(f"Water-Mediated and\nProtein-Mediated Contacts\n(N={len(sel_frustration[sel_frustration[:,0]>6.5][:,1])})")
+                axes[1].title.set_text(f"Water-Mediated and\nProtein-Mediated Contacts\n(N={len(sel_frustration[sel_frustration[:,0]>6.5])})")
+                axes[1].set_xlabel("$F_{ij}$")
 
                 plt.tight_layout()
                 plt.show()
-
+            ###
+            print(f"{(len(minimally_frustrated[minimally_frustrated[:,0]<6.5])/len(sel_frustration[sel_frustration[:,0]<6.5]))*100:.2f}% of Direct Contacts are Minimally Frustrated")
+            print(f"{(len(frustrated[frustrated[:,0]<6.5])/len(sel_frustration[sel_frustration[:,0]<6.5]))*100:.2f}% of Direct Contacts are Frustrated")
+            print(f"{(len(neutral[neutral[:,0]<6.5])/len(sel_frustration[sel_frustration[:,0]<6.5]))*100:.2f}% of Direct Contacts are Neutral")
+            print("###")
+            print(f"{(len(minimally_frustrated[minimally_frustrated[:,0]>6.5])/len(sel_frustration[sel_frustration[:,0]>6.5]))*100:.2f}% of Water-Mediated Contacts are Minimally Frustrated")
+            print(f"{(len(frustrated[frustrated[:,0]>6.5])/len(sel_frustration[sel_frustration[:,0]>6.5]))*100:.2f}% of Water-Mediated Contacts are Frustrated")
+            print(f"{(len(neutral[neutral[:,0]>6.5])/len(sel_frustration[sel_frustration[:,0]>6.5]))*100:.2f}% of Water-Mediated Contacts are Neutral")
 
 
 
