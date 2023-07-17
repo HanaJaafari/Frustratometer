@@ -65,17 +65,20 @@ class PottsModel(Frustratometer):
         self = cls()
 
         # Set initialization variables
-        self.sequence=pdb_structure.sequence
         self.structure=pdb_structure.structure
         self.chain=pdb_structure.chain
         self.pdb_file=pdb_structure.pdb_file
         self.potts_model_file=potts_model_file
         self.reformat_potts_model=reformat_potts_model
+        self.init_index_shift=pdb_structure.init_index_shift
 
         self.full_to_aligned_index_dict=pdb_structure.full_to_aligned_index_dict
         self.filtered_aligned_sequence=pdb_structure.filtered_aligned_sequence
-        self.distance_matrix=pdb_structure.distance_matrix
+        assert self.filtered_aligned_sequence is not None, "Please provide your aligned protein sequence when creating your protein's structure object."
+        self.sequence=self.filtered_aligned_sequence
+
         self.mapped_distance_matrix=pdb_structure.mapped_distance_matrix
+        self.distance_matrix=self.mapped_distance_matrix
         self.sequence_cutoff=sequence_cutoff
         self.distance_cutoff=distance_cutoff
 

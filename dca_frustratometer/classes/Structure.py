@@ -64,7 +64,7 @@ class Structure:
         self.distance_matrix=pdb.get_distance_matrix(pdb_file=self.pdb_file,chain=self.chain,
                                                      method=self.distance_matrix_method)
 
-        if (self.filtered_aligned_sequence is not None and self.aligned_sequence is not None):
+        if self.filtered_aligned_sequence is not None:
             self.full_to_aligned_index_dict=pdb.full_to_filtered_aligned_mapping(self.aligned_sequence,self.filtered_aligned_sequence)
             self.mapped_distance_matrix=np.full((len(self.filtered_aligned_sequence), len(self.filtered_aligned_sequence)), np.inf)
             # self.full_to_aligned_index_dict = {key-1:value for (key,value) in self.full_to_aligned_index_dict.items()}
@@ -73,6 +73,7 @@ class Structure:
             modpos1, modpos2 = np.meshgrid(list(self.full_to_aligned_index_dict.values()), list(self.full_to_aligned_index_dict.values()), 
                                     indexing='ij', sparse=True)
             self.mapped_distance_matrix[modpos1,modpos2]=self.distance_matrix[pos1,pos2]
+            np.fill_diagonal(self.mapped_distance_matrix, 0)
 
         else:
             self.full_to_aligned_index_dict=None

@@ -86,8 +86,10 @@ class Frustratometer:
         self._decoy_fluctuation[kind] = fluctuation
         return self._decoy_fluctuation[kind]
 
-    def decoy_energy(self, kind:str = 'singleresidue'):
-        return self.native_energy() + self.decoy_fluctuation(kind=kind)
+    def decoy_energy(self, kind:str = 'singleresidue',sequence: str =None):
+        if sequence is None:
+            sequence=self.sequence
+        return self.native_energy(sequence=sequence) + self.decoy_fluctuation(kind=kind,sequence=sequence)
 
     def scores(self):
         return frustration.compute_scores(self.potts_model)
@@ -107,9 +109,11 @@ class Frustratometer:
                 aa_freq = self.contact_freq
             return frustration.compute_pair_frustration(decoy_fluctuation, aa_freq, correction)
 
-    def plot_decoy_energy(self, kind:str = 'singleresidue', method:str = 'clustermap'):
-        native_energy = self.native_energy()
-        decoy_energy = self.decoy_energy(kind=kind)
+    def plot_decoy_energy(self, sequence:str = None, kind:str = 'singleresidue', method:str = 'clustermap'):
+        if sequence is None:
+            sequence=self.sequence
+        native_energy = self.native_energy(sequence=sequence)
+        decoy_energy = self.decoy_energy(kind=kind,sequence=sequence)
         if kind == 'singleresidue':
             g = frustration.plot_singleresidue_decoy_energy(decoy_energy, native_energy, method)
             return g
@@ -125,10 +129,12 @@ class Frustratometer:
            Function intended"""
         return frustration.compute_auc(self.roc())
 
-    def vmd(self, single:str = 'singleresidue', pair:str = 'mutational', aa_freq:np.array = None, correction:int = 0, max_connections:int = 100):
+    def vmd(self, sequence: str = None, single:str = 'singleresidue', pair:str = 'mutational', aa_freq:np.array = None, correction:int = 0, max_connections:int = 100):
+        if sequence is None:
+            sequence=self.sequence
         tcl_script = frustration.write_tcl_script(self.pdb_file, self.chain,
-                                      self.frustration(single, aa_freq=aa_freq, correction=correction),
-                                      self.frustration(pair, aa_freq=aa_freq, correction=correction),
+                                      self.frustration(kind=single, sequence=sequence, aa_freq=aa_freq, correction=correction),
+                                      self.frustration(kind=pair, sequence=sequence, aa_freq=aa_freq, correction=correction),
                                       max_connections=max_connections)
         frustration.call_vmd(self.pdb_file, tcl_script)
 
