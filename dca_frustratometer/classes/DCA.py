@@ -84,6 +84,8 @@ class PottsModel(Frustratometer):
 
         self.mask = frustration.compute_mask(self.mapped_distance_matrix, self.distance_cutoff, self.sequence_cutoff)
 
+        self.minimally_frustrated_threshold=1
+
         # Compute fast properties
         self.potts_model = dca.matlab.load_potts_model(self.potts_model_file)
         if self.reformat_potts_model:

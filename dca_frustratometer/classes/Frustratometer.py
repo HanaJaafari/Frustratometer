@@ -147,7 +147,7 @@ class Frustratometer:
         r1, r2 = np.meshgrid(residues, residues, indexing='ij')
         sel_frustration = np.array([r1.ravel(), r2.ravel(), pair_frustration.ravel()]).T
         minimally_frustrated = sel_frustration[sel_frustration[:, -1] > 1]
-        frustrated = sel_frustration[sel_frustration[:, -1] < -.78]
+        frustrated = sel_frustration[sel_frustration[:, -1] < -self.minimally_frustrated_threshold]
         
         view = py3Dmol.view(js='https://3dmol.org/build/3Dmol.js')
         view.addModel(open(pdb_filename,'r').read(),'pdb')
@@ -192,9 +192,9 @@ class Frustratometer:
         shell_vol = 4/3 * np.pi * (r[1:]**3-r[:-1]**3)
         maximum_shell_vol=4/3 * np.pi *(maximum_shell_radius**3)
 
-        minimally_frustrated_contacts=(sdist.pdist(sel_frustration[sel_frustration[:, -1] >.78][:,:-1]))
+        minimally_frustrated_contacts=(sdist.pdist(sel_frustration[sel_frustration[:, -1] >self.minimally_frustrated_threshold][:,:-1]))
         frustrated_contacts=(sdist.pdist(sel_frustration[sel_frustration[:, -1] <-1][:,:-1]))
-        neutral_contacts=(sdist.pdist(sel_frustration[(sel_frustration[:, -1] > -1) & (sel_frustration[:, -1] < .78)][:,:-1]))
+        neutral_contacts=(sdist.pdist(sel_frustration[(sel_frustration[:, -1] > -1) & (sel_frustration[:, -1] < self.minimally_frustrated_threshold)][:,:-1]))
         total_contacts_count=(len(sel_frustration[sel_frustration[:,-1]!=np.nan][:,-1]))
 
         minimally_frustrated_hist,_ = np.histogram(minimally_frustrated_contacts,bins=r)
@@ -218,9 +218,9 @@ class Frustratometer:
         r=np.linspace(-4,4,num=100)
 
         if kind=="singleresidue":
-            minimally_frustrated=[i for i in frustration_values if i>.78]
+            minimally_frustrated=[i for i in frustration_values if i>self.minimally_frustrated_threshold]
             frustrated=[i for i in frustration_values if i<-1]
-            neutral=[i for i in frustration_values if -1<i<.78]
+            neutral=[i for i in frustration_values if -1<i<self.minimally_frustrated_threshold]
 
             #Plot histogram of all frustration values.
             with sns.plotting_context("poster"):
@@ -231,7 +231,7 @@ class Frustratometer:
                 g=sns.histplot(x=neutral,bins=r,color="gray")
 
                 ymin, ymax = g.get_ylim()
-                g.vlines(x=[-1, .78], ymin=ymin, ymax=ymax, colors=['black', 'black'], ls='--', lw=2)
+                g.vlines(x=[-1, self.minimally_frustrated_threshold], ymin=ymin, ymax=ymax, colors=['black', 'black'], ls='--', lw=2)
                 plt.title(f"{len(frustration_values)} Residues")
                 plt.xlabel("$F_{i}$")
                 plt.show()
@@ -244,9 +244,9 @@ class Frustratometer:
 
             sel_frustration = np.array([cb_distance_matrix.ravel(), frustration_values.ravel()]).T
             sel_frustration=sel_frustration[~np.isnan(sel_frustration[:, 1])]
-            minimally_frustrated = sel_frustration[sel_frustration[:, 1] > .78]
+            minimally_frustrated = sel_frustration[sel_frustration[:, 1] > self.minimally_frustrated_threshold]
             frustrated = sel_frustration[sel_frustration[:, 1] < -1]
-            neutral=sel_frustration[(sel_frustration[:, 1] > -1) & (sel_frustration[:, 1] < .78)]
+            neutral=sel_frustration[(sel_frustration[:, 1] > -1) & (sel_frustration[:, 1] < self.minimally_frustrated_threshold)]
 
             #Plot histogram of all frustration values.
             with sns.plotting_context("poster"):
@@ -257,7 +257,7 @@ class Frustratometer:
                 g=sns.histplot(x=neutral[neutral[:,0]<6.5][:,1],bins=r,ax=axes[0],color="gray")
 
                 ymin, ymax = g.get_ylim()
-                g.vlines(x=[-1, .78], ymin=ymin, ymax=ymax, colors=['black', 'black'], ls='--', lw=2)
+                g.vlines(x=[-1, self.minimally_frustrated_threshold], ymin=ymin, ymax=ymax, colors=['black', 'black'], ls='--', lw=2)
                 axes[0].title.set_text(f"Direct Contacts\n(N={len(sel_frustration[sel_frustration[:,0]<6.5])})")
                 axes[0].set_xlabel("$F_{ij}$")
                 ###
@@ -266,7 +266,7 @@ class Frustratometer:
                 g=sns.histplot(x=neutral[neutral[:,0]>6.5][:,1],bins=r,ax=axes[1],color="gray")
 
                 ymin, ymax = g.get_ylim()
-                g.vlines(x=[-1, .78], ymin=ymin, ymax=ymax, colors=['black', 'black'], ls='--', lw=2)
+                g.vlines(x=[-1, self.minimally_frustrated_threshold], ymin=ymin, ymax=ymax, colors=['black', 'black'], ls='--', lw=2)
                 axes[1].title.set_text(f"Water-Mediated and\nProtein-Mediated Contacts\n(N={len(sel_frustration[sel_frustration[:,0]>6.5])})")
                 axes[1].set_xlabel("$F_{ij}$")
 

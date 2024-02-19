@@ -74,6 +74,8 @@ class AWSEMFrustratometer(Frustratometer):
         self.distance_cutoff_contact=distance_cutoff_contact
         self.sequence_cutoff=None
         self.distance_cutoff=None
+
+        self.minimally_frustrated_threshold=.78
         
         self._decoy_fluctuation = {}
         #self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
