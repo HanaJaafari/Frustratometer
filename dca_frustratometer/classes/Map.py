@@ -41,16 +41,25 @@ class Map():
         print(alignment)
         return cls.from_path(alignment.path)
             
-
-
-
     def map(self, sequence=None, reverse=False):
-        sequence=np.array([a for a in sequence+'-'])
+        seq=np.array([a for a in sequence+'-'])
         if reverse:
-            # From query to target
-            return ''.join(sequence[self.map_array[0]][self.map_array[1]>-1]) #Second sequence to first sequence
+            if len(sequence)!=self.seq1_len:
+                raise IndexError(f'Sequence length ({len(sequence)}) does not match map ({self.seq1_len})')
+            return ''.join(seq[self.map_array[0]][self.map_array[1]>-1]) #Second sequence to first sequence
         else:
-            return ''.join(sequence[self.map_array[1]][self.map_array[0]>-1]) #First sequence to second sequence
+            if len(sequence)!=self.seq2_len:
+                print(sequence)
+                print(self.map_array)
+                raise IndexError(f'Sequence length ({len(sequence)}) does not match map ({self.seq2_len})')
+                
+            return ''.join(seq[self.map_array[1]][self.map_array[0]>-1]) #First sequence to second sequence
+        
+    def reverse(self):
+        return self.__class__(self.map_array[::-1])
+    
+    def copy(self):
+        return self.__class__(self.map_array.copy())
         
     def __repr__(self):
         """
@@ -63,5 +72,17 @@ class Map():
         
         return f"{self.__class__}\n{s1}\n{mm}\n{s2}"
 
+    @property
+    def map_array(self):
+        return self._map_array
+    
+    @map_array.setter
+    def map_array(self, value):
+        self._map_array = value
+        self.seq1_len = max(value[0]) + 1
+        self.seq2_len = max(value[1]) + 1
 
+
+    
+    
 
