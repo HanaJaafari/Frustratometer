@@ -229,6 +229,72 @@ def test_OOP_compute_native_energy():
     e = model.native_energy()
     assert np.round(e, 4) == -61.5248
 
+def test_OOP_compute_seq_energy_with_distance_threshold_without_gap_couplings():
+    import subprocess
+    pdb_file = 'examples/data/6U5E_A.pdb'
+    chain = 'A'
+    distance_matrix_method='CB'
+    potts_model_file = "examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
+    filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
+    aligned_sequence=subprocess.check_output(["sed","-n",""'/>%s$/,/>/p'"" % "6U5E_A",'examples/data/PF00160_all_pseudogene_parent_sequences_aligned_PFAM_27.fasta'])
+    aligned_sequence="".join(aligned_sequence.decode().split("\n")[1:-2])
+
+    structure=dca_frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence,aligned_sequence=aligned_sequence)
+    model = dca_frustratometer.PottsModel.from_potts_model_file(structure, potts_model_file, distance_cutoff=16,
+                                                                sequence_cutoff=1,reformat_potts_model=True)
+
+    sample_sequence="--NIAINSLGHVSFELFADKFPKT-ENFRALST-GGYKGSCFHRIILGLLCQGGDFTCHNGTGGK-SVYREKFDDEN--FSMKHGPGILSMANAG--PNTNDSQIFICTAKTEWLDGKHVVSGRVKEGIKIVEAMKRGSKNGKSRKKITTADCG-"                                                            
+    e = model.native_energy(sequence=sample_sequence,ignore_contacts_with_gaps=True)
+    assert np.round(e, 4) == -789.9186
+
+def test_OOP_compute_seq_energy_with_distance_threshold_with_gap_couplings():
+    import subprocess
+    pdb_file = 'examples/data/6U5E_A.pdb'
+    chain = 'A'
+    distance_matrix_method='CB'
+    potts_model_file = "examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
+    filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
+    aligned_sequence=subprocess.check_output(["sed","-n",""'/>%s$/,/>/p'"" % "6U5E_A",'examples/data/PF00160_all_pseudogene_parent_sequences_aligned_PFAM_27.fasta'])
+    aligned_sequence="".join(aligned_sequence.decode().split("\n")[1:-2])
+
+    structure=dca_frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence,aligned_sequence=aligned_sequence)
+    model = dca_frustratometer.PottsModel.from_potts_model_file(structure, potts_model_file, distance_cutoff=16,
+                                                                sequence_cutoff=1,reformat_potts_model=True)
+
+    sample_sequence="--NIAINSLGHVSFELFADKFPKT-ENFRALST-GGYKGSCFHRIILGLLCQGGDFTCHNGTGGK-SVYREKFDDEN--FSMKHGPGILSMANAG--PNTNDSQIFICTAKTEWLDGKHVVSGRVKEGIKIVEAMKRGSKNGKSRKKITTADCG-"                                                            
+    e = model.native_energy(sequence=sample_sequence)
+    assert np.round(e, 4) == -801.9952
+
+def test_OOP_compute_seq_energy_without_gap_couplings():
+    import subprocess
+    pdb_file = 'examples/data/6U5E_A.pdb'
+    chain = 'A'
+    distance_matrix_method='CB'
+    potts_model_file = "examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
+    filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
+
+    structure=dca_frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence)
+    model = dca_frustratometer.PottsModel.from_potts_model_file(structure, potts_model_file, sequence_cutoff=1,reformat_potts_model=True)
+
+    sample_sequence="--NIAINSLGHVSFELFADKFPKT-ENFRALST-GGYKGSCFHRIILGLLCQGGDFTCHNGTGGK-SVYREKFDDEN--FSMKHGPGILSMANAG--PNTNDSQIFICTAKTEWLDGKHVVSGRVKEGIKIVEAMKRGSKNGKSRKKITTADCG-"                                                            
+    e = model.native_energy(sequence=sample_sequence,ignore_contacts_with_gaps=True)
+    assert np.round(e, 4) == -1286.3317
+
+def test_OOP_compute_seq_energy_with_gap_couplings():
+    import subprocess
+    pdb_file = 'examples/data/6U5E_A.pdb'
+    chain = 'A'
+    distance_matrix_method='CB'
+    potts_model_file = "examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
+    filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
+
+    structure=dca_frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence)
+    model = dca_frustratometer.PottsModel.from_potts_model_file(structure, potts_model_file, sequence_cutoff=1,reformat_potts_model=True)
+
+    sample_sequence="--NIAINSLGHVSFELFADKFPKT-ENFRALST-GGYKGSCFHRIILGLLCQGGDFTCHNGTGGK-SVYREKFDDEN--FSMKHGPGILSMANAG--PNTNDSQIFICTAKTEWLDGKHVVSGRVKEGIKIVEAMKRGSKNGKSRKKITTADCG-"                                                            
+    e = model.native_energy(sequence=sample_sequence)
+    assert np.round(e, 4) == -1453.2369
+
 def test_fields_couplings_energy():
     pdb_file = 'examples/data/1cyo.pdb'
     chain = 'A'
