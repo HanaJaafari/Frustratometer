@@ -156,66 +156,104 @@ class Frustratometer:
         view.setStyle({'cartoon':{'color':'white'}})
         
         for i,j,f in frustrated:
-            view.addLine({'start':{'chain':'A','resi':[str(i+shift)]},'end':{'chain':'A','resi':[str(j+shift)]},
+            view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':'A','resi':[str(j+shift)]},
                         'color':'red', 'dashed':False,'linewidth':3})
         
         for i,j,f in minimally_frustrated:
-            view.addLine({'start':{'chain':'A','resi':[str(i+shift)]},'end':{'chain':'A','resi':[str(j+shift)]},
+            view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':'A','resi':[str(j+shift)]},
                         'color':'green', 'dashed':False,'linewidth':3})
 
         view.zoomTo(viewer=(0,0))
 
         return view
 
-    def view_frustration_pair_distribution(self,kind:str ="singleresidue",include_long_range_contacts:bool =True):
-        #Ferrerio et al. (2007) pair distribution analysis included long-range contacts (distance>9.5).
-        if include_long_range_contacts==True:
-            mask=frustration.compute_mask(self.distance_matrix, distance_cutoff=None, sequence_distance_cutoff = 2)
-        else:
-            mask=self.mask
+    # def view_single_frustration(self,  aa_freq:np.array = None, correction:int = 0, max_connections:int = 100, only_frustrated_contacts:bool=False):
+    #     import py3Dmol
+    #     pdb_filename = self.pdb_file
+    #     shift=self.init_index_shift+1
+    #     single_frustration=self.frustration(kind="singleresidue")
+    #     # residues=np.arange(len(self.sequence))
+    #     r1, r2 = np.meshgrid(np.array(list(self.full_to_aligned_index_dict.keys())), np.array(list(self.full_to_aligned_index_dict.keys())), indexing='ij')
+    #     mod_r1, mod_r2 = np.meshgrid(list(self.full_to_aligned_index_dict.values()), list(self.full_to_aligned_index_dict.values()), 
+    #                     indexing='ij', sparse=True)
 
-        frustration_values=self.frustration(kind=kind,mask=mask)
-        residue_ca_coordinates=(self.structure.select('calpha').getCoords())
-
-        if kind=="singleresidue":
-            sel_frustration = np.column_stack((residue_ca_coordinates,np.expand_dims(frustration_values, axis=1)))
-
-        elif kind in ["configurational","mutational"]:
-            i,j=np.meshgrid(range(0,len(self.sequence)),range(0,len(self.sequence)))
-            midpoint_coordinates=(residue_ca_coordinates[i.flatten(),:]+ residue_ca_coordinates[j.flatten(),:])/2
-            sel_frustration = np.column_stack((midpoint_coordinates, frustration_values.ravel()))
-
-        bins=100
-        maximum_shell_radius=20
-        r=np.linspace(0,maximum_shell_radius,num=bins)
-        r_m=(r[1:]+r[:-1])/2
-        shell_vol = 4/3 * np.pi * (r[1:]**3-r[:-1]**3)
-        maximum_shell_vol=4/3 * np.pi *(maximum_shell_radius**3)
-
-        minimally_frustrated_contacts=(sdist.pdist(sel_frustration[sel_frustration[:, -1] >self.minimally_frustrated_threshold][:,:-1]))
-        frustrated_contacts=(sdist.pdist(sel_frustration[sel_frustration[:, -1] <-1][:,:-1]))
-        neutral_contacts=(sdist.pdist(sel_frustration[(sel_frustration[:, -1] > -1) & (sel_frustration[:, -1] < self.minimally_frustrated_threshold)][:,:-1]))
-        total_contacts_count=(len(sel_frustration[sel_frustration[:,-1]!=np.nan][:,-1]))
-
-        minimally_frustrated_hist,_ = np.histogram(minimally_frustrated_contacts,bins=r)
-        frustrated_hist,_ = np.histogram(frustrated_contacts,bins=r)
-        neutral_hist,_=np.histogram(neutral_contacts,bins=r)
+    #     modified_pair_frustration=pair_frustration[mod_r1,mod_r2]
+    #     sel_frustration = np.array([(r1.ravel()), (r2.ravel()), modified_pair_frustration.ravel()]).T
+    #     minimally_frustrated = sel_frustration[sel_frustration[:, -1] > self.minimally_frustrated_threshold]
+    #     frustrated = sel_frustration[sel_frustration[:, -1] < -1]
         
-        with sns.plotting_context("poster"):
-            plt.figure(figsize=(15,12))
+    #     view = py3Dmol.view(js='https://3dmol.org/build/3Dmol.js')
+    #     view.addModel(open(pdb_filename,'r').read(),'pdb')
 
-            g=sns.lineplot(x=r_m,y=np.divide(maximum_shell_vol*minimally_frustrated_hist,(total_contacts_count**2)*shell_vol),color="green",label="Minimally Frustrated")
-            g=sns.lineplot(x=r_m,y=np.divide(maximum_shell_vol*frustrated_hist,(total_contacts_count**2)*shell_vol),color="red",label="Frustrated")
-            g=sns.lineplot(x=r_m,y=np.divide(maximum_shell_vol*neutral_hist,(total_contacts_count**2)*shell_vol),color="gray",label="Neutral")
-            plt.xlabel("Pair Distance (A)"); plt.ylabel("g(r)")
-            plt.legend()
-            plt.show()
+    #     view.setBackgroundColor('white')
+    #     view.setStyle({'cartoon':{'color':'white'}})
+        
+    #     for i,j,f in frustrated:
+    #         view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':self.chain,'resi':[str(j+shift)]},
+    #                     'color':'red', 'dashed':False,'linewidth':3})
+
+    #     if only_frustrated_contacts==False:
+    #         for i,j,f in minimally_frustrated:
+    #             view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':self.chain,'resi':[str(j+shift)]},
+    #                         'color':'green', 'dashed':False,'linewidth':3})
+
+    #     view.zoomTo(viewer=(0,0))
+
+    #     return view
+
+    # def view_frustration_pair_distribution(self,kind:str ="singleresidue",include_long_range_contacts:bool =True):
+    #     #Ferrerio et al. (2007) pair distribution analysis included long-range contacts (distance>9.5).
+    #     if include_long_range_contacts==True:
+    #         mask=frustration.compute_mask(self.distance_matrix, distance_cutoff=None, sequence_distance_cutoff = 2)
+    #     else:
+    #         mask=self.mask
+
+    #     frustration_values=self.frustration(kind=kind,mask=mask)
+    #     residue_ca_coordinates=(self.structure.select('(protein and (name CB) or (resname GLY and name CA))').getCoords())
+
+    #     if kind=="singleresidue":
+    #         sel_frustration = np.column_stack((residue_ca_coordinates,np.expand_dims(frustration_values, axis=1)))
+    #         print(sel_frustration)
+    #         print(sel_frustration.shape)
+
+    #     elif kind in ["configurational","mutational"]:
+    #         i,j=np.meshgrid(range(0,len(self.sequence)),range(0,len(self.sequence)))
+    #         midpoint_coordinates=(residue_ca_coordinates[i.flatten(),:]+ residue_ca_coordinates[j.flatten(),:])/2
+    #         sel_frustration = np.column_stack((midpoint_coordinates, frustration_values.ravel()))
+    #         sel_frustration=sel_frustration[~np.isnan(sel_frustration[:,-1])]
+    #         print(sel_frustration)
+
+    #     bins=20
+    #     maximum_shell_radius=20
+    #     r=np.linspace(0,maximum_shell_radius,num=bins)
+    #     r_m=(r[1:]+r[:-1])/2
+    #     shell_vol = 4/3 * np.pi * (r[1:]**3-r[:-1]**3)
+    #     maximum_shell_vol=4/3 * np.pi *(maximum_shell_radius**3)
+    #     minimally_frustrated_contacts=(sdist.pdist(sel_frustration[sel_frustration[:, -1] >self.minimally_frustrated_threshold][:,:-1]))
+    #     frustrated_contacts=(sdist.pdist(sel_frustration[sel_frustration[:, -1] <-1][:,:-1]))
+    #     neutral_contacts=(sdist.pdist(sel_frustration[(sel_frustration[:, -1] > -1) & (sel_frustration[:, -1] < self.minimally_frustrated_threshold)][:,:-1]))
+    #     total_contacts_count=len(sel_frustration)
+
+    #     minimally_frustrated_hist,_ = np.histogram(minimally_frustrated_contacts,bins=r)
+    #     frustrated_hist,_ = np.histogram(frustrated_contacts,bins=r)
+    #     neutral_hist,_=np.histogram(neutral_contacts,bins=r)
+        
+    #     with sns.plotting_context("poster"):
+    #         plt.figure(figsize=(15,12))
+
+    #         #Fix the volume
+    #         g=sns.lineplot(x=r_m,y=np.divide(minimally_frustrated_hist/shell_vol,(total_contacts_count**2)/maximum_shell_vol**2),color="green",label="Minimally Frustrated")
+    #         g=sns.lineplot(x=r_m,y=np.divide(frustrated_hist/shell_vol,(total_contacts_count**2)/maximum_shell_vol**2),color="red",label="Frustrated")
+    #         g=sns.lineplot(x=r_m,y=np.divide(neutral_hist/shell_vol,(total_contacts_count**2)/maximum_shell_vol**2),color="gray",label="Neutral")
+    #         plt.xlabel("Pair Distance (A)"); plt.ylabel("g(r)")
+    #         plt.legend()
+    #         plt.show()
 
 
     def view_frustration_histogram(self,kind:str = "singleresidue"):
         frustration_values=self.frustration(kind=kind)
 
-        r=np.linspace(-4,4,num=100)
+        r=np.linspace(-5,5,num=200)
 
         if kind=="singleresidue":
             minimally_frustrated=[i for i in frustration_values if i>self.minimally_frustrated_threshold]
