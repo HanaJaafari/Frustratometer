@@ -158,6 +158,49 @@ def test_identify_pfamID():
     pfam_id = dca_frustratometer.map.get_pfamID(pdb_id, chain_id)
     assert pfam_id == expected_pfam_id
 
+def test_distance_matrix():
+    pdb_path = 'examples/data/6U5E_A.pdb'
+    chain_id = 'A'
+
+    distance_matrix = dca_frustratometer.pdb.get_distance_matrix(pdb_path, chain_id, method='CB')
+    original_distance_matrix=np.loadtxt("examples/data/6U5E_A_CB_CB_Distance_Map.txt")
+    assert (original_distance_matrix==distance_matrix).all()
+
+def test_couplings_mask_sequence_threshold():
+    pdb_path = 'examples/data/6U5E_A.pdb'
+    potts_model_path="examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
+    chain_id = 'A'
+    filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
+    structure=dca_frustratometer.Structure.full_pdb(pdb_file=pdb_path,chain=chain_id,filtered_aligned_sequence=filtered_aligned_sequence)
+    DCA_model=dca_frustratometer.PottsModel.from_potts_model_file(structure,potts_model_file=potts_model_path,sequence_cutoff=1)
+    assert all(p == False for p in np.diag(DCA_model.mask))
+
+def test_couplings_mask_distance_threshold():
+    pdb_path = 'examples/data/6U5E_A.pdb'
+    potts_model_path="examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
+    chain_id = 'A'
+    filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
+    structure=dca_frustratometer.Structure.full_pdb(pdb_file=pdb_path,chain=chain_id,filtered_aligned_sequence=filtered_aligned_sequence)
+    DCA_model=dca_frustratometer.PottsModel.from_potts_model_file(structure,potts_model_file=potts_model_path,distance_cutoff=16)
+
+    original_distance_matrix=np.loadtxt("examples/data/6U5E_A_CB_CB_Distance_Map.txt")
+    mask = np.ones([163, 163])
+    mask *=original_distance_matrix<=16
+    assert (DCA_model.mask==mask.astype(np.bool8)).all()
+
+def test_couplings_mask_distance_and_sequence_threshold():
+    pdb_path = 'examples/data/6U5E_A.pdb'
+    potts_model_path="examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
+    chain_id = 'A'
+    filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
+    structure=dca_frustratometer.Structure.full_pdb(pdb_file=pdb_path,chain=chain_id,filtered_aligned_sequence=filtered_aligned_sequence)
+    DCA_model=dca_frustratometer.PottsModel.from_potts_model_file(structure,potts_model_file=potts_model_path,sequence_cutoff=1,distance_cutoff=16)
+
+    original_distance_matrix=np.loadtxt("examples/data/6U5E_A_CB_CB_Distance_Map.txt")
+    mask = np.ones([163, 163])
+    mask *=original_distance_matrix<=16
+    np.fill_diagonal(mask, 0)
+    assert (DCA_model.mask==(mask)).all()
 
 def test_functional_compute_native_energy():
     """Test the functional approach to compute the native energy of a protein."""
