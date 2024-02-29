@@ -4,10 +4,8 @@ from .. import pdb
 from .. import dca
 
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import scipy.spatial.distance as sdist
 
 #Import other modules
 from ..utils import _path

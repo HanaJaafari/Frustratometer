@@ -1,9 +1,7 @@
 """Provide the primary functions."""
-import scipy.spatial.distance as sdist
 import numpy as np
 from ..utils import _path
 from .. import frustration
-import typing
 from .Frustratometer import Frustratometer
 
 __all__ = ['AWSEMFrustratometer']
@@ -63,7 +61,7 @@ class AWSEMFrustratometer(Frustratometer):
         self.water_gamma_ijm = np.fromfile(water_gamma_ijm_file).reshape(2, 20, 20)
         self.protein_gamma_ijm = np.fromfile(protein_gamma_ijm_file).reshape(2, 20, 20)
 
-
+        self.full_to_aligned_index_dict=pdb_structure.full_to_aligned_index_dict
         self.sequence=pdb_structure.sequence
         self.structure=pdb_structure.structure
         self.chain=pdb_structure.chain
