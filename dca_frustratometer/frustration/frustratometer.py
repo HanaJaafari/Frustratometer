@@ -30,7 +30,8 @@ def compute_mask(distance_matrix: np.array,
 def compute_native_energy(seq: str,
                           potts_model: dict,
                           mask: np.array,
-                          ignore_residues_with_gaps: bool = False) -> float:
+                          ignore_couplings_of_gaps: bool = False,
+                          ignore_fields_of_gaps: bool = False) -> float:
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
 
@@ -41,25 +42,29 @@ def compute_native_energy(seq: str,
     j = -potts_model['J'][pos1, pos2, aa1, aa2]
     j_prime = j * mask        
 
-    if ignore_residues_with_gaps==True:
-        gap_indices=[int(i) for i,j in enumerate(seq) if j=="-"]
+    gap_indices=[int(i) for i,j in enumerate(seq) if j=="-"]
+
+    if ignore_couplings_of_gaps==True:
         if len(gap_indices)>0:
-            h[gap_indices]=False
             j_prime[gap_indices,:]=False
             j_prime[:,gap_indices]=False
+
+    if ignore_fields_of_gaps==True:
+        if len(gap_indices)>0:
+            h[gap_indices]=False
 
     energy = h.sum() + j_prime.sum() / 2
     return energy
 
 def compute_fields_energy(seq: str,
                           potts_model: dict,
-                          ignore_residues_with_gaps: bool = False) -> float:
+                          ignore_fields_of_gaps: bool = False) -> float:
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
 
     h = -potts_model['h'][range(seq_len), seq_index]
     
-    if ignore_residues_with_gaps==True:
+    if ignore_fields_of_gaps==True:
         gap_indices=[int(i) for i,j in enumerate(seq) if j=="-"]
         if len(gap_indices)>0:
             h[gap_indices]=False
@@ -69,7 +74,7 @@ def compute_fields_energy(seq: str,
 def compute_couplings_energy(seq: str,
                       potts_model: dict,
                       mask: np.array,
-                      ignore_residues_with_gaps: bool = False) -> float:
+                      ignore_couplings_of_gaps: bool = False) -> float:
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
     pos1, pos2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), indexing='ij', sparse=True)
@@ -77,7 +82,7 @@ def compute_couplings_energy(seq: str,
 
     j = -potts_model['J'][pos1, pos2, aa1, aa2]
     j_prime = j * mask
-    if ignore_residues_with_gaps==True:
+    if ignore_couplings_of_gaps==True:
         gap_indices=[i for i,j in enumerate(seq) if j=="-"]
         if len(gap_indices)>0:
             j_prime[:,gap_indices]=False

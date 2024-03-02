@@ -42,27 +42,27 @@ class Frustratometer:
     #     self._native_energy = None
     #     self._decoy_fluctuation = {}
 
-    def native_energy(self,sequence:str = None,ignore_residues_with_gaps:bool = False):
+    def native_energy(self,sequence:str = None,ignore_couplings_of_gaps:bool=False,ignore_fields_of_gaps:bool = False):
         if sequence is None:
             sequence=self.sequence
         else:
-            self._native_energy=frustration.compute_native_energy(sequence, self.potts_model, self.mask,ignore_residues_with_gaps)
+            self._native_energy=frustration.compute_native_energy(sequence, self.potts_model, self.mask,ignore_couplings_of_gaps,ignore_fields_of_gaps)
         if not self._native_energy:
-            self._native_energy=frustration.compute_native_energy(sequence, self.potts_model, self.mask,ignore_residues_with_gaps)
+            self._native_energy=frustration.compute_native_energy(sequence, self.potts_model, self.mask,ignore_couplings_of_gaps,ignore_fields_of_gaps)
         return self._native_energy
 
     def sequences_energies(self, sequences:np.array, split_couplings_and_fields:bool = False):
         return frustration.compute_sequences_energy(sequences, self.potts_model, self.mask, split_couplings_and_fields)
 
-    def fields_energy(self, sequence:str = None, ignore_residues_with_gaps:bool = False):
+    def fields_energy(self, sequence:str = None, ignore_fields_of_gaps:bool = False):
         if sequence is None:
             sequence=self.sequence
-        return frustration.compute_fields_energy(sequence, self.potts_model,ignore_residues_with_gaps)
+        return frustration.compute_fields_energy(sequence, self.potts_model,ignore_fields_of_gaps)
 
-    def couplings_energy(self, sequence:str = None,ignore_residues_with_gaps:bool = False):
+    def couplings_energy(self, sequence:str = None,ignore_couplings_of_gaps:bool = False):
         if sequence is None:
             sequence=self.sequence
-        return frustration.compute_couplings_energy(sequence, self.potts_model, self.mask,ignore_residues_with_gaps)
+        return frustration.compute_couplings_energy(sequence, self.potts_model, self.mask,ignore_couplings_of_gaps)
         
     def decoy_fluctuation(self, sequence:str = None,kind:str = 'singleresidue',mask:np.array = None):
         if sequence is None:
