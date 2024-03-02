@@ -244,7 +244,7 @@ def test_OOP_compute_seq_energy_with_distance_threshold_without_gap_terms():
                                                                 sequence_cutoff=1,reformat_potts_model=True)
 
     sample_sequence="--NIAINSLGHVSFELFADKFPKT-ENFRALST-GGYKGSCFHRIILGLLCQGGDFTCHNGTGGK-SVYREKFDDEN--FSMKHGPGILSMANAG--PNTNDSQIFICTAKTEWLDGKHVVSGRVKEGIKIVEAMKRGSKNGKSRKKITTADCG-"                                                            
-    e = model.native_energy(sequence=sample_sequence,ignore_residues_with_gaps=True)
+    e = model.native_energy(sequence=sample_sequence,ignore_couplings_of_gaps=True,ignore_fields_of_gaps=True)
     assert np.round(e, 4) == -769.5400
 
 def test_OOP_compute_seq_energy_with_distance_threshold_with_gap_terms():
@@ -277,7 +277,7 @@ def test_OOP_compute_seq_energy_without_gap_terms():
     model = dca_frustratometer.PottsModel.from_potts_model_file(structure, potts_model_file, sequence_cutoff=1,reformat_potts_model=True)
 
     sample_sequence="--NIAINSLGHVSFELFADKFPKT-ENFRALST-GGYKGSCFHRIILGLLCQGGDFTCHNGTGGK-SVYREKFDDEN--FSMKHGPGILSMANAG--PNTNDSQIFICTAKTEWLDGKHVVSGRVKEGIKIVEAMKRGSKNGKSRKKITTADCG-"                                                            
-    e = model.native_energy(sequence=sample_sequence,ignore_residues_with_gaps=True)
+    e = model.native_energy(sequence=sample_sequence,ignore_couplings_of_gaps=True,ignore_fields_of_gaps=True)
     assert np.round(e, 4) == -1265.9532
 
 def test_OOP_compute_seq_energy_with_gap_terms():
