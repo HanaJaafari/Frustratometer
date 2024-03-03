@@ -136,12 +136,18 @@ class Frustratometer:
                                       max_connections=max_connections)
         frustration.call_vmd(self.pdb_file, tcl_script)
 
-    def view_frustration(self, single:str = 'singleresidue', pair:str = 'mutational', aa_freq:np.array = None, correction:int = 0, max_connections:int = 100):
+    def view_frustration(self, sequence:str = None, single:str = 'singleresidue', pair:str = 'mutational', aa_freq:np.array = None, correction:int = 0):
         import py3Dmol
+
+        if sequence is None:
+            sequence=self.sequence
+        
         pdb_filename = self.pdb_file
         shift=self.init_index_shift+1
-        pair_frustration=self.frustration(kind=pair)*np.triu(self.mask)
-        residues=np.arange(len(self.sequence))
+
+        pair_frustration=self.frustration(sequence=sequence, kind=pair)*np.triu(self.mask)
+        residues=np.arange(len(sequence))
+
         r1, r2 = np.meshgrid(residues, residues, indexing='ij')
         sel_frustration = np.array([r1.ravel(), r2.ravel(), pair_frustration.ravel()]).T
         minimally_frustrated = sel_frustration[sel_frustration[:, -1] > 1]
@@ -154,11 +160,11 @@ class Frustratometer:
         view.setStyle({'cartoon':{'color':'white'}})
         
         for i,j,f in frustrated:
-            view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':'A','resi':[str(j+shift)]},
+            view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':self.chain,'resi':[str(j+shift)]},
                         'color':'red', 'dashed':False,'linewidth':3})
         
         for i,j,f in minimally_frustrated:
-            view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':'A','resi':[str(j+shift)]},
+            view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':self.chain,'resi':[str(j+shift)]},
                         'color':'green', 'dashed':False,'linewidth':3})
 
         view.zoomTo(viewer=(0,0))
@@ -248,8 +254,12 @@ class Frustratometer:
     #         plt.show()
 
 
-    def view_frustration_histogram(self,kind:str = "singleresidue"):
-        frustration_values=self.frustration(kind=kind)
+    def view_frustration_histogram(self,sequence:str = None, kind:str = "singleresidue"):
+        
+        if sequence is None:
+            sequence=self.sequence
+        
+        frustration_values=self.frustration(sequence=sequence,kind=kind)
 
         r=np.linspace(-5,5,num=200)
 
