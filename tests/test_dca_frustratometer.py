@@ -202,7 +202,7 @@ def test_couplings_mask_distance_and_sequence_threshold():
     np.fill_diagonal(mask, 0)
     assert (DCA_model.mask==(mask)).all()
 
-def test_functional_compute_native_energy():
+def test_functional_compute_DCA_native_energy():
     """Test the functional approach to compute the native energy of a protein."""
     pdb_path = 'examples/data/1cyo.pdb'
     chain_id = 'A'
@@ -217,7 +217,7 @@ def test_functional_compute_native_energy():
 
     assert np.round(energy, 4) == expected_energy
 
-def test_OOP_compute_native_energy():
+def test_OOP_compute_DCA_native_energy():
     pdb_file = 'examples/data/1cyo.pdb'
     chain = 'A'
     distance_matrix_method='minimum'
@@ -229,7 +229,7 @@ def test_OOP_compute_native_energy():
     e = model.native_energy()
     assert np.round(e, 4) == -61.5248
 
-def test_OOP_compute_seq_energy_with_distance_threshold_without_gap_terms():
+def test_OOP_compute_seq_DCA_energy_with_distance_threshold_without_gap_terms():
     import subprocess
     pdb_file = 'examples/data/6U5E_A.pdb'
     chain = 'A'
@@ -247,7 +247,7 @@ def test_OOP_compute_seq_energy_with_distance_threshold_without_gap_terms():
     e = model.native_energy(sequence=sample_sequence,ignore_couplings_of_gaps=True,ignore_fields_of_gaps=True)
     assert np.round(e, 4) == -769.5400
 
-def test_OOP_compute_seq_energy_with_distance_threshold_with_gap_terms():
+def test_OOP_compute_seq_DCA_energy_with_distance_threshold_with_gap_terms():
     import subprocess
     pdb_file = 'examples/data/6U5E_A.pdb'
     chain = 'A'
@@ -265,7 +265,7 @@ def test_OOP_compute_seq_energy_with_distance_threshold_with_gap_terms():
     e = model.native_energy(sequence=sample_sequence)
     assert np.round(e, 4) == -801.9952
 
-def test_OOP_compute_seq_energy_without_gap_terms():
+def test_OOP_compute_seq_DCA_energy_without_gap_terms():
     import subprocess
     pdb_file = 'examples/data/6U5E_A.pdb'
     chain = 'A'
@@ -280,7 +280,7 @@ def test_OOP_compute_seq_energy_without_gap_terms():
     e = model.native_energy(sequence=sample_sequence,ignore_couplings_of_gaps=True,ignore_fields_of_gaps=True)
     assert np.round(e, 4) == -1265.9532
 
-def test_OOP_compute_seq_energy_with_gap_terms():
+def test_OOP_compute_seq_DCA_energy_with_gap_terms():
     import subprocess
     pdb_file = 'examples/data/6U5E_A.pdb'
     chain = 'A'
@@ -295,7 +295,7 @@ def test_OOP_compute_seq_energy_with_gap_terms():
     e = model.native_energy(sequence=sample_sequence)
     assert np.round(e, 4) == -1453.2369
 
-def test_fields_couplings_energy():
+def test_fields_couplings_DCA_energy():
     pdb_file = 'examples/data/1cyo.pdb'
     chain = 'A'
     distance_matrix_method='minimum'
@@ -311,6 +311,25 @@ def test_AWSEM_native_energy():
     e = model.native_energy()
     print(e)
     assert np.round(e, 0) == -915
+
+def test_AWSEM_fields_energy():
+    structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
+    model=dca_frustratometer.AWSEMFrustratometer(structure)
+    e = model.fields_energy()
+    print(e)
+    assert np.round(e, 0) == -555
+
+def test_AWSEM_couplings_energy():
+    structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
+    model=dca_frustratometer.AWSEMFrustratometer(structure)
+    e = model.couplings_energy()
+    print(e)
+    assert np.round(e, 0) == -362
+
+def test_fields_couplings_AWSEM_energy():
+    structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
+    model = dca_frustratometer.AWSEMFrustratometer(structure)
+    assert model.fields_energy() + model.couplings_energy() - model.native_energy()  < 1E-6
 
 def test_structure_class():
     #PDB has cofactors and ions
