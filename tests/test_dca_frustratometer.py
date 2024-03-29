@@ -9,6 +9,7 @@ import numpy as np
 from pathlib import Path
 import tempfile
 import pytest
+import pandas as pd
 from dca_frustratometer.utils import _path
 import Bio.AlignIO
 
@@ -158,6 +159,12 @@ def test_identify_pfamID():
     pfam_id = dca_frustratometer.map.get_pfamID(pdb_id, chain_id)
     assert pfam_id == expected_pfam_id
 
+def seq_index_mapping():
+    _AA = '-ACDEFGHIKLMNPQRSTVWY'
+    seq="AWYPQ"
+    seq_index = list(np.array([_AA.find(aa) for aa in seq]))
+    assert seq_index==[1,19,20,13,14]
+
 def test_distance_matrix():
     pdb_path = 'examples/data/6U5E_A.pdb'
     chain_id = 'A'
@@ -166,7 +173,7 @@ def test_distance_matrix():
     original_distance_matrix=np.loadtxt("examples/data/6U5E_A_CB_CB_Distance_Map.txt")
     assert (original_distance_matrix==distance_matrix).all()
 
-def test_couplings_mask_sequence_threshold():
+def test_couplings_mask_with_sequence_threshold():
     pdb_path = 'examples/data/6U5E_A.pdb'
     potts_model_path="examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
     chain_id = 'A'
@@ -175,7 +182,7 @@ def test_couplings_mask_sequence_threshold():
     DCA_model=dca_frustratometer.PottsModel.from_potts_model_file(structure,potts_model_file=potts_model_path,sequence_cutoff=1)
     assert all(p == False for p in np.diag(DCA_model.mask))
 
-def test_couplings_mask_distance_threshold():
+def test_couplings_mask_with_distance_threshold():
     pdb_path = 'examples/data/6U5E_A.pdb'
     potts_model_path="examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
     chain_id = 'A'
@@ -188,7 +195,7 @@ def test_couplings_mask_distance_threshold():
     mask *=original_distance_matrix<=16
     assert (DCA_model.mask==mask.astype(np.bool8)).all()
 
-def test_couplings_mask_distance_and_sequence_threshold():
+def test_couplings_mask_with_distance_and_sequence_threshold():
     pdb_path = 'examples/data/6U5E_A.pdb'
     potts_model_path="examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
     chain_id = 'A'
@@ -379,17 +386,17 @@ def test_structure_segment_class_absolute_indices_no_repair():
     assert structure.distance_matrix.shape == (len(structure.sequence),len(structure.sequence))
     assert len(resid)==len(structure.sequence)
 
-def test_selected_subsequence_contact_energy_matrix():
+def test_selected_subsequence_AWSEM_contact_energy_matrix():
     structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/4wnc.pdb',"A",seq_selection="resnum 3to26")
     model=dca_frustratometer.AWSEMFrustratometer(structure)
     assert model.potts_model['h'].shape==(24,21)
 
-def test_selected_subsequence_burial_energy_matrix():
+def test_selected_subsequence_AWSEM_burial_energy_matrix():
     structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/4wnc.pdb',"A",seq_selection="resnum 150to315")
     model=dca_frustratometer.AWSEMFrustratometer(structure)
     assert model.potts_model['J'].shape==(166,166,21,21)
 
-def test_selected_subsequence_burial_energy():
+def test_selected_subsequence_AWSEM_burial_energy():
     structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",seq_selection="resnum 39to146")
     model=dca_frustratometer.AWSEMFrustratometer(structure)
     selected_region_burial=model.fields_energy()
@@ -397,7 +404,7 @@ def test_selected_subsequence_burial_energy():
     assert np.round(selected_region_burial, 2) == -377.95
 
 # @pytest.mark.skip
-def test_selected_subsequence_contact_energy():
+def test_selected_subsequence_AWSEM_contact_energy():
     structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",seq_selection="resnum 39to146")
     model=dca_frustratometer.AWSEMFrustratometer(structure, distance_cutoff_contact=None)
     selected_region_contact=model.couplings_energy()
@@ -414,7 +421,7 @@ def test_scores():
     assert np.round(model.scores()[30, 40], 5) == -0.02234
 
 
-def test_compute_singleresidue_decoy_energy():
+def test_compute_singleresidue_DCA_decoy_energy():
     aa_x = 5
     pos_x = 30
     distance_cutoff = 4
@@ -432,7 +439,7 @@ def test_compute_singleresidue_decoy_energy():
     assert (decoy_energy[pos_x, aa_x] - test_energy) ** 2 < 1E-16
 
 
-def test_compute_mutational_decoy_energy():
+def test_compute_mutational_DCA_decoy_energy():
     aa_x = 5
     pos_x = 30
     aa_y = 7
