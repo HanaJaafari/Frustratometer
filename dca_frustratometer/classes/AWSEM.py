@@ -8,41 +8,61 @@ from .Frustratometer import Frustratometer
 
 __all__ = ['AWSEMFrustratometer']
 
-##################
-# PFAM functions #
-##################
+parameters = dict(r_min = 4.5, # A
+                  r_max = 6.5, # A
+                  
+                  r_minII = 6.5, # A
+                  r_maxII = 9.5, # A
 
+                  eta = 5,  # A^-1.
+                  eta_sigma = 7.0,
+                  rho_0 = 2.6,
 
+                  min_sequence_separation_rho = 2,
+                  min_sequence_separation_contact = 0,  # means j-i > 9
+                  min_sequence_separation_electrostatics=1,
+                  
+
+                  eta_switching = 10 ,
+                  k_contact = 4.184, #kJ
+                  burial_kappa = 4.0,
+                  burial_ro_min = np.array([0.0, 3.0, 6.0]),
+                  burial_ro_max = np.array([3.0, 6.0, 9.0]),
+                  
+                  electrostatics_screening_length = 10
+                  )
+
+##################
+# AWSEM functions #
+##################
 class AWSEMFrustratometer(Frustratometer):
-    # AWSEM parameters
-    r_min = 4.5 # A
-    r_minII = r_max = 6.5 # A
-    r_maxII = 9.5 # A
+    k_contact =  parameters['k_contact']
     
-    eta = 5  # A^-1.
-    eta_sigma = 7.0
-    rho_0 = 2.6
+    r_min = parameters['r_min']
+    r_max = parameters['r_max']
 
-    min_sequence_separation_rho = 2
-    min_sequence_separation_contact = 10  # means j-i > 9
+    r_minII = parameters['r_minII']
+    r_maxII = parameters['r_maxII']
 
-    eta_switching = 10 
-    k_contact = 4.184 #kJ
-    burial_kappa = 4.0
-    burial_ro_min = [0.0, 3.0, 6.0]
-    burial_ro_max = [3.0, 6.0, 9.0]
+    eta = parameters['eta']
+    eta_sigma = parameters['eta_sigma']
+    rho_0 = parameters['rho_0']
 
-    # The following files have a different aminoacid order than the expected by the Frustratometer class.
-    # ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I',
-    #  'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
+    min_sequence_separation_rho = parameters['min_sequence_separation_rho']
+    min_sequence_separation_contact = parameters['min_sequence_separation_contact']
 
+    eta_switching = parameters['eta_switching']
+    burial_kappa = parameters['burial_kappa']
+    burial_ro_min = parameters['burial_ro_min']
+    burial_ro_max = parameters['burial_ro_max']
+
+    electrostatics_screening_length = parameters['electrostatics_screening_length']
     q = 20
 
     #Map of AWSEM order to Frustratometer order
     aa_map_awsem_list = [0, 0, 4, 3, 6, 13, 7, 8, 9, 11, 10, 12, 2, 14, 5, 1, 15, 16, 19, 17, 18] #A gap is equivalent to Alanine
     aa_map_awsem_x, aa_map_awsem_y = np.meshgrid(aa_map_awsem_list, aa_map_awsem_list, indexing='ij')
 
-    electrostatics_screening_length = 10
     
     def __init__(self, 
                  pdb_structure,
@@ -72,26 +92,27 @@ class AWSEMFrustratometer(Frustratometer):
 
         self.distance_matrix=pdb_structure.distance_matrix
         self.distance_cutoff_contact=distance_cutoff_contact
-        self.sequence_cutoff=None
-        self.distance_cutoff=None
-        
+        self.sequence_cutoff=None #Cutoff for dca_frustration, not used here
+        self.distance_cutoff=None #Cutoff for dca_frustration, not used here
+
         self._decoy_fluctuation = {}
-        #self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
         self.mask = frustration.compute_mask(self.distance_matrix, distance_cutoff=self.distance_cutoff_contact, sequence_distance_cutoff = min_sequence_separation_contact)
+    
+            
         selection_CB = self.structure.select('name CB or (resname GLY IGL and name CA)')
         resid = selection_CB.getResindices()
         self.resid=resid
         self.N=len(self.resid)
-
         assert self.N == len(self.sequence), "The pdb is incomplete. Try setting 'repair_pdb=True' when constructing the Structure object."
-        #resname = [self.gamma_se_map_3_letters[aa] for aa in selection_CB.getResnames()]
 
-        #Calculate sequence mask
-        sequence_mask_rho = frustration.compute_mask(self.distance_matrix, distance_cutoff=None, sequence_distance_cutoff = min_sequence_separation_rho)#abs(np.expand_dims(resid, 0) - np.expand_dims(resid, 1)) >= min_sequence_separation_rho
-        sequence_mask_contact = frustration.compute_mask(self.distance_matrix, distance_cutoff=self.distance_cutoff_contact, sequence_distance_cutoff = min_sequence_separation_contact)#abs(np.expand_dims(resid, 0) - np.expand_dims(resid, 1)) >= min_sequence_separation_contact
 
-        self.sequence_mask_rho=sequence_mask_rho
-        self.sequence_mask_contact=sequence_mask_contact
+        sequence_mask_rho = frustration.compute_mask(self.distance_matrix, 
+                                                     distance_cutoff=None, 
+                                                     sequence_distance_cutoff = min_sequence_separation_rho)
+        sequence_mask_contact = frustration.compute_mask(self.distance_matrix, 
+                                                     distance_cutoff=self.distance_cutoff_contact, 
+                                                     sequence_distance_cutoff = min_sequence_separation_contact)
+
         # Calculate rho
         rho = 0.25 
         rho *= (1 + np.tanh(self.eta * (self.distance_matrix- self.r_min))) 
