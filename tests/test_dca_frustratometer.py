@@ -546,7 +546,7 @@ def test_compute_mutational_DCA_decoy_energy():
     decoy_energy = dca_frustratometer.frustration.compute_decoy_energy(seq, potts_model, mask, 'mutational')
     assert (decoy_energy[pos_x, pos_y, aa_x, aa_y] - test_energy) ** 2 < 1E-16
 
-def test_single_residue_average_decoy_AWSEM_energy():
+def test_single_residue_decoy_AWSEM_energy_statistics():
     #Import Lammps AWSEM Frustratometer single residue frustration values
     lammps_single_frustration_dataframe=pd.read_csv(f"{_path}/../tests/data/6U5E_A_tertiary_frustration_singleresidue_1E8decoys_AWSEM_Frustratometer_LAMMPS_Carlos.dat",header=0,sep="\s+")
     ###
@@ -567,19 +567,22 @@ def test_single_residue_average_decoy_AWSEM_energy():
     residue_total_energy=(h +j_prime.sum(axis=0))/4.184
     ###
     decoy_fluctuations=(model.decoy_fluctuation(kind='singleresidue'))/4.184
+    weighted_decoy_fluctations=(model.aa_freq*decoy_fluctuations).sum(axis=1)/ model.aa_freq.sum()
 
     expected_mean_decoy_energy=(model.aa_freq*(residue_total_energy[:, np.newaxis]+decoy_fluctuations)).sum(axis=1)/ model.aa_freq.sum()
+    expected_std_decoy_energy=np.sqrt(((model.aa_freq * (decoy_fluctuations - weighted_decoy_fluctations[:, np.newaxis]) ** 2) / model.aa_freq.sum()).sum(axis=1))
     
     assert (abs(np.array(lammps_single_frustration_dataframe["<decoy_energies>"])-(expected_mean_decoy_energy)) < 1.2E-1).all()
+    assert (abs(np.array(lammps_single_frustration_dataframe["std(decoy_energies)"])-(expected_std_decoy_energy)) < 1.2E-1).all()
 
-def test_contact_pair_average_decoy_AWSEM_energy():
+def test_contact_pair_decoy_AWSEM_energy_statistics():
     #Import Lammps AWSEM Frustratometer mutational frustration values
     lammps_mutational_frustration_dataframe=pd.read_csv(f"{_path}/../tests/data/6U5E_A_tertiary_frustration_mutational_1E6decoys_AWSEM_Frustratometer_LAMMPS_Carlos.dat",header=0,sep="\s+")
     lammps_mutational_frustration_dataframe["i"]=lammps_mutational_frustration_dataframe["i"]-1
     lammps_mutational_frustration_dataframe["j"]=lammps_mutational_frustration_dataframe["j"]-1
     ###
     structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
-    model=dca_frustratometer.AWSEMFrustratometer(structure,distance_cutoff_contact=9.499,
+    model=dca_frustratometer.AWSEMFrustratometer(structure,distance_cutoff_contact=9.5,
                                                   min_sequence_separation_contact=None)
     #Calculate fields
     seq_index = np.array([_AA.find(aa) for aa in structure.sequence])
@@ -603,11 +606,15 @@ def test_contact_pair_average_decoy_AWSEM_energy():
     weighted_decoy_fluctations=np.average(decoy_fluctuations.reshape(seq_len * seq_len, 21 * 21), weights=model.contact_freq.flatten(), axis=-1)
     calculated_mutational_frustration_dataframe["Weighted_Decoy_Fluctuations"]=weighted_decoy_fluctations.ravel()
     calculated_mutational_frustration_dataframe["Test_Mean_Decoy_Energy"]=calculated_mutational_frustration_dataframe["Test_Native_Energy"]+calculated_mutational_frustration_dataframe["Weighted_Decoy_Fluctuations"]
-
+    calculated_mutational_frustration_dataframe["STD_Decoy_Energy"]=np.average((decoy_fluctuations.reshape(seq_len * seq_len, 21 * 21)-calculated_mutational_frustration_dataframe["Weighted_Decoy_Fluctuations"][:,np.newaxis]) ** 2,weights=model.contact_freq.flatten(), axis=-1)
+    calculated_mutational_frustration_dataframe["STD_Decoy_Energy"]=np.sqrt(calculated_mutational_frustration_dataframe["STD_Decoy_Energy"])
+    
     merged_dataframe=calculated_mutational_frustration_dataframe.merge(lammps_mutational_frustration_dataframe,on=["i","j"])
-    merged_dataframe=merged_dataframe.loc[~(merged_dataframe["r_ij"]>=9.5)]
 
     assert (abs(np.array(merged_dataframe["<decoy_energies>"]-merged_dataframe["Test_Mean_Decoy_Energy"])) < 1.2E-1).all()
+    assert (abs(np.array(merged_dataframe["std(decoy_energies)"]-merged_dataframe["STD_Decoy_Energy"])) < 1.2E-1).all()
+
+
 
 @pytest.mark.xfail
 def test_initialize_from_pdb():
