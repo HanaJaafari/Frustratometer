@@ -3,6 +3,7 @@ import numpy as np
 from ..utils import _path
 from .. import frustration
 from .Frustratometer import Frustratometer
+import typing
 
 __all__ = ['AWSEMFrustratometer']
 
@@ -21,8 +22,8 @@ class AWSEMFrustratometer(Frustratometer):
     eta_sigma = 7.0
     rho_0 = 2.6
 
-    min_sequence_separation_rho = 2
-    min_sequence_separation_contact = 10  # means j-i > 9
+    # min_sequence_separation_rho = 2
+    # min_sequence_separation_contact = 10  # means j-i > 9
 
     eta_switching = 10 
     k_contact = 4.184 #kJ
@@ -44,7 +45,7 @@ class AWSEMFrustratometer(Frustratometer):
     
     def __init__(self, 
                  pdb_structure,
-                 distance_cutoff_contact = None, #9.5 for frustratometer    
+                 distance_cutoff_contact = None, #9.5 for frustratometer 
                  min_sequence_separation_rho = 2,
                  min_sequence_separation_contact = 10,
                  min_sequence_separation_electrostatics = 3,
@@ -70,14 +71,18 @@ class AWSEMFrustratometer(Frustratometer):
 
         self.distance_matrix=pdb_structure.distance_matrix
         self.distance_cutoff_contact=distance_cutoff_contact
-        self.sequence_cutoff=None
         self.distance_cutoff=None
+        
+        self.min_sequence_separation_rho=min_sequence_separation_rho
+        self.min_sequence_separation_contact=min_sequence_separation_contact
+        self.min_sequence_separation_electrostatics=min_sequence_separation_electrostatics
+
 
         self.minimally_frustrated_threshold=.78
         
         self._decoy_fluctuation = {}
         #self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
-        self.mask = frustration.compute_mask(self.distance_matrix, distance_cutoff=self.distance_cutoff_contact, sequence_distance_cutoff = min_sequence_separation_contact)
+        self.mask = frustration.compute_mask(self.distance_matrix, distance_cutoff=self.distance_cutoff_contact, sequence_distance_cutoff = None)
         selection_CB = self.structure.select('name CB or (resname GLY IGL and name CA)')
         resid = selection_CB.getResindices()
         self.resid=resid
@@ -94,7 +99,7 @@ class AWSEMFrustratometer(Frustratometer):
         self.sequence_mask_contact=sequence_mask_contact
         # Calculate rho
         rho = 0.25 
-        rho *= (1 + np.tanh(self.eta * (self.distance_matrix- self.r_min))) 
+        rho *= (1 + np.tanh(self.eta * (self.distance_matrix- self.r_min)))
         rho *= (1 + np.tanh(self.eta * (self.r_max - self.distance_matrix)))
         rho *= sequence_mask_rho
         self.rho=rho
@@ -153,6 +158,7 @@ class AWSEMFrustratometer(Frustratometer):
 
         # Compute fast properties
         self.aa_freq = frustration.compute_aa_freq(self.sequence)
+        self.contact_freq = frustration.compute_contact_freq(self.sequence)
         self.potts_model = {}
         self.potts_model['h'] = -burial_energy.sum(axis=-1)[:, self.aa_map_awsem_list]
         self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
