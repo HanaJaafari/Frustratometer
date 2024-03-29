@@ -102,8 +102,8 @@ class PottsModel(Frustratometer):
     @classmethod
     def from_pottsmodel(cls,
                         potts_model: dict,
-                        pdb_file: str,
-                        chain: str,
+                        pdb_file: typing.Union[str, None] = None,
+                        chain: typing.Union[str, None] = None,
                         sequence_cutoff: typing.Union[float, None] = None,
                         distance_cutoff: typing.Union[float, None] = None,
                         distance_matrix_method='minimum'):
@@ -250,148 +250,148 @@ class PottsModel(Frustratometer):
 
 
 
-    # @property
-    # def sequence(self):
-    #     return self._sequence
+    @property
+    def sequence(self):
+        return self._sequence
     
-    # # Set a new sequence in case someone needs to calculate the energy of a diferent sequence with the same structure
-    # @sequence.setter
-    # def sequence(self, value):
-    #     assert len(value) == len(self._sequence)
-    #     self._sequence = value
+    # Set a new sequence in case someone needs to calculate the energy of a diferent sequence with the same structure
+    @sequence.setter
+    def sequence(self, value):
+        assert len(value) == len(self._sequence)
+        self._sequence = value
 
-    # @property
-    # def pdb_file(self):
-    #     return str(self._pdb_file)
+    @property
+    def pdb_file(self):
+        return str(self._pdb_file)
 
-    # # @pdb_file.setter
-    # # def pdb_file(self, value):
-    # #     self._pdb_file = Path(value)
+    # @pdb_file.setter
+    # def pdb_file(self, value):
+    #     self._pdb_file = Path(value)
 
-    # @property
-    # def pdb_name(self, value):
-    #     """
-    #     Returns PDBid from pdb name
-    #     """
-    #     assert self._pdb_file.exists()
-    #     return self._pdb_file.stem
+    @property
+    def pdb_name(self, value):
+        """
+        Returns PDBid from pdb name
+        """
+        assert self._pdb_file.exists()
+        return self._pdb_file.stem
 
-    # @property
-    # def chain(self):
-    #     return self._chain
+    @property
+    def chain(self):
+        return self._chain
 
-    # # @chain.setter
-    # # def chain(self, value):
-    # #     self._chain = value
+    # @chain.setter
+    # def chain(self, value):
+    #     self._chain = value
 
-    # @property
-    # def pfamID(self, value):
-    #     """
-    #     Returns pfamID from pdb name
-    #     """
-    #     return self._pfamID
+    @property
+    def pfamID(self, value):
+        """
+        Returns pfamID from pdb name
+        """
+        return self._pfamID
 
-    # @property
+    @property
+    def alignment_type(self, value):
+        return self._alignment_type
+
+    # @alignment_type.setter
     # def alignment_type(self, value):
-    #     return self._alignment_type
+    #     self._alignment_type = value
 
-    # # @alignment_type.setter
-    # # def alignment_type(self, value):
-    # #     self._alignment_type = value
+    @property
+    def alignment_sequence_database(self, value):
+        return self._alignment_sequence_database
 
-    # @property
+    # @alignment_sequence_database.setter
     # def alignment_sequence_database(self, value):
-    #     return self._alignment_sequence_database
+    #     self._alignment_sequence_database = value
 
-    # # @alignment_sequence_database.setter
-    # # def alignment_sequence_database(self, value):
-    # #     self._alignment_sequence_database = value
+    @property
+    def download_all_alignment_files(self, value):
+        return self._download_all_alignment_files
 
-    # @property
+    # @download_all_alignment_files.setter
     # def download_all_alignment_files(self, value):
-    #     return self._download_all_alignment_files
+    #     self._download_all_alignment_files = value
 
-    # # @download_all_alignment_files.setter
-    # # def download_all_alignment_files(self, value):
-    # #     self._download_all_alignment_files = value
+    @property
+    def alignment_files_directory(self, value):
+        return self._alignment_files_directory
 
-    # @property
+    # @alignment_files_directory.setter
     # def alignment_files_directory(self, value):
-    #     return self._alignment_files_directory
+    #     self._alignment_files_directory = value
 
-    # # @alignment_files_directory.setter
-    # # def alignment_files_directory(self, value):
-    # #     self._alignment_files_directory = value
+    @property
+    def alignment_output_file(self, value):
+        return self._alignment_output_file
 
-    # @property
+    # @alignment_output_file.setter
     # def alignment_output_file(self, value):
-    #     return self._alignment_output_file
+    #     self._alignment_output_file = value
 
-    # # @alignment_output_file.setter
-    # # def alignment_output_file(self, value):
-    # #     self._alignment_output_file = value
+    @property
+    def sequence_cutoff(self):
+        return self._sequence_cutoff
 
-    # @property
-    # def sequence_cutoff(self):
-    #     return self._sequence_cutoff
+    @sequence_cutoff.setter
+    def sequence_cutoff(self, value):
+        self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        self._sequence_cutoff = value
+        self._native_energy = None
+        self._decoy_fluctuation = {}
 
-    # @sequence_cutoff.setter
-    # def sequence_cutoff(self, value):
-    #     self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
-    #     self._sequence_cutoff = value
-    #     self._native_energy = None
-    #     self._decoy_fluctuation = {}
+    @property
+    def distance_cutoff(self):
+        return self._distance_cutoff
 
-    # @property
-    # def distance_cutoff(self):
-    #     return self._distance_cutoff
+    @distance_cutoff.setter
+    def distance_cutoff(self, value):
+        self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        self._distance_cutoff = value
+        self._native_energy = None
+        self._decoy_fluctuation = {}
 
-    # @distance_cutoff.setter
-    # def distance_cutoff(self, value):
-    #     self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
-    #     self._distance_cutoff = value
-    #     self._native_energy = None
-    #     self._decoy_fluctuation = {}
+    @property
+    def distance_matrix_method(self):
+        return self._distance_matrix_method
 
-    # @property
-    # def distance_matrix_method(self):
-    #     return self._distance_matrix_method
+    @distance_matrix_method.setter
+    def distance_matrix_method(self, value):
+        self.distance_matrix = pdb.get_distance_matrix(self._pdb_file, self._chain, value)
+        self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        self._distance_matrix_method = value
+        self._native_energy = None
+        self._decoy_fluctuation = {}
 
-    # @distance_matrix_method.setter
-    # def distance_matrix_method(self, value):
-    #     self.distance_matrix = pdb.get_distance_matrix(self._pdb_file, self._chain, value)
-    #     self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
-    #     self._distance_matrix_method = value
-    #     self._native_energy = None
-    #     self._decoy_fluctuation = {}
+    @property
+    def potts_model_file(self):
+        return self._potts_model_file
 
-    # @property
-    # def potts_model_file(self):
-    #     return self._potts_model_file
+    @potts_model_file.setter
+    def potts_model_file(self, value):
+        if value == None:
+            print("Generating PDB alignment using Jackhmmer")
+            align.create_alignment_jackhmmer(self.sequence, self.pdb_name,
+                                       output_file="dcaf_{}_alignment.sto".format(self.pdb_name))
+            filter.convert_and_filter_alignment(self.pdb_name)
+            dca.matlab.compute_plm(self.pdb_name)
+            raise ValueError("Need to generate potts model")
+        else:
+            self.potts_model = dca.matlab.load_potts_model(value)
+            self._potts_model_file = value
+            self._native_energy = None
+            self._decoy_fluctuation = {}
 
-    # @potts_model_file.setter
-    # def potts_model_file(self, value):
-    #     if value == None:
-    #         print("Generating PDB alignment using Jackhmmer")
-    #         align.create_alignment_jackhmmer(self.sequence, self.pdb_name,
-    #                                    output_file="dcaf_{}_alignment.sto".format(self.pdb_name))
-    #         filter.convert_and_filter_alignment(self.pdb_name)
-    #         dca.matlab.compute_plm(self.pdb_name)
-    #         raise ValueError("Need to generate potts model")
-    #     else:
-    #         self.potts_model = dca.matlab.load_potts_model(value)
-    #         self._potts_model_file = value
-    #         self._native_energy = None
-    #         self._decoy_fluctuation = {}
+    @property
+    def potts_model(self):
+        return self._potts_model
 
-    # @property
-    # def potts_model(self):
-    #     return self._potts_model
-
-    # @potts_model.setter
-    # def potts_model(self, value):
-    #     self._potts_model = value
-    #     self._potts_model_file = None
-    #     self._native_energy = None
-    #     self._decoy_fluctuation = {}
+    @potts_model.setter
+    def potts_model(self, value):
+        self._potts_model = value
+        self._potts_model_file = None
+        self._native_energy = None
+        self._decoy_fluctuation = {}
 
