@@ -100,11 +100,11 @@ class Frustratometer:
             mask=self.mask
         decoy_fluctuation = self.decoy_fluctuation(sequence=sequence,kind=kind, mask=mask)
         if kind == 'singleresidue':
-            if aa_freq is not None:
+            if aa_freq is None:
                 aa_freq = self.aa_freq
             return frustration.compute_single_frustration(decoy_fluctuation, aa_freq, correction)
         elif kind in ['mutational', 'configurational', 'contact']:
-            if aa_freq is not None:
+            if aa_freq is None:
                 aa_freq = self.contact_freq
             return frustration.compute_pair_frustration(decoy_fluctuation, aa_freq, correction)
 
@@ -206,10 +206,18 @@ class Frustratometer:
 
     #     return view
 
-    def generate_frustration_pair_distribution(self,kind:str ="singleresidue"):
-        frustration_values=self.frustration(kind=kind)
+    def generate_frustration_pair_distribution(self,sequence: str =None, kind:str ="singleresidue"):
+        if sequence==None:
+            sequence=self.sequence
+        frustration_values=self.frustration(sequence=sequence,kind=kind)
         
         residue_ca_coordinates=(self.structure.select('(protein and (name CB) or (resname GLY and name CA))').getCoords())
+        
+        if "-" in sequence:
+            original_residue_ca_coordinates=residue_ca_coordinates
+            mapped_residues=list(self.structure.full_to_aligned_index_dict.values())
+            residue_ca_coordinates=original_residue_ca_coordinates[mapped_residues,:]
+            print(len(residue_ca_coordinates))
 
         if kind=="singleresidue":
             sel_frustration = np.column_stack((residue_ca_coordinates,np.expand_dims(frustration_values, axis=1)))
@@ -238,24 +246,26 @@ class Frustratometer:
 
         minimally_frustrated_hist,_ = np.histogram(minimally_frustrated_contacts,bins=r)
         minimally_frustrated_gr=np.divide(minimally_frustrated_hist,shell_vol)
-        minimally_frustrated_gr*=minimally_frustrated_gr*maximum_shell_volume
+        # minimally_frustrated_gr*=minimally_frustrated_gr*maximum_shell_volume
         minimally_frustrated_gr=np.divide(minimally_frustrated_gr,(len(minimally_frustrated_contacts)))
 
         frustrated_hist,_= np.histogram(frustrated_contacts,bins=r)
         frustrated_gr=np.divide(frustrated_hist,shell_vol)
-        frustrated_gr*=frustrated_gr*maximum_shell_volume
+        # frustrated_gr*=frustrated_gr*maximum_shell_volume
         frustrated_gr=np.divide(frustrated_gr,(len(frustrated_contacts)))
 
         neutral_hist,_=np.histogram(neutral_contacts,bins=r)
         neutral_gr=np.divide(neutral_hist,shell_vol)
-        neutral_gr*=neutral_gr*maximum_shell_volume
+        # neutral_gr*=neutral_gr*maximum_shell_volume
         neutral_gr=np.divide(neutral_gr,(len(neutral_contacts)))
 
         return minimally_frustrated_gr,frustrated_gr,neutral_gr,r_m
 
 
-    def view_frustration_pair_distribution(self,kind:str ="singleresidue"):
-        minimally_frustrated_gr,frustrated_gr,neutral_gr,r_m=self.generate_frustration_pair_distribution(kind=kind)
+    def view_frustration_pair_distribution(self,sequence: str =None,kind:str ="singleresidue"):
+        if sequence==None:
+            sequence=self.sequence
+        minimally_frustrated_gr,frustrated_gr,neutral_gr,r_m=self.generate_frustration_pair_distribution(sequence=sequence,kind=kind)
         
         with sns.plotting_context("poster"):
             plt.figure(figsize=(15,12))
