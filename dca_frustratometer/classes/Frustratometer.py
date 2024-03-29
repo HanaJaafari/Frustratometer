@@ -47,7 +47,7 @@ class Frustratometer:
         if sequence is None:
             sequence=self.sequence
         else:
-            self._native_energy=frustration.compute_native_energy(sequence, self.potts_model, self.mask,ignore_contacts_with_gaps)
+            return frustration.compute_native_energy(sequence, self.potts_model, self.mask,ignore_contacts_with_gaps)
         if not self._native_energy:
             self._native_energy=frustration.compute_native_energy(sequence, self.potts_model, self.mask,ignore_contacts_with_gaps)
         return self._native_energy
