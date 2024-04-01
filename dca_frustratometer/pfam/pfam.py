@@ -81,7 +81,7 @@ def get_alignment(pfamid, database_path):
         raise(IOError, 'Multiple files found')
     return Path(files[0])
 
-def alignment(pfamid,
+def download_aligment(pfamid,
               output_file,
               alignment_type='full'):
     """'

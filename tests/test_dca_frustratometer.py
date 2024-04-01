@@ -71,7 +71,7 @@ def test_download_pfam_alignment():
         assert output_text == ""
 
         # Download the PF09696 alignment
-        output = dca_frustratometer.pfam.alignment('PF09696', output)
+        output = dca_frustratometer.pfam.download_aligment('PF09696', output, alignment_type='seed')
         assert output.exists()
 
         # Check that the downloaded alignment is correct
@@ -172,7 +172,7 @@ def seq_index_mapping():
 #####
 
 def test_distance_matrix():
-    pdb_path = 'examples/data/6U5E_A.pdb'
+    pdb_path = 'tests/data/6u5e.pdb'
     chain_id = 'A'
 
     distance_matrix = dca_frustratometer.pdb.get_distance_matrix(pdb_path, chain_id, method='CB')
