@@ -4,6 +4,7 @@ import os
 import subprocess
 import Bio.PDB.Polypeptide as poly
 import numpy as np
+from typing import Union
 
 __all__ = ['Structure']
 
@@ -12,7 +13,7 @@ residue_names=[]
 class Structure:
     
     @classmethod
-    def full_pdb(cls,pdb_file: str, chain: str, aligned_sequence: str = None, filtered_aligned_sequence: str = None,
+    def full_pdb(cls,pdb_file: str, chain: Union[str|None]=None, aligned_sequence: str = None, filtered_aligned_sequence: str = None,
                 distance_matrix_method:str = 'CB', pdb_directory: str=os.getcwd(), repair_pdb:bool = False):
 
         """
@@ -59,7 +60,10 @@ class Structure:
             fixer=pdb.repair_pdb(pdb_file, chain, pdb_directory)
             self.pdb_file=f"{pdb_directory}/{self.pdbID}_cleaned.pdb"
 
-        self.structure = prody.parsePDB(self.pdb_file, chain=self.chain).select('protein')
+        if chain is None:
+            self.structure = prody.parsePDB(self.pdb_file).select('protein')
+        else:
+            self.structure = prody.parsePDB(self.pdb_file, chain=self.chain).select('protein')
         self.sequence=pdb.get_sequence(self.pdb_file,self.chain)
         self.distance_matrix=pdb.get_distance_matrix(pdb_file=self.pdb_file,chain=self.chain,
                                                      method=self.distance_matrix_method)
@@ -202,7 +206,6 @@ class Structure:
                                                   self.init_index_shift:self.fin_index_shift]
         self.sequence=self.sequence[self.init_index_shift:self.fin_index_shift]
         return self
-
     # @property
     # def sequence(self):
     #     return self._sequence

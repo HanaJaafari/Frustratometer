@@ -69,9 +69,9 @@ class AWSEMFrustratometer(Frustratometer):
                  distance_cutoff_contact = None, #9.5 for frustratometer    
                  min_sequence_separation_rho = 2,
                  min_sequence_separation_contact = 10,
-                 min_sequence_separation_electrostatics = 3,
+                 min_sequence_separation_electrostatics = 1,
                  expose_indicator_functions=False,
-                 electrostatics = False,
+                 k_electrostatics = 0,
                  burial_gamma_file = f'{_path}/data/burial_gamma',
                  gamma_ijm_file = f'{_path}/data/gamma_ijm',
                  water_gamma_ijm_file = f'{_path}/data/water_gamma_ijm',
@@ -82,7 +82,6 @@ class AWSEMFrustratometer(Frustratometer):
         self.gamma_ijm = np.fromfile(gamma_ijm_file).reshape(2, 20, 20)
         self.water_gamma_ijm = np.fromfile(water_gamma_ijm_file).reshape(2, 20, 20)
         self.protein_gamma_ijm = np.fromfile(protein_gamma_ijm_file).reshape(2, 20, 20)
-
 
         self.sequence=pdb_structure.sequence
         self.structure=pdb_structure.structure
@@ -96,7 +95,7 @@ class AWSEMFrustratometer(Frustratometer):
         self.distance_cutoff=None #Cutoff for dca_frustration, not used here
 
         self._decoy_fluctuation = {}
-        self.mask = frustration.compute_mask(self.distance_matrix, distance_cutoff=self.distance_cutoff_contact, sequence_distance_cutoff = min_sequence_separation_contact)
+        self.mask = frustration.compute_mask(self.distance_matrix, distance_cutoff=None, sequence_distance_cutoff = None)
     
             
         selection_CB = self.structure.select('name CB or (resname GLY IGL and name CA)')
@@ -159,13 +158,13 @@ class AWSEMFrustratometer(Frustratometer):
         contact_energy = -self.k_contact * np.array([direct, water_mediated, protein_mediated]) * sequence_mask_contact[np.newaxis, :, :, np.newaxis, np.newaxis]
 
         # Compute electrostatics
-        if electrostatics:
+        if k_electrostatics!=0:
             electrostatics_mask = frustration.compute_mask(self.distance_matrix, distance_cutoff=None, sequence_distance_cutoff=min_sequence_separation_electrostatics)
             # ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
             charges = np.array([0, 1, 0, -1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
             charges2 = charges[:,np.newaxis]*charges[np.newaxis,:]
 
-            electrostatics_indicator = 4.15 * 4.184 / (self.distance_matrix + 1E-6) *\
+            electrostatics_indicator = k_electrostatics * 4.184 / (self.distance_matrix + 1E-6) *\
                                        np.exp(-self.distance_matrix / self.electrostatics_screening_length) * electrostatics_mask
             electrostatics_energy = (charges2[np.newaxis,np.newaxis,:,:]*electrostatics_indicator[:,:,np.newaxis,np.newaxis])
 
@@ -174,6 +173,7 @@ class AWSEMFrustratometer(Frustratometer):
 
         # Compute fast properties
         self.aa_freq = frustration.compute_aa_freq(self.sequence)
+        self.contact_freq = frustration.compute_contact_freq(self.sequence)
         self.potts_model = {}
         self.potts_model['h'] = -burial_energy.sum(axis=-1)[:, self.aa_map_awsem_list]
         self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
