@@ -4,16 +4,16 @@ Unit and regression test for the dca_frustratometer package.
 
 # Import package, test suite, and other packages as needed
 import sys
-import dca_frustratometer
+import frustratometer
 import numpy as np
 from pathlib import Path
 import tempfile
 import pytest
 import pandas as pd
-from dca_frustratometer.utils import _path
+from frustratometer.utils import _path
 import Bio.AlignIO
 
-data_path = dca_frustratometer.utils.create_directory(_path/'..'/'tests'/'data')
+data_path = frustratometer.utils.create_directory(_path/'..'/'tests'/'data')
 #scratch_path = dca_frustratometer.utils.create_directory(_path/'..'/'tests'/'scratch')
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
@@ -36,7 +36,7 @@ def test_download_pfam_database():
         scratch_path = Path(scratch_path)
 
         # Call the download_database function with the specified URL and name
-        alignments_path = dca_frustratometer.pfam.download_database(scratch_path, url=url, name=name)
+        alignments_path = frustratometer.pfam.download_database(scratch_path, url=url, name=name)
 
         # Check that the non-existent file is not present in the downloaded files
         assert not (alignments_path / non_existent_file).exists(), f"{non_existent_file} should not exist in the downloaded files."
@@ -47,13 +47,13 @@ def test_download_pfam_database():
 def test_get_alignment_from_database():
     """Test that the get_alignment function retrieves the correct alignment files."""
     # Test the first alignment (PF17182)
-    alignment_file = dca_frustratometer.pfam.get_alignment('PF17182', data_path / 'pfam_database')
+    alignment_file = frustratometer.pfam.get_alignment('PF17182', data_path / 'pfam_database')
     assert alignment_file.exists()
     alignment_text = alignment_file.read_text()
     assert "#=GF AC   PF17182" in alignment_text
 
     # Test the second alignment (PF09696)
-    alignment_file = dca_frustratometer.pfam.get_alignment('PF09696', data_path / 'pfam_database')
+    alignment_file = frustratometer.pfam.get_alignment('PF09696', data_path / 'pfam_database')
     assert alignment_file.exists()
     alignment_text = alignment_file.read_text()
     assert "#=GF AC   PF09696" in alignment_text
@@ -71,7 +71,7 @@ def test_download_pfam_alignment():
         assert output_text == ""
 
         # Download the PF09696 alignment
-        output = dca_frustratometer.pfam.download_aligment('PF09696', output, alignment_type='seed')
+        output = frustratometer.pfam.download_aligment('PF09696', output, alignment_type='seed')
         assert output.exists()
 
         # Check that the downloaded alignment is correct
@@ -90,7 +90,7 @@ def test_filter_alignment_memory():
         output_file = Path(output_handle.name)
 
         # Filter the alignment using the in-memory method
-        filtered_file = dca_frustratometer.filter.filter_alignment(alignment_file, output_file)
+        filtered_file = frustratometer.filter.filter_alignment(alignment_file, output_file)
 
         # Check the results of the filtering
         assert filtered_file.exists()
@@ -111,7 +111,7 @@ def test_filter_alignment_lowmem():
         output_file = Path(output_handle.name)
 
         # Filter the alignment using the low-memory method
-        filtered_file = dca_frustratometer.filter.filter_alignment_lowmem(alignment_file, output_file)
+        filtered_file = frustratometer.filter.filter_alignment_lowmem(alignment_file, output_file)
 
         # Check the results of the filtering
         assert filtered_file.exists()
@@ -128,7 +128,7 @@ def test_generate_and_filter_hmmer_alignment():
     protein_sequence="GSWTEHKSPDGRTYYYNTETKQSTWEKPDD"
     with tempfile.NamedTemporaryFile(mode="w", prefix="dcaf_", suffix='_filtered_disk.sto') as output_handle:
         output_file = Path(output_handle.name)
-        alignment_file=dca_frustratometer.align.jackhmmer(protein_sequence,output_file,sequence_database)
+        alignment_file=frustratometer.align.jackhmmer(protein_sequence,output_file,sequence_database)
         assert alignment_file.exists()
         output_text = alignment_file.read_text()
         assert "# STOCKHOLM" in output_text
@@ -148,7 +148,7 @@ def test_create_potts_model_from_aligment():
         pytest.skip('pydca module not installed')
     
     filtered_file=data_path/'PF09696.12_gaps_filtered.fasta'
-    potts_model = dca_frustratometer.dca.pydca.plmdca(str(filtered_file))
+    potts_model = frustratometer.dca.pydca.plmdca(str(filtered_file))
     assert 'h' in potts_model.keys()
     assert 'J' in potts_model.keys()
 
@@ -158,7 +158,7 @@ def test_identify_pfamID():
     chain_id = "A"
     expected_pfam_id = "PF00160"
 
-    pfam_id = dca_frustratometer.map.get_pfamID(pdb_id, chain_id)
+    pfam_id = frustratometer.map.get_pfamID(pdb_id, chain_id)
     assert pfam_id == expected_pfam_id
 
 def seq_index_mapping():
@@ -175,7 +175,7 @@ def test_distance_matrix():
     pdb_path = 'tests/data/6u5e.pdb'
     chain_id = 'A'
 
-    distance_matrix = dca_frustratometer.pdb.get_distance_matrix(pdb_path, chain_id, method='CB')
+    distance_matrix = frustratometer.pdb.get_distance_matrix(pdb_path, chain_id, method='CB')
     original_distance_matrix=np.loadtxt("examples/data/6U5E_A_CB_CB_Distance_Map.txt")
     assert (original_distance_matrix==distance_matrix).all()
 
@@ -184,8 +184,8 @@ def test_couplings_mask_with_sequence_threshold():
     potts_model_path="examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
     chain_id = 'A'
     filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
-    structure=dca_frustratometer.Structure.full_pdb(pdb_file=pdb_path,chain=chain_id,filtered_aligned_sequence=filtered_aligned_sequence)
-    DCA_model=dca_frustratometer.PottsModel.from_potts_model_file(structure,potts_model_file=potts_model_path,sequence_cutoff=1)
+    structure=frustratometer.Structure.full_pdb(pdb_file=pdb_path,chain=chain_id,filtered_aligned_sequence=filtered_aligned_sequence)
+    DCA_model=frustratometer.DCA.from_potts_model_file(structure,potts_model_file=potts_model_path,sequence_cutoff=1)
     assert all(p == False for p in np.diag(DCA_model.mask))
 
 def test_couplings_mask_with_distance_threshold():
@@ -193,8 +193,8 @@ def test_couplings_mask_with_distance_threshold():
     potts_model_path="examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
     chain_id = 'A'
     filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
-    structure=dca_frustratometer.Structure.full_pdb(pdb_file=pdb_path,chain=chain_id,filtered_aligned_sequence=filtered_aligned_sequence)
-    DCA_model=dca_frustratometer.PottsModel.from_potts_model_file(structure,potts_model_file=potts_model_path,distance_cutoff=16)
+    structure=frustratometer.Structure.full_pdb(pdb_file=pdb_path,chain=chain_id,filtered_aligned_sequence=filtered_aligned_sequence)
+    DCA_model=frustratometer.DCA.from_potts_model_file(structure,potts_model_file=potts_model_path,distance_cutoff=16)
 
     original_distance_matrix=np.loadtxt("examples/data/6U5E_A_CB_CB_Distance_Map.txt")
     mask = np.ones([163, 163])
@@ -206,8 +206,8 @@ def test_couplings_mask_with_distance_and_sequence_threshold():
     potts_model_path="examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
     chain_id = 'A'
     filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
-    structure=dca_frustratometer.Structure.full_pdb(pdb_file=pdb_path,chain=chain_id,filtered_aligned_sequence=filtered_aligned_sequence)
-    DCA_model=dca_frustratometer.PottsModel.from_potts_model_file(structure,potts_model_file=potts_model_path,sequence_cutoff=1,distance_cutoff=16)
+    structure=frustratometer.Structure.full_pdb(pdb_file=pdb_path,chain=chain_id,filtered_aligned_sequence=filtered_aligned_sequence)
+    DCA_model=frustratometer.DCA.from_potts_model_file(structure,potts_model_file=potts_model_path,sequence_cutoff=1,distance_cutoff=16)
 
     original_distance_matrix=np.loadtxt("examples/data/6U5E_A_CB_CB_Distance_Map.txt")
     mask = np.ones([163, 163])
@@ -226,11 +226,11 @@ def test_functional_compute_DCA_native_energy():
     potts_model_path = 'examples/data/PottsModel1cyoA.mat'
     expected_energy = -61.5248
 
-    sequence = dca_frustratometer.pdb.get_sequence(pdb_path, chain_id)
-    distance_matrix = dca_frustratometer.pdb.get_distance_matrix(pdb_path, chain_id, method='minimum')
-    potts_model = dca_frustratometer.dca.matlab.load_potts_model(potts_model_path)
-    mask = dca_frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff=4, sequence_distance_cutoff=0)
-    energy = dca_frustratometer.frustration.compute_native_energy(sequence, potts_model, mask)
+    sequence = frustratometer.pdb.get_sequence(pdb_path, chain_id)
+    distance_matrix = frustratometer.pdb.get_distance_matrix(pdb_path, chain_id, method='minimum')
+    potts_model = frustratometer.dca.matlab.load_potts_model(potts_model_path)
+    mask = frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff=4, sequence_distance_cutoff=0)
+    energy = frustratometer.frustration.compute_native_energy(sequence, potts_model, mask)
 
     assert np.round(energy, 4) == expected_energy
 
@@ -239,8 +239,8 @@ def test_OOP_compute_DCA_native_energy():
     chain = 'A'
     distance_matrix_method='minimum'
     potts_model_file = 'examples/data/PottsModel1cyoA.mat'
-    structure=dca_frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method)
-    model = dca_frustratometer.PottsModel.from_potts_model_file(structure, potts_model_file, distance_cutoff=4,
+    structure=frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method)
+    model = frustratometer.DCA.from_potts_model_file(structure, potts_model_file, distance_cutoff=4,
                                                                 sequence_cutoff=0)
                                                                 
     e = model.native_energy()
@@ -256,8 +256,8 @@ def test_OOP_compute_seq_DCA_energy_with_distance_threshold_without_gap_terms():
     aligned_sequence=subprocess.check_output(["sed","-n",""'/>%s$/,/>/p'"" % "6U5E_A",'examples/data/PF00160_all_pseudogene_parent_sequences_aligned_PFAM_27.fasta'])
     aligned_sequence="".join(aligned_sequence.decode().split("\n")[1:-2])
 
-    structure=dca_frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence,aligned_sequence=aligned_sequence)
-    model = dca_frustratometer.PottsModel.from_potts_model_file(structure, potts_model_file, distance_cutoff=16,
+    structure=frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence,aligned_sequence=aligned_sequence)
+    model = frustratometer.DCA.from_potts_model_file(structure, potts_model_file, distance_cutoff=16,
                                                                 sequence_cutoff=1,reformat_potts_model=True)
 
     sample_sequence="--NIAINSLGHVSFELFADKFPKT-ENFRALST-GGYKGSCFHRIILGLLCQGGDFTCHNGTGGK-SVYREKFDDEN--FSMKHGPGILSMANAG--PNTNDSQIFICTAKTEWLDGKHVVSGRVKEGIKIVEAMKRGSKNGKSRKKITTADCG-"                                                            
@@ -274,8 +274,8 @@ def test_OOP_compute_seq_DCA_energy_with_distance_threshold_with_gap_terms():
     aligned_sequence=subprocess.check_output(["sed","-n",""'/>%s$/,/>/p'"" % "6U5E_A",'examples/data/PF00160_all_pseudogene_parent_sequences_aligned_PFAM_27.fasta'])
     aligned_sequence="".join(aligned_sequence.decode().split("\n")[1:-2])
 
-    structure=dca_frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence,aligned_sequence=aligned_sequence)
-    model = dca_frustratometer.PottsModel.from_potts_model_file(structure, potts_model_file, distance_cutoff=16,
+    structure=frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence,aligned_sequence=aligned_sequence)
+    model = frustratometer.DCA.from_potts_model_file(structure, potts_model_file, distance_cutoff=16,
                                                                 sequence_cutoff=1,reformat_potts_model=True)
 
     sample_sequence="--NIAINSLGHVSFELFADKFPKT-ENFRALST-GGYKGSCFHRIILGLLCQGGDFTCHNGTGGK-SVYREKFDDEN--FSMKHGPGILSMANAG--PNTNDSQIFICTAKTEWLDGKHVVSGRVKEGIKIVEAMKRGSKNGKSRKKITTADCG-"                                                            
@@ -290,8 +290,8 @@ def test_OOP_compute_seq_DCA_energy_without_gap_terms():
     potts_model_file = "examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
     filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
 
-    structure=dca_frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence)
-    model = dca_frustratometer.PottsModel.from_potts_model_file(structure, potts_model_file, sequence_cutoff=1,reformat_potts_model=True)
+    structure=frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence)
+    model = frustratometer.DCA.from_potts_model_file(structure, potts_model_file, sequence_cutoff=1,reformat_potts_model=True)
 
     sample_sequence="--NIAINSLGHVSFELFADKFPKT-ENFRALST-GGYKGSCFHRIILGLLCQGGDFTCHNGTGGK-SVYREKFDDEN--FSMKHGPGILSMANAG--PNTNDSQIFICTAKTEWLDGKHVVSGRVKEGIKIVEAMKRGSKNGKSRKKITTADCG-"                                                            
     e = model.native_energy(sequence=sample_sequence,ignore_couplings_of_gaps=True,ignore_fields_of_gaps=True)
@@ -305,8 +305,8 @@ def test_OOP_compute_seq_DCA_energy_with_gap_terms():
     potts_model_file = "examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
     filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
 
-    structure=dca_frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence)
-    model = dca_frustratometer.PottsModel.from_potts_model_file(structure, potts_model_file, sequence_cutoff=1,reformat_potts_model=True)
+    structure=frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence)
+    model = frustratometer.DCA.from_potts_model_file(structure, potts_model_file, sequence_cutoff=1,reformat_potts_model=True)
 
     sample_sequence="--NIAINSLGHVSFELFADKFPKT-ENFRALST-GGYKGSCFHRIILGLLCQGGDFTCHNGTGGK-SVYREKFDDEN--FSMKHGPGILSMANAG--PNTNDSQIFICTAKTEWLDGKHVVSGRVKEGIKIVEAMKRGSKNGKSRKKITTADCG-"                                                            
     e = model.native_energy(sequence=sample_sequence)
@@ -317,8 +317,8 @@ def test_fields_couplings_DCA_energy():
     chain = 'A'
     distance_matrix_method='minimum'
     potts_model_file = 'examples/data/PottsModel1cyoA.mat'
-    structure=dca_frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method)
-    model = dca_frustratometer.PottsModel.from_potts_model_file(structure, potts_model_file, distance_cutoff=4,
+    structure=frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method)
+    model = frustratometer.DCA.from_potts_model_file(structure, potts_model_file, distance_cutoff=4,
                                                                 sequence_cutoff=0)
     assert model.fields_energy() + model.couplings_energy() - model.native_energy()  < 1E-6
 
@@ -332,44 +332,44 @@ def test_residue_density_calculation():
     lammps_single_frustration_dataframe["i"]=lammps_single_frustration_dataframe["i"]-1
     expected_rho_values=lammps_single_frustration_dataframe["rho_i"]
 
-    structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
-    model=dca_frustratometer.AWSEMFrustratometer(structure,distance_cutoff_contact=9.499,
+    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
+    model=frustratometer.AWSEM(structure,distance_cutoff_contact=9.499,
                                                   min_sequence_separation_contact=2)
     check_rho_values=model.rho_r
     assert np.round(model.rho_r,2).all()==np.round(expected_rho_values,2).all()
 
 def test_AWSEM_native_energy():
-    structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../examples/data/1l63.pdb',"A")
-    model=dca_frustratometer.AWSEMFrustratometer(structure)
+    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/1l63.pdb',"A")
+    model=frustratometer.AWSEM(structure)
     e = model.native_energy()
     print(e)
     assert np.round(e, 0) == -915
 
 def test_AWSEM_fields_energy():
-    structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
-    model=dca_frustratometer.AWSEMFrustratometer(structure)
+    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
+    model=frustratometer.AWSEM(structure)
     e = model.fields_energy()
     print(e)
     assert np.round(e, 0) == -555
 
 def test_AWSEM_couplings_energy():
-    structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
-    model=dca_frustratometer.AWSEMFrustratometer(structure)
+    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
+    model=frustratometer.AWSEM(structure)
     e = model.couplings_energy()
     print(e)
     assert np.round(e, 0) == -362
 
 def test_fields_couplings_AWSEM_energy():
-    structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
-    model = dca_frustratometer.AWSEMFrustratometer(structure)
+    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
+    model = frustratometer.AWSEM(structure)
     assert model.fields_energy() + model.couplings_energy() - model.native_energy()  < 1E-6
 
 def test_single_residue_AWSEM_energy():
     #Import Lammps AWSEM Frustratometer single residue frustration values
     lammps_single_frustration_dataframe=pd.read_csv(f"{_path}/../tests/data/6U5E_A_tertiary_frustration_singleresidue_1E8decoys_AWSEM_Frustratometer_LAMMPS_Carlos.dat",header=0,sep="\s+")
     ###
-    structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
-    model=dca_frustratometer.AWSEMFrustratometer(structure,distance_cutoff_contact=9.499,
+    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
+    model=frustratometer.AWSEM(structure,distance_cutoff_contact=9.499,
                                                   min_sequence_separation_contact=2)
     #Calculate fields
     seq_index = np.array([_AA.find(aa) for aa in structure.sequence])
@@ -392,8 +392,8 @@ def test_contact_pair_AWSEM_energy():
     lammps_mutational_frustration_dataframe["i"]=lammps_mutational_frustration_dataframe["i"]-1
     lammps_mutational_frustration_dataframe["j"]=lammps_mutational_frustration_dataframe["j"]-1
     ###
-    structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
-    model=dca_frustratometer.AWSEMFrustratometer(structure,distance_cutoff_contact=9.499,
+    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
+    model=frustratometer.AWSEM(structure,distance_cutoff_contact=9.499,
                                                   min_sequence_separation_contact=None)
     #Calculate fields
     seq_index = np.array([_AA.find(aa) for aa in structure.sequence])
@@ -417,7 +417,7 @@ def test_contact_pair_AWSEM_energy():
 #####
 def test_structure_class():
     #PDB has cofactors and ions
-    structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../tests/data/1rnb.pdb',"A")
+    structure=frustratometer.Structure.full_pdb(f'{_path}/../tests/data/1rnb.pdb',"A")
     test_sequence="QVINTFDGVADYLQTYHKLPNDYITKSEAQALGWVASKGNLADVAPGKSIGGDIFSNREGKLPGKSGRTWREADINYTSGFRNSDRILYSSDWLIYKTTDHYQTFTKIR"
     assert structure.sequence==test_sequence
     assert structure.distance_matrix.shape==(len(test_sequence),len(test_sequence))
@@ -425,7 +425,7 @@ def test_structure_class():
 @pytest.mark.skip
 def test_structure_segment_class_original_indices():
     #PDB has cofactors and ions
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/3ptn.pdb',"A",seq_selection="resnum `16to41`")
+    structure=frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/3ptn.pdb',"A",seq_selection="resnum `16to41`")
     test_sequence="IVGGYTCGANTVPYQVSLNSGYHF"
     selection_CB = structure.structure.select('name CB or (resname GLY IGL and name CA)')
     resid = selection_CB.getResindices()
@@ -437,7 +437,7 @@ def test_structure_segment_class_original_indices():
 
 def test_structure_segment_class_absolute_indices():
     #PDB has cofactors and ions
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/3ptn.pdb',"A",seq_selection="resindex `0to23`")
+    structure=frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/3ptn.pdb',"A",seq_selection="resindex `0to23`")
     test_sequence="IVGGYTCGANTVPYQVSLNSGYHF"
     selection_CB = structure.structure.select('name CB or (resname GLY IGL and name CA)')
     resid = selection_CB.getResindices()
@@ -450,7 +450,7 @@ def test_structure_segment_class_absolute_indices():
 #####
 
 def test_structure_segment_class_original_indices_no_repair():
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1rnb.pdb',"A",seq_selection="resnum `2to21`",repair_pdb=False)
+    structure=frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1rnb.pdb',"A",seq_selection="resnum `2to21`",repair_pdb=False)
     test_sequence="QVINTFDGVADYLQTYHKLP"
     selection_CB = structure.structure.select('name CB or (resname GLY IGL and name CA)')
     resid = selection_CB.getResindices()
@@ -459,7 +459,7 @@ def test_structure_segment_class_original_indices_no_repair():
     assert len(resid)==len(structure.sequence)
 
 def test_structure_segment_class_absolute_indices_no_repair():
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1rnb.pdb',"A",seq_selection="resindex `0to19`",repair_pdb=False)
+    structure=frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1rnb.pdb',"A",seq_selection="resindex `0to19`",repair_pdb=False)
     test_sequence="QVINTFDGVADYLQTYHKLP"
     selection_CB = structure.structure.select('name CB or (resname GLY IGL and name CA)')
     resid = selection_CB.getResindices()
@@ -468,13 +468,13 @@ def test_structure_segment_class_absolute_indices_no_repair():
     assert len(resid)==len(structure.sequence)
 
 def test_selected_subsequence_AWSEM_contact_energy_matrix():
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/4wnc.pdb',"A",seq_selection="resnum 3to26")
-    model=dca_frustratometer.AWSEMFrustratometer(structure)
+    structure=frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/4wnc.pdb',"A",seq_selection="resnum 3to26")
+    model=frustratometer.AWSEM(structure)
     assert model.potts_model['h'].shape==(24,21)
 
 def test_selected_subsequence_AWSEM_burial_energy_matrix():
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/4wnc.pdb',"A",seq_selection="resnum 150to315")
-    model=dca_frustratometer.AWSEMFrustratometer(structure)
+    structure=frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/4wnc.pdb',"A",seq_selection="resnum 150to315")
+    model=frustratometer.AWSEM(structure)
     assert model.potts_model['J'].shape==(166,166,21,21)
 
 #####
@@ -482,15 +482,15 @@ def test_selected_subsequence_AWSEM_burial_energy_matrix():
 #####
 
 def test_selected_subsequence_AWSEM_burial_energy():
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",seq_selection="resnum 39to146")
-    model=dca_frustratometer.AWSEMFrustratometer(structure)
+    structure=frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",seq_selection="resnum 39to146")
+    model=frustratometer.AWSEM(structure)
     selected_region_burial=model.fields_energy()
     # Energy units are in kJ/mol
     assert np.round(selected_region_burial, 2) == -377.95
 
 def test_selected_subsequence_AWSEM_contact_energy():
-    structure=dca_frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",seq_selection="resnum 39to146")
-    model=dca_frustratometer.AWSEMFrustratometer(structure, distance_cutoff_contact=None)
+    structure=frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",seq_selection="resnum 39to146")
+    model=frustratometer.AWSEM(structure, distance_cutoff_contact=None)
     selected_region_contact=model.couplings_energy()
     # Energy units are in kJ/mol
     assert np.round(selected_region_contact, 2) == -149.00
@@ -498,9 +498,9 @@ def test_selected_subsequence_AWSEM_contact_energy():
 def test_scores():
     pdb_file = 'examples/data/1cyo.pdb'
     chain = 'A'
-    structure=dca_frustratometer.Structure.full_pdb(pdb_file,chain)
+    structure=frustratometer.Structure.full_pdb(pdb_file,chain)
     potts_model_file = 'examples/data/PottsModel1cyoA.mat'
-    model = dca_frustratometer.PottsModel.from_potts_model_file(structure, potts_model_file, distance_cutoff=4,
+    model = frustratometer.DCA.from_potts_model_file(structure, potts_model_file, distance_cutoff=4,
                                                                 sequence_cutoff=0)
     assert np.round(model.scores()[30, 40], 5) == -0.02234
 
@@ -513,16 +513,16 @@ def test_compute_singleresidue_DCA_decoy_energy():
     pos_x = 30
     distance_cutoff = 4
     sequence_cutoff = 0
-    distance_matrix = dca_frustratometer.pdb.get_distance_matrix('examples/data/1cyo.pdb', 'A')
-    potts_model = dca_frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
-    seq = dca_frustratometer.pdb.get_sequence('examples/data/1cyo.pdb', 'A')
-    mask = dca_frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff, sequence_cutoff)
+    distance_matrix = frustratometer.pdb.get_distance_matrix('examples/data/1cyo.pdb', 'A')
+    potts_model = frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
+    seq = frustratometer.pdb.get_sequence('examples/data/1cyo.pdb', 'A')
+    mask = frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff, sequence_cutoff)
     AA = '-ACDEFGHIKLMNPQRSTVWY'
     seq = [aa for aa in seq]
     seq[pos_x] = AA[aa_x]
     seq = ''.join(seq)
-    test_energy = dca_frustratometer.frustration.compute_native_energy(seq, potts_model, mask)
-    decoy_energy = dca_frustratometer.frustration.compute_decoy_energy(seq, potts_model, mask, 'singleresidue')
+    test_energy = frustratometer.frustration.compute_native_energy(seq, potts_model, mask)
+    decoy_energy = frustratometer.frustration.compute_decoy_energy(seq, potts_model, mask, 'singleresidue')
     assert (decoy_energy[pos_x, aa_x] - test_energy) ** 2 < 1E-16
 
 
@@ -533,25 +533,25 @@ def test_compute_mutational_DCA_decoy_energy():
     pos_y = 69
     distance_cutoff = 4
     sequence_cutoff = 0
-    distance_matrix = dca_frustratometer.pdb.get_distance_matrix('examples/data/1cyo.pdb', 'A')
-    potts_model = dca_frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
-    seq = dca_frustratometer.pdb.get_sequence('examples/data/1cyo.pdb', 'A')
-    mask = dca_frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff, sequence_cutoff)
+    distance_matrix = frustratometer.pdb.get_distance_matrix('examples/data/1cyo.pdb', 'A')
+    potts_model = frustratometer.dca.matlab.load_potts_model('examples/data/PottsModel1cyoA.mat')
+    seq = frustratometer.pdb.get_sequence('examples/data/1cyo.pdb', 'A')
+    mask = frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff, sequence_cutoff)
     AA = '-ACDEFGHIKLMNPQRSTVWY'
     seq = [aa for aa in seq]
     seq[pos_x] = AA[aa_x]
     seq[pos_y] = AA[aa_y]
     seq = ''.join(seq)
-    test_energy = dca_frustratometer.frustration.compute_native_energy(seq, potts_model, mask)
-    decoy_energy = dca_frustratometer.frustration.compute_decoy_energy(seq, potts_model, mask, 'mutational')
+    test_energy = frustratometer.frustration.compute_native_energy(seq, potts_model, mask)
+    decoy_energy = frustratometer.frustration.compute_decoy_energy(seq, potts_model, mask, 'mutational')
     assert (decoy_energy[pos_x, pos_y, aa_x, aa_y] - test_energy) ** 2 < 1E-16
 
 def test_single_residue_decoy_AWSEM_energy_statistics():
     #Import Lammps AWSEM Frustratometer single residue frustration values
     lammps_single_frustration_dataframe=pd.read_csv(f"{_path}/../tests/data/6U5E_A_tertiary_frustration_singleresidue_1E8decoys_AWSEM_Frustratometer_LAMMPS_Carlos.dat",header=0,sep="\s+")
     ###
-    structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
-    model=dca_frustratometer.AWSEMFrustratometer(structure,distance_cutoff_contact=9.499,
+    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
+    model=frustratometer.AWSEM(structure,distance_cutoff_contact=9.499,
                                                   min_sequence_separation_contact=2)
     #Calculate fields
     seq_index = np.array([_AA.find(aa) for aa in structure.sequence])
@@ -581,8 +581,8 @@ def test_contact_pair_decoy_AWSEM_energy_statistics():
     lammps_mutational_frustration_dataframe["i"]=lammps_mutational_frustration_dataframe["i"]-1
     lammps_mutational_frustration_dataframe["j"]=lammps_mutational_frustration_dataframe["j"]-1
     ###
-    structure=dca_frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
-    model=dca_frustratometer.AWSEMFrustratometer(structure,distance_cutoff_contact=9.5,
+    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
+    model=frustratometer.AWSEM(structure,distance_cutoff_contact=9.5,
                                                   min_sequence_separation_contact=None)
     #Calculate fields
     seq_index = np.array([_AA.find(aa) for aa in structure.sequence])
@@ -621,7 +621,7 @@ def test_initialize_from_pdb():
     PFAM_id='PFxxxxx'
     pdb='file.pdb'
     expected_energy=10.0
-    potts_model=dca_frustratometer.PottsModel.from_PFAM(PFAM_id)
+    potts_model=frustratometer.DCA.from_PFAM(PFAM_id)
     potts_model.set_structure(pdb)
     assert potts_model.compute_native_energy()==expected_energy
 

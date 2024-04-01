@@ -1,16 +1,16 @@
 import pytest
 import pandas as pd
 import numpy as np
-import dca_frustratometer
+import frustratometer
 
 # Assuming you have a function to load your tests configurations
 tests_config = pd.read_csv("tests/test_awsem_config.csv")
 
 @pytest.mark.parametrize("test_data", tests_config.to_dict(orient="records"))
 def test_density_residues(test_data):
-    structure = dca_frustratometer.Structure.full_pdb(f"tests/data/{test_data['pdb']}.pdb")
+    structure = frustratometer.Structure.full_pdb(f"tests/data/{test_data['pdb']}.pdb")
     sequence_separation = 2 if test_data['seqsep'] == 3 else 13
-    model = dca_frustratometer.AWSEMFrustratometer(structure, distance_cutoff_contact=9.5, min_sequence_separation_rho=sequence_separation, k_electrostatics=test_data['k_electrostatics'])
+    model = frustratometer.AWSEM(structure, distance_cutoff_contact=9.5, min_sequence_separation_rho=sequence_separation, k_electrostatics=test_data['k_electrostatics'])
     data = pd.read_csv(test_data['singleresidue'], delim_whitespace=True)
     data['Calculated_density'] = model.rho_r
     data['Expected_density'] = data['DensityRes']
@@ -25,9 +25,9 @@ def test_density_residues(test_data):
 
 @pytest.mark.parametrize("test_data", tests_config.to_dict(orient="records"))
 def test_single_residue_frustration(test_data):
-    structure = dca_frustratometer.Structure.full_pdb(f"tests/data/{test_data['pdb']}.pdb")
+    structure = frustratometer.Structure.full_pdb(f"tests/data/{test_data['pdb']}.pdb")
     sequence_separation = 2 if test_data['seqsep'] == 3 else 13
-    model = dca_frustratometer.AWSEMFrustratometer(structure, distance_cutoff_contact=9.5, min_sequence_separation_rho=sequence_separation, min_sequence_separation_contact=2, k_electrostatics=test_data['k_electrostatics'], min_sequence_separation_electrostatics=1)
+    model = frustratometer.AWSEM(structure, distance_cutoff_contact=9.5, min_sequence_separation_rho=sequence_separation, min_sequence_separation_contact=2, k_electrostatics=test_data['k_electrostatics'], min_sequence_separation_electrostatics=1)
     data = pd.read_csv(test_data['singleresidue'], delim_whitespace=True)
     data['Calculated_frustration'] = model.frustration(kind='singleresidue')
     data['Expected_frustration'] = data['FrstIndex']
@@ -40,12 +40,12 @@ def test_single_residue_frustration(test_data):
 
 @pytest.mark.parametrize("test_data", tests_config.to_dict(orient="records"))
 def test_mutational_frustration(test_data):
-    structure = dca_frustratometer.Structure.full_pdb(f"tests/data/{test_data['pdb']}.pdb")
+    structure = frustratometer.Structure.full_pdb(f"tests/data/{test_data['pdb']}.pdb")
     sequence_separation = 2 if test_data['seqsep'] == 3 else 13
     if test_data['k_electrostatics']==1000:
         assert True
         return
-    model = dca_frustratometer.AWSEMFrustratometer(structure, distance_cutoff_contact=9.5, min_sequence_separation_rho=sequence_separation, min_sequence_separation_contact=0, k_electrostatics=test_data['k_electrostatics'], min_sequence_separation_electrostatics=1)
+    model = frustratometer.AWSEM(structure, distance_cutoff_contact=9.5, min_sequence_separation_rho=sequence_separation, min_sequence_separation_contact=0, k_electrostatics=test_data['k_electrostatics'], min_sequence_separation_electrostatics=1)
     data = pd.read_csv(test_data['mutational'], delim_whitespace=True)
     
     if test_data['pdb']!="ijge":

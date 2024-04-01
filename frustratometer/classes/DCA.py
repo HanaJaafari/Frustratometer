@@ -16,14 +16,14 @@ from .. import frustration
 from .. import pfam
 from .Frustratometer import Frustratometer
 
-__all__=['PottsModel']
+__all__=['DCA']
 ##################
 # PFAM functions #
 ##################
 
 
 # Class wrapper
-class PottsModel(Frustratometer):
+class DCA(Frustratometer):
 
     @classmethod
     def from_distance_matrix(cls,

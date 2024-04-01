@@ -5,7 +5,7 @@ from .. import frustration
 from .Frustratometer import Frustratometer
 import typing
 
-__all__ = ['AWSEMFrustratometer']
+__all__ = ['AWSEM']
 
 parameters = dict(r_min = 4.5, # A
                   r_max = 6.5, # A
@@ -34,7 +34,7 @@ parameters = dict(r_min = 4.5, # A
 ##################
 # AWSEM functions #
 ##################
-class AWSEMFrustratometer(Frustratometer):
+class AWSEM(Frustratometer):
     k_contact =  parameters['k_contact']
     
     r_min = parameters['r_min']
