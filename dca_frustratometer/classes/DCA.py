@@ -37,15 +37,14 @@ class PottsModel(Frustratometer):
         # Set initialization variables
         self._potts_model = potts_model
         self._potts_model_file = None
-
         self._pdb_file = None
         self._chain = None
         self._sequence_cutoff = sequence_cutoff
         self._distance_cutoff = distance_cutoff
         self._distance_matrix_method = None
+        self._sequence = sequence
 
         # Compute fast properties
-        self._sequence = sequence
         self.distance_matrix = distance_matrix
         self.aa_freq = frustration.compute_aa_freq(self.sequence)
         self.contact_freq = frustration.compute_contact_freq(self.sequence)
@@ -66,10 +65,14 @@ class PottsModel(Frustratometer):
 
         # Set initialization variables
         self.structure=pdb_structure.structure
-        self.chain=pdb_structure.chain
-        self.sequence=pdb_structure.sequence
-        self.pdb_file=pdb_structure.pdb_file
-        self.potts_model_file=potts_model_file
+        self._chain=pdb_structure.chain
+        self._sequence=pdb_structure.sequence
+        self._pdb_file=pdb_structure.pdb_file
+        self._potts_model_file=potts_model_file
+        self._sequence_cutoff=sequence_cutoff
+        self._distance_cutoff=distance_cutoff
+        self._distance_matrix_method=None
+
         self.reformat_potts_model=reformat_potts_model
         self.init_index_shift=pdb_structure.init_index_shift
 
@@ -79,8 +82,7 @@ class PottsModel(Frustratometer):
 
         self.mapped_distance_matrix=pdb_structure.mapped_distance_matrix
         self.distance_matrix=self.mapped_distance_matrix
-        self.sequence_cutoff=sequence_cutoff
-        self.distance_cutoff=distance_cutoff
+
         
         if self.distance_cutoff==None:
             example_matrix=np.ones((len(self.filtered_aligned_sequence),len(self.filtered_aligned_sequence)))
@@ -91,7 +93,7 @@ class PottsModel(Frustratometer):
         self.minimally_frustrated_threshold=1
 
         # Compute fast properties
-        self.potts_model = dca.matlab.load_potts_model(self.potts_model_file)
+        self._potts_model = dca.matlab.load_potts_model(self.potts_model_file)
         if self.reformat_potts_model:
             self.potts_model["h"]=self.potts_model["h"].T
             self.potts_model["J"]= self.potts_model["familycouplings"].reshape(int(len(self.filtered_aligned_sequence)),21,int(len(self.filtered_aligned_sequence)),21).transpose(0,2,1,3)
