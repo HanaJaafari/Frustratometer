@@ -68,19 +68,20 @@ class Structure:
         self.distance_matrix=pdb.get_distance_matrix(pdb_file=self.pdb_file,chain=self.chain,
                                                      method=self.distance_matrix_method)
 
-        if (self.filtered_aligned_sequence is not None and self.aligned_sequence is not None):
+        if self.aligned_sequence is not None:
             self.full_to_aligned_index_dict=pdb.full_to_filtered_aligned_mapping(self.aligned_sequence,self.filtered_aligned_sequence)
             self.mapped_distance_matrix=np.full((len(self.filtered_aligned_sequence), len(self.filtered_aligned_sequence)), np.inf)
-            # self.full_to_aligned_index_dict = {key-1:value for (key,value) in self.full_to_aligned_index_dict.items()}
             pos1, pos2 = np.meshgrid(list(self.full_to_aligned_index_dict.keys()), list(self.full_to_aligned_index_dict.keys()), 
                                     indexing='ij', sparse=True)
             modpos1, modpos2 = np.meshgrid(list(self.full_to_aligned_index_dict.values()), list(self.full_to_aligned_index_dict.values()), 
                                     indexing='ij', sparse=True)
             self.mapped_distance_matrix[modpos1,modpos2]=self.distance_matrix[pos1,pos2]
+            np.fill_diagonal(self.mapped_distance_matrix, 0)
 
         else:
-            self.full_to_aligned_index_dict=None
+            self.full_to_aligned_index_dict=dict(zip(range(len(self.sequence)), range(len(self.sequence))))
             self.mapped_distance_matrix=self.distance_matrix
+
         return self
     
     @classmethod
@@ -142,6 +143,8 @@ class Structure:
         self.init_index=int(self.seq_selection.replace("to"," to ").replace(":"," : ").split()[1].replace("`",""))
         self.fin_index=int(self.seq_selection.replace("to"," to ").replace(":"," : ").split()[3].replace("`",""))
         self.distance_matrix_method=distance_matrix_method
+        self.filtered_aligned_sequence=filtered_aligned_sequence
+        self.aligned_sequence=aligned_sequence
 
         assert len(self.seq_selection.replace("to"," to ").replace(":"," : ").split())>=4, "Please correctly input your residue selection"
 
@@ -187,6 +190,7 @@ class Structure:
             if repair_pdb:
                 fixer=pdb.repair_pdb(pdb_file, chain, pdb_directory)
                 self.pdb_file=f"{pdb_directory}/{self.pdbID}_cleaned.pdb"
+                self.chain="A"
                 # #Account for missing residues in beginning of PDB
                 # keys = fixer.missingResidues.keys()
                 # miss_init_residues=[i for i in keys if i[1]==0]
@@ -196,15 +200,30 @@ class Structure:
                 # self.fin_index_shift=self.fin_index+1  
     
 
-
         self.structure = prody.parsePDB(self.pdb_file, chain=self.chain).select(f"protein and {self.seq_selection}")
         self.sequence=pdb.get_sequence(self.pdb_file,self.chain)
+
         self.distance_matrix=pdb.get_distance_matrix(pdb_file=self.pdb_file,chain=self.chain,
                                                      method=self.distance_matrix_method)
 
         self.distance_matrix=self.distance_matrix[self.init_index_shift:self.fin_index_shift,
                                                   self.init_index_shift:self.fin_index_shift]
         self.sequence=self.sequence[self.init_index_shift:self.fin_index_shift]
+
+        if self.filtered_aligned_sequence is not None:
+            self.full_to_aligned_index_dict=pdb.full_to_filtered_aligned_mapping(self.aligned_sequence,self.filtered_aligned_sequence)
+            self.mapped_distance_matrix=np.full((len(self.filtered_aligned_sequence), len(self.filtered_aligned_sequence)), np.inf)
+            # self.full_to_aligned_index_dict = {key-1:value for (key,value) in self.full_to_aligned_index_dict.items()}
+            pos1, pos2 = np.meshgrid(list(self.full_to_aligned_index_dict.keys()), list(self.full_to_aligned_index_dict.keys()), 
+                                    indexing='ij', sparse=True)
+            modpos1, modpos2 = np.meshgrid(list(self.full_to_aligned_index_dict.values()), list(self.full_to_aligned_index_dict.values()), 
+                                    indexing='ij', sparse=True)
+            self.mapped_distance_matrix[modpos1,modpos2]=self.distance_matrix[pos1,pos2]
+            np.fill_diagonal(self.mapped_distance_matrix, 0)
+
+        else:
+            self.full_to_aligned_index_dict=dict(zip(range(self.init_index_shift,self.fin_index_shift+1), range(len(self.sequence))))
+            self.mapped_distance_matrix=self.distance_matrix
         return self
     # @property
     # def sequence(self):

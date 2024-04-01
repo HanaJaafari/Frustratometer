@@ -1,13 +1,21 @@
 from Bio.PDB import PDBParser
-from Bio.PDB.Polypeptide import PPBuilder,three_to_one
 import prody
 import scipy.spatial.distance as sdist
 import pandas as pd
 import numpy as np
 import itertools
 from pdbfixer import PDBFixer
-from simtk.openmm.app import PDBFile
+try:
+    from openmm.app import PDBFile
+except ModuleNotFoundError:
+    from simtk.openmm.app import PDBFile
 import os
+
+three_to_one = {'ALA':'A', 'ARG':'R', 'ASN':'N', 'ASP':'D', 'CYS':'C',
+                'GLU':'E', 'GLN':'Q', 'GLY':'G', 'HIS':'H', 'ILE':'I',
+                'LEU':'L', 'LYS':'K', 'MET':'M', 'PHE':'F', 'PRO':'P',
+                'SER':'S', 'THR':'T', 'TRP':'W', 'TYR':'Y', 'VAL':'V'}
+
 
 def download(pdbID: str,directory: str):
     """
@@ -59,7 +67,7 @@ def get_sequence(pdb_file: str,
             res_id = residue.get_id()[0]
             if (res_id==' ' or res_id=='H_MSE' or res_id=='H_M3L' or res_id=='H_CAS') and is_regular_res:
                 residue_name = residue.get_resname()
-                chain_seq += three_to_one(residue_name)
+                chain_seq += three_to_one[residue_name]
         sequence += chain_seq
     # ppb=PPBuilder()
     # if chain!=None:
@@ -195,7 +203,6 @@ def get_distance_matrix(pdb_file: str,
 
 def full_to_filtered_aligned_mapping(aligned_sequence: str,
                                     filtered_aligned_sequence: str):
-
     full_to_aligned_index_dict={}; counter=0
     for i,x in enumerate(aligned_sequence):
         if x != "-" and x==x.upper():

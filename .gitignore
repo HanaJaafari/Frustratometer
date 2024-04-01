@@ -119,3 +119,9 @@ ENV/
 #Other files
 dca_frustratometer/databases
 docs/autosummary/*
+
+tests/data/*/FrustrationData/*5adens
+tests/data/*/Images/*
+tests/data/*/VisualizationScripts/*
+tests/data/*/README
+tests/data/*.rar

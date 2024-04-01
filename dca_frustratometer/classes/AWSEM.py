@@ -1,10 +1,9 @@
 """Provide the primary functions."""
-import scipy.spatial.distance as sdist
 import numpy as np
 from ..utils import _path
 from .. import frustration
-import typing
 from .Frustratometer import Frustratometer
+import typing
 
 __all__ = ['AWSEMFrustratometer']
 
@@ -66,7 +65,7 @@ class AWSEMFrustratometer(Frustratometer):
     
     def __init__(self, 
                  pdb_structure,
-                 distance_cutoff_contact = None, #9.5 for frustratometer    
+                 distance_cutoff_contact = None, #9.5 for frustratometer 
                  min_sequence_separation_rho = 2,
                  min_sequence_separation_contact = 10,
                  min_sequence_separation_electrostatics = 1,
@@ -83,6 +82,7 @@ class AWSEMFrustratometer(Frustratometer):
         self.water_gamma_ijm = np.fromfile(water_gamma_ijm_file).reshape(2, 20, 20)
         self.protein_gamma_ijm = np.fromfile(protein_gamma_ijm_file).reshape(2, 20, 20)
 
+        self.full_to_aligned_index_dict=pdb_structure.full_to_aligned_index_dict
         self.sequence=pdb_structure.sequence
         self.structure=pdb_structure.structure
         self.chain=pdb_structure.chain
@@ -91,13 +91,20 @@ class AWSEMFrustratometer(Frustratometer):
 
         self.distance_matrix=pdb_structure.distance_matrix
         self.distance_cutoff_contact=distance_cutoff_contact
+
         self.sequence_cutoff=None #Cutoff for dca_frustration, not used here
         self.distance_cutoff=None #Cutoff for dca_frustration, not used here
 
         self._decoy_fluctuation = {}
         self.mask = frustration.compute_mask(self.distance_matrix, distance_cutoff=None, sequence_distance_cutoff = None)
-    
-            
+        
+        self.min_sequence_separation_rho=min_sequence_separation_rho
+        self.min_sequence_separation_contact=min_sequence_separation_contact
+        self.min_sequence_separation_electrostatics=min_sequence_separation_electrostatics
+
+        self.minimally_frustrated_threshold=.78
+        
+        self._decoy_fluctuation = {}
         selection_CB = self.structure.select('name CB or (resname GLY IGL and name CA)')
         resid = selection_CB.getResindices()
         self.resid=resid
@@ -114,7 +121,7 @@ class AWSEMFrustratometer(Frustratometer):
 
         # Calculate rho
         rho = 0.25 
-        rho *= (1 + np.tanh(self.eta * (self.distance_matrix- self.r_min))) 
+        rho *= (1 + np.tanh(self.eta * (self.distance_matrix- self.r_min)))
         rho *= (1 + np.tanh(self.eta * (self.r_max - self.distance_matrix)))
         rho *= sequence_mask_rho
         self.rho=rho

@@ -30,7 +30,8 @@ def compute_mask(distance_matrix: np.array,
 def compute_native_energy(seq: str,
                           potts_model: dict,
                           mask: np.array,
-                          ignore_contacts_with_gaps: bool = False) -> float:
+                          ignore_couplings_of_gaps: bool = False,
+                          ignore_fields_of_gaps: bool = False) -> float:
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
 
@@ -41,27 +42,39 @@ def compute_native_energy(seq: str,
     j = -potts_model['J'][pos1, pos2, aa1, aa2]
     j_prime = j * mask        
 
-    if ignore_contacts_with_gaps==True:
-        gap_indices=[int(i) for i,j in enumerate(seq) if j=="-"]
+    gap_indices=[int(i) for i,j in enumerate(seq) if j=="-"]
+
+    if ignore_couplings_of_gaps==True:
         if len(gap_indices)>0:
             j_prime[gap_indices,:]=False
             j_prime[:,gap_indices]=False
+
+    if ignore_fields_of_gaps==True:
+        if len(gap_indices)>0:
+            h[gap_indices]=False
 
     energy = h.sum() + j_prime.sum() / 2
     return energy
 
 def compute_fields_energy(seq: str,
-                          potts_model: dict) -> float:
+                          potts_model: dict,
+                          ignore_fields_of_gaps: bool = False) -> float:
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
 
     h = -potts_model['h'][range(seq_len), seq_index]
+    
+    if ignore_fields_of_gaps==True:
+        gap_indices=[int(i) for i,j in enumerate(seq) if j=="-"]
+        if len(gap_indices)>0:
+            h[gap_indices]=False
+
     return h.sum()
 
 def compute_couplings_energy(seq: str,
                       potts_model: dict,
                       mask: np.array,
-                      ignore_contacts_with_gaps: bool = False) -> float:
+                      ignore_couplings_of_gaps: bool = False) -> float:
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
     pos1, pos2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), indexing='ij', sparse=True)
@@ -69,7 +82,7 @@ def compute_couplings_energy(seq: str,
 
     j = -potts_model['J'][pos1, pos2, aa1, aa2]
     j_prime = j * mask
-    if ignore_contacts_with_gaps==True:
+    if ignore_couplings_of_gaps==True:
         gap_indices=[i for i,j in enumerate(seq) if j=="-"]
         if len(gap_indices)>0:
             j_prime[:,gap_indices]=False
@@ -81,6 +94,7 @@ def compute_sequences_energy(seqs: list,
                              potts_model: dict,
                              mask: np.array,
                              split_couplings_and_fields = False) -> np.array:
+
     seq_index = np.array([[_AA.find(aa) for aa in seq] for seq in seqs])
     N_seqs, seq_len = seq_index.shape
     pos_index=np.repeat([np.arange(seq_len)], N_seqs,axis=0)
@@ -352,7 +366,7 @@ def compute_scores(potts_model: dict) -> np.array:
 def compute_roc(scores, distance_matrix, cutoff):
     scores = sdist.squareform(scores)
     distance = sdist.squareform(distance_matrix)
-    results = np.array([scores, distance])
+    results = np.array([np.array(scores), np.array(distance)])
     results = results[:, results[0, :].argsort()[::-1]]  # Sort results by score
     if cutoff!= None:
         contacts = results[1] <= cutoff
@@ -419,6 +433,8 @@ def write_tcl_script(pdb_file, chain, single_frustration, pair_frustration, tcl_
     # Mutational frustration:
     r1, r2 = np.meshgrid(residues, residues, indexing='ij')
     sel_frustration = np.array([r1.ravel(), r2.ravel(), pair_frustration.ravel()]).T
+    print(sel_frustration)
+    print(sel_frustration.shape)
     minimally_frustrated = sel_frustration[sel_frustration[:, -1] < -0.78]
     s = np.argsort(minimally_frustrated[:, -1])
     minimally_frustrated = minimally_frustrated[s][:max_connections]

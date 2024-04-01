@@ -65,21 +65,30 @@ class PottsModel(Frustratometer):
         self = cls()
 
         # Set initialization variables
-        self.sequence=pdb_structure.sequence
         self.structure=pdb_structure.structure
         self.chain=pdb_structure.chain
+        self.sequence=pdb_structure.sequence
         self.pdb_file=pdb_structure.pdb_file
         self.potts_model_file=potts_model_file
         self.reformat_potts_model=reformat_potts_model
+        self.init_index_shift=pdb_structure.init_index_shift
 
         self.full_to_aligned_index_dict=pdb_structure.full_to_aligned_index_dict
         self.filtered_aligned_sequence=pdb_structure.filtered_aligned_sequence
-        self.distance_matrix=pdb_structure.distance_matrix
+        self.aligned_sequence=pdb_structure.aligned_sequence
+
         self.mapped_distance_matrix=pdb_structure.mapped_distance_matrix
+        self.distance_matrix=self.mapped_distance_matrix
         self.sequence_cutoff=sequence_cutoff
         self.distance_cutoff=distance_cutoff
+        
+        if self.distance_cutoff==None:
+            example_matrix=np.ones((len(self.filtered_aligned_sequence),len(self.filtered_aligned_sequence)))
+            self.mask = frustration.compute_mask(example_matrix, self.distance_cutoff, self.sequence_cutoff)
+        else:
+            self.mask = frustration.compute_mask(self.mapped_distance_matrix, self.distance_cutoff, self.sequence_cutoff)
 
-        self.mask = frustration.compute_mask(self.mapped_distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        self.minimally_frustrated_threshold=1
 
         # Compute fast properties
         self.potts_model = dca.matlab.load_potts_model(self.potts_model_file)
@@ -91,8 +100,8 @@ class PottsModel(Frustratometer):
             self.aa_freq = frustration.compute_aa_freq(self.sequence)
             self.contact_freq = frustration.compute_contact_freq(self.sequence)
         else:
-            self.aa_freq = frustration.compute_aa_freq(self.sequence)
-            self.contact_freq = frustration.compute_contact_freq(self.sequence)       
+            self.aa_freq = None
+            self.contact_freq = None   
 
         # Initialize slow properties
         self._native_energy = None
