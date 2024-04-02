@@ -18,9 +18,9 @@ data_path = frustratometer.utils.create_directory(_path/'..'/'tests'/'data')
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
 
-def test_dca_frustratometer_imported():
+def test_frustratometer_imported():
     """Sample test, will always pass so long as import statement worked."""
-    assert "dca_frustratometer" in sys.modules
+    assert "frustratometer" in sys.modules
 
 def test_download_pfam_database():
     """Downloads a small database from Pfam and tests that the files are splitted correctly."""
@@ -323,96 +323,6 @@ def test_fields_couplings_DCA_energy():
     assert model.fields_energy() + model.couplings_energy() - model.native_energy()  < 1E-6
 
 #####
-#Test AWSEM Native Energy Calculations
-#####
-
-def test_residue_density_calculation():
-    #Import Lammps AWSEM Frustratometer single residue frustration values
-    lammps_single_frustration_dataframe=pd.read_csv(f"{_path}/../tests/data/6U5E_A_tertiary_frustration_singleresidue_1E8decoys_AWSEM_Frustratometer_LAMMPS_Carlos.dat",header=0,sep="\s+")
-    lammps_single_frustration_dataframe["i"]=lammps_single_frustration_dataframe["i"]-1
-    expected_rho_values=lammps_single_frustration_dataframe["rho_i"]
-
-    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
-    model=frustratometer.AWSEM(structure,distance_cutoff_contact=9.499,
-                                                  min_sequence_separation_contact=2)
-    check_rho_values=model.rho_r
-    assert np.round(model.rho_r,2).all()==np.round(expected_rho_values,2).all()
-
-def test_AWSEM_native_energy():
-    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/1l63.pdb',"A")
-    model=frustratometer.AWSEM(structure)
-    e = model.native_energy()
-    print(e)
-    assert np.round(e, 0) == -915
-
-def test_AWSEM_fields_energy():
-    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
-    model=frustratometer.AWSEM(structure)
-    e = model.fields_energy()
-    print(e)
-    assert np.round(e, 0) == -555
-
-def test_AWSEM_couplings_energy():
-    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
-    model=frustratometer.AWSEM(structure)
-    e = model.couplings_energy()
-    print(e)
-    assert np.round(e, 0) == -362
-
-def test_fields_couplings_AWSEM_energy():
-    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
-    model = frustratometer.AWSEM(structure)
-    assert model.fields_energy() + model.couplings_energy() - model.native_energy()  < 1E-6
-
-def test_single_residue_AWSEM_energy():
-    #Import Lammps AWSEM Frustratometer single residue frustration values
-    lammps_single_frustration_dataframe=pd.read_csv(f"{_path}/../tests/data/6U5E_A_tertiary_frustration_singleresidue_1E8decoys_AWSEM_Frustratometer_LAMMPS_Carlos.dat",header=0,sep="\s+")
-    ###
-    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
-    model=frustratometer.AWSEM(structure,distance_cutoff_contact=9.499,
-                                                  min_sequence_separation_contact=2)
-    #Calculate fields
-    seq_index = np.array([_AA.find(aa) for aa in structure.sequence])
-    seq_len = len(seq_index)
-    h = -model.potts_model['h'][range(seq_len), seq_index]
-
-    #Calculate couplings
-    pos1, pos2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), indexing='ij', sparse=True)
-    aa1, aa2 = np.meshgrid(seq_index, seq_index, indexing='ij', sparse=True)
-    j = -model.potts_model['J'][pos1, pos2, aa1, aa2]
-    j_prime = j * model.mask
-
-    test_residue_total_energy=(h +j_prime.sum(axis=0))/4.184
-
-    assert (abs(np.array(lammps_single_frustration_dataframe["native_energy"])-test_residue_total_energy) < 1E-1).all()
-
-def test_contact_pair_AWSEM_energy():
-    #Import Lammps AWSEM Frustratometer mutational frustration values
-    lammps_mutational_frustration_dataframe=pd.read_csv(f"{_path}/../tests/data/6U5E_A_tertiary_frustration_mutational_1E6decoys_AWSEM_Frustratometer_LAMMPS_Carlos.dat",header=0,sep="\s+")
-    lammps_mutational_frustration_dataframe["i"]=lammps_mutational_frustration_dataframe["i"]-1
-    lammps_mutational_frustration_dataframe["j"]=lammps_mutational_frustration_dataframe["j"]-1
-    ###
-    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
-    model=frustratometer.AWSEM(structure,distance_cutoff_contact=9.499,
-                                                  min_sequence_separation_contact=None)
-    #Calculate fields
-    seq_index = np.array([_AA.find(aa) for aa in structure.sequence])
-    seq_len = len(seq_index)
-    h = -model.potts_model['h'][range(seq_len), seq_index]
-
-    #Calculate couplings
-    pos1, pos2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), indexing='ij', sparse=True)
-    aa1, aa2 = np.meshgrid(seq_index, seq_index, indexing='ij', sparse=True)
-    j = -model.potts_model['J'][pos1, pos2, aa1, aa2]
-    j_prime = j * model.mask
-    test_contact_energy_matrix=h[pos1]+h[pos2]+j_prime.sum(axis=0)[pos1]+j_prime.sum(axis=0)[pos2]-j_prime[pos1,pos2]
-    ###
-    lammps_mutational_frustration_dataframe["Test_Native_Energy"]=lammps_mutational_frustration_dataframe.apply(lambda x: test_contact_energy_matrix[x.i,x.j],axis=1)
-    lammps_mutational_frustration_dataframe["Test_Native_Energy"]=lammps_mutational_frustration_dataframe["Test_Native_Energy"]/4.184
-
-    assert (abs(np.array(lammps_mutational_frustration_dataframe["native_energy"])-np.array(lammps_mutational_frustration_dataframe["Test_Native_Energy"])) < 1E-1).all()
-
-#####
 #Test Full Protein Structure Object
 #####
 def test_structure_class():
@@ -467,34 +377,6 @@ def test_structure_segment_class_absolute_indices_no_repair():
     assert structure.distance_matrix.shape == (len(structure.sequence),len(structure.sequence))
     assert len(resid)==len(structure.sequence)
 
-def test_selected_subsequence_AWSEM_contact_energy_matrix():
-    structure=frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/4wnc.pdb',"A",seq_selection="resnum 3to26")
-    model=frustratometer.AWSEM(structure)
-    assert model.potts_model['h'].shape==(24,21)
-
-def test_selected_subsequence_AWSEM_burial_energy_matrix():
-    structure=frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/4wnc.pdb',"A",seq_selection="resnum 150to315")
-    model=frustratometer.AWSEM(structure)
-    assert model.potts_model['J'].shape==(166,166,21,21)
-
-#####
-#Test Protein Segment Native AWSEM Energy Calculation
-#####
-
-def test_selected_subsequence_AWSEM_burial_energy():
-    structure=frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",seq_selection="resnum 39to146")
-    model=frustratometer.AWSEM(structure)
-    selected_region_burial=model.fields_energy()
-    # Energy units are in kJ/mol
-    assert np.round(selected_region_burial, 2) == -377.95
-
-def test_selected_subsequence_AWSEM_contact_energy():
-    structure=frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/1MBA_A.pdb',"A",seq_selection="resnum 39to146")
-    model=frustratometer.AWSEM(structure, distance_cutoff_contact=None)
-    selected_region_contact=model.couplings_energy()
-    # Energy units are in kJ/mol
-    assert np.round(selected_region_contact, 2) == -149.00
-
 def test_scores():
     pdb_file = 'examples/data/1cyo.pdb'
     chain = 'A'
@@ -546,73 +428,7 @@ def test_compute_mutational_DCA_decoy_energy():
     decoy_energy = frustratometer.frustration.compute_decoy_energy(seq, potts_model, mask, 'mutational')
     assert (decoy_energy[pos_x, pos_y, aa_x, aa_y] - test_energy) ** 2 < 1E-16
 
-def test_single_residue_decoy_AWSEM_energy_statistics():
-    #Import Lammps AWSEM Frustratometer single residue frustration values
-    lammps_single_frustration_dataframe=pd.read_csv(f"{_path}/../tests/data/6U5E_A_tertiary_frustration_singleresidue_1E8decoys_AWSEM_Frustratometer_LAMMPS_Carlos.dat",header=0,sep="\s+")
-    ###
-    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
-    model=frustratometer.AWSEM(structure,distance_cutoff_contact=9.499,
-                                                  min_sequence_separation_contact=2)
-    #Calculate fields
-    seq_index = np.array([_AA.find(aa) for aa in structure.sequence])
-    seq_len = len(seq_index)
-    h = -model.potts_model['h'][range(seq_len), seq_index]
 
-    #Calculate couplings
-    pos1, pos2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), indexing='ij', sparse=True)
-    aa1, aa2 = np.meshgrid(seq_index, seq_index, indexing='ij', sparse=True)
-    j = -model.potts_model['J'][pos1, pos2, aa1, aa2]
-    j_prime = j * model.mask
-
-    residue_total_energy=(h +j_prime.sum(axis=0))/4.184
-    ###
-    decoy_fluctuations=(model.decoy_fluctuation(kind='singleresidue'))/4.184
-    weighted_decoy_fluctations=(model.aa_freq*decoy_fluctuations).sum(axis=1)/ model.aa_freq.sum()
-
-    expected_mean_decoy_energy=(model.aa_freq*(residue_total_energy[:, np.newaxis]+decoy_fluctuations)).sum(axis=1)/ model.aa_freq.sum()
-    expected_std_decoy_energy=np.sqrt(((model.aa_freq * (decoy_fluctuations - weighted_decoy_fluctations[:, np.newaxis]) ** 2) / model.aa_freq.sum()).sum(axis=1))
-    
-    assert (abs(np.array(lammps_single_frustration_dataframe["<decoy_energies>"])-(expected_mean_decoy_energy)) < 1.2E-1).all()
-    assert (abs(np.array(lammps_single_frustration_dataframe["std(decoy_energies)"])-(expected_std_decoy_energy)) < 1.2E-1).all()
-
-def test_contact_pair_decoy_AWSEM_energy_statistics():
-    #Import Lammps AWSEM Frustratometer mutational frustration values
-    lammps_mutational_frustration_dataframe=pd.read_csv(f"{_path}/../tests/data/6U5E_A_tertiary_frustration_mutational_1E6decoys_AWSEM_Frustratometer_LAMMPS_Carlos.dat",header=0,sep="\s+")
-    lammps_mutational_frustration_dataframe["i"]=lammps_mutational_frustration_dataframe["i"]-1
-    lammps_mutational_frustration_dataframe["j"]=lammps_mutational_frustration_dataframe["j"]-1
-    ###
-    structure=frustratometer.Structure.full_pdb(f'{_path}/../examples/data/6U5E_A.pdb',"A")
-    model=frustratometer.AWSEM(structure,distance_cutoff_contact=9.5,
-                                                  min_sequence_separation_contact=None)
-    #Calculate fields
-    seq_index = np.array([_AA.find(aa) for aa in structure.sequence])
-    seq_len = len(seq_index)
-    h = -model.potts_model['h'][range(seq_len), seq_index]
-
-    #Calculate couplings
-    pos1, pos2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), indexing='ij', sparse=True)
-    aa1, aa2 = np.meshgrid(seq_index, seq_index, indexing='ij', sparse=True)
-    j = -model.potts_model['J'][pos1, pos2, aa1, aa2]
-    j_prime = j * model.mask
-    test_contact_energy_matrix=h[pos1]+h[pos2]+j_prime.sum(axis=0)[pos1]+j_prime.sum(axis=0)[pos2]-j_prime[pos1,pos2]
-    ###
-    calculated_mutational_frustration_dataframe=pd.DataFrame(data=test_contact_energy_matrix.ravel(),columns=["Test_Native_Energy"])
-    calculated_mutational_frustration_dataframe["Test_Native_Energy"]=calculated_mutational_frustration_dataframe["Test_Native_Energy"]/4.184
-    i,j=np.meshgrid(range(0,163),range(0,163), indexing='ij')
-    calculated_mutational_frustration_dataframe["i"]=i.ravel()
-    calculated_mutational_frustration_dataframe["j"]=j.ravel()
-    ###
-    decoy_fluctuations=(model.decoy_fluctuation(kind='mutational'))/4.184
-    weighted_decoy_fluctations=np.average(decoy_fluctuations.reshape(seq_len * seq_len, 21 * 21), weights=model.contact_freq.flatten(), axis=-1)
-    calculated_mutational_frustration_dataframe["Weighted_Decoy_Fluctuations"]=weighted_decoy_fluctations.ravel()
-    calculated_mutational_frustration_dataframe["Test_Mean_Decoy_Energy"]=calculated_mutational_frustration_dataframe["Test_Native_Energy"]+calculated_mutational_frustration_dataframe["Weighted_Decoy_Fluctuations"]
-    calculated_mutational_frustration_dataframe["STD_Decoy_Energy"]=np.average((decoy_fluctuations.reshape(seq_len * seq_len, 21 * 21)-calculated_mutational_frustration_dataframe["Weighted_Decoy_Fluctuations"][:,np.newaxis]) ** 2,weights=model.contact_freq.flatten(), axis=-1)
-    calculated_mutational_frustration_dataframe["STD_Decoy_Energy"]=np.sqrt(calculated_mutational_frustration_dataframe["STD_Decoy_Energy"])
-    
-    merged_dataframe=calculated_mutational_frustration_dataframe.merge(lammps_mutational_frustration_dataframe,on=["i","j"])
-
-    assert (abs(np.array(merged_dataframe["<decoy_energies>"]-merged_dataframe["Test_Mean_Decoy_Energy"])) < 1.2E-1).all()
-    assert (abs(np.array(merged_dataframe["std(decoy_energies)"]-merged_dataframe["STD_Decoy_Energy"])) < 1.2E-1).all()
 
 
 

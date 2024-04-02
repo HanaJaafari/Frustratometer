@@ -10,6 +10,7 @@ try:
 except ModuleNotFoundError:
     from simtk.openmm.app import PDBFile
 import os
+from pathlib import Path
 
 three_to_one = {'ALA':'A', 'ARG':'R', 'ASN':'N', 'ASP':'D', 'CYS':'C',
                 'GLU':'E', 'GLN':'Q', 'GLY':'G', 'HIS':'H', 'ILE':'I',
@@ -17,12 +18,12 @@ three_to_one = {'ALA':'A', 'ARG':'R', 'ASN':'N', 'ASP':'D', 'CYS':'C',
                 'SER':'S', 'THR':'T', 'TRP':'W', 'TYR':'Y', 'VAL':'V'}
 
 
-def download(pdbID: str,directory: str):
+def download(pdbID: str,directory: Path=Path.cwd()) -> Path:
     """
     Downloads a single pdb file
     """
     import urllib.request
-    pdb_file="%s/%s.pdb" % (directory, pdbID)
+    pdb_file=Path(directory) / f'{pdbID}.pdb'
     urllib.request.urlretrieve('http://www.rcsb.org/pdb/files/%s.pdb' % pdbID, pdb_file)
     return pdb_file
 
@@ -69,33 +70,13 @@ def get_sequence(pdb_file: str,
                 residue_name = residue.get_resname()
                 chain_seq += three_to_one[residue_name]
         sequence += chain_seq
-    # ppb=PPBuilder()
-    # if chain!=None:
-    #     sequence=ppb.build_peptides(structure[0][chain])[0].get_sequence()
-    # else:
-    #     total_sequence=[]
-    #     for chain in structure.get_chains():
-    #         chain_sequence=ppb.build_peptides(structure[0][chain.get_id()])[0].get_sequence() 
-    #         total_sequence.append(str(chain_sequence))
-    #     sequence="".join(total_sequence)
-    # if chain is None:
-    #     # If chain is None then chain can be any chain
-    #     residues = [residue for residue in structure.get_residues() if (
-    #                     residue.has_id('CA') and
-    #                     residue.resname not in [' CA','PBC'])]
-
-    # else:
-    #     residues = [residue for residue in structure.get_residues() if (
-    #                     residue.has_id('CA') and
-    #                     residue.get_parent().get_id() == str(chain) and 
-    #                     residue.resname not in [' CA','PBC','NDP'])]
-        
-
-    # sequence = ''.join([threetoone(r.resname) for r in residues])
     return sequence
 
-def repair_pdb(pdb_file: str, chain: str, pdb_directory: str):
-    pdbID=os.path.basename(pdb_file).replace(".pdb","")
+def repair_pdb(pdb_file: str, chain: str, pdb_directory: Path= Path.cwd()) -> PDBFixer:
+    pdb_directory=Path(pdb_directory)
+    pdb_file=str(pdb_file)
+    
+    pdbID=os.path.basename(str(pdb_file)).replace(".pdb","")
     fixer = PDBFixer(pdb_file)
 
     chains = list(fixer.topology.chains())
@@ -124,7 +105,7 @@ def repair_pdb(pdb_file: str, chain: str, pdb_directory: str):
     PDBFile.writeFile(fixer.topology, fixer.positions, open(f"{pdb_directory}/{pdbID}_cleaned.pdb", 'w'))
     return fixer
 
-def get_distance_matrix(pdb_file: str,
+def get_distance_matrix(pdb_file: Path,
                         chain: str,
                         method: str = 'CB'
                         ) -> np.array:
@@ -149,7 +130,7 @@ def get_distance_matrix(pdb_file: str,
         ValueError: If the method is not recognized.
     """
 
-    structure = prody.parsePDB(pdb_file)
+    structure = prody.parsePDB(str(pdb_file))
     chain_selection = '' if chain is None else f' and chain {chain}'
 
     if method == 'CA':

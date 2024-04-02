@@ -1,10 +1,10 @@
 from .. import pdb
 import prody
 import os
-import subprocess
 import Bio.PDB.Polypeptide as poly
 import numpy as np
 from typing import Union
+from pathlib import Path
 
 __all__ = ['Structure']
 
@@ -13,8 +13,8 @@ residue_names=[]
 class Structure:
     
     @classmethod
-    def full_pdb(cls,pdb_file: str, chain: Union[str|None]=None, aligned_sequence: str = None, filtered_aligned_sequence: str = None,
-                distance_matrix_method:str = 'CB', pdb_directory: str=os.getcwd(), repair_pdb:bool = False):
+    def full_pdb(cls,pdb_file: Union[Path,str], chain: Union[str|None]=None, aligned_sequence: str = None, filtered_aligned_sequence: str = None,
+                distance_matrix_method:str = 'CB', pdb_directory: Path = Path.cwd(), repair_pdb:bool = False):
 
         """
         Generates structure object 
@@ -44,12 +44,24 @@ class Structure:
         Structure object
         """
         self=cls()
-        if pdb_file[-4:]!=".pdb":
-            self.pdbID=pdb_file
-            pdb_file=pdb.download(self.pdbID, pdb_directory)
+
+        try:
+            #Check if file exists
+            pdb_file=Path(pdb_file)
+            assert pdb_file.exists()
+        except AssertionError:
+            #Attempt to download pdb file
+            pdb_file=str(pdb_file)
+            if len(pdb_file)==4:
+                self.pdbID=pdb_file
+                print(f"Downloading {self.pdbID} from the PDB")
+                pdb_file=pdb.download(self.pdbID, pdb_directory)
+            else:
+                raise FileNotFoundError(f"Provided pdb file {pdb_file} does not exist")
+
         
+        self.pdbID=pdb_file.stem
         self.pdb_file=pdb_file
-        self.pdbID=os.path.basename(pdb_file).replace(".pdb","")
         self.chain=chain
         self.distance_matrix_method=distance_matrix_method
         self.filtered_aligned_sequence=filtered_aligned_sequence
@@ -58,12 +70,12 @@ class Structure:
         
         if repair_pdb:
             fixer=pdb.repair_pdb(pdb_file, chain, pdb_directory)
-            self.pdb_file=f"{pdb_directory}/{self.pdbID}_cleaned.pdb"
+            self.pdb_file=str(pdb_directory/f"{self.pdbID}_cleaned.pdb")
 
         if chain is None:
-            self.structure = prody.parsePDB(self.pdb_file).select('protein')
+            self.structure = prody.parsePDB(str(self.pdb_file)).select('protein')
         else:
-            self.structure = prody.parsePDB(self.pdb_file, chain=self.chain).select('protein')
+            self.structure = prody.parsePDB(str(self.pdb_file), chain=self.chain).select('protein')
         self.sequence=pdb.get_sequence(self.pdb_file,self.chain)
         self.distance_matrix=pdb.get_distance_matrix(pdb_file=self.pdb_file,chain=self.chain,
                                                      method=self.distance_matrix_method)
@@ -132,12 +144,23 @@ class Structure:
         """
         #Provide the indices according to the original pdb numbering
         self=cls()
-        if pdb_file[-4:]!=".pdb":
-            self.pdbID=pdb_file
-            pdb_file=pdb.download(self.pdbID, pdb_directory)
+        try:
+            #Check if file exists
+            pdb_file=Path(pdb_file)
+            assert pdb_file.exists()
+        except AssertionError:
+            #Attempt to download pdb file
+            pdb_file=str(pdb_file)
+            if len(pdb_file)==4:
+                self.pdbID=pdb_file
+                print(f"Downloading {self.pdbID} from the PDB")
+                pdb_file=pdb.download(self.pdbID, pdb_directory)
+            else:
+                raise FileNotFoundError(f"Provided pdb file {pdb_file} does not exist")
 
+        
+        self.pdbID=pdb_file.stem
         self.pdb_file=pdb_file
-        self.pdbID=os.path.basename(pdb_file).replace(".pdb","")
         self.chain=chain
         self.seq_selection=seq_selection
         self.init_index=int(self.seq_selection.replace("to"," to ").replace(":"," : ").split()[1].replace("`",""))
