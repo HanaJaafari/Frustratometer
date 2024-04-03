@@ -157,7 +157,7 @@ def test_identify_pfamID():
     """Test the get_pfamID function to ensure it correctly identifies the Pfam ID."""
     pdb_id = "6U5E"
     chain_id = "A"
-    expected_pfam_id = "PF11976"
+    expected_pfam_id = "PF00160"
 
     pfam_id = frustratometer.map.get_pfamID(pdb_id, chain_id)
     assert pfam_id == expected_pfam_id

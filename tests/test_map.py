@@ -58,7 +58,7 @@ class TestMap(unittest.TestCase):
     def test_repr(self):
         # Test the string representation
         test_map = Map(self.map_array)
-        expected_repr = "<class 'dca_frustratometer.classes.Map.Map'>\n"\
+        expected_repr = "<class 'frustratometer.classes.Map.Map'>\n"\
                         "Seq1: -SSSSS--\n"\
                         "Map:  -|-||---\n"\
                         "Seq2: SS-SS-SS"
