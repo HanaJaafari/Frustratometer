@@ -13,7 +13,7 @@ residue_names=[]
 class Structure:
     
     @classmethod
-    def full_pdb(cls,pdb_file: Union[Path,str], chain: Union[str|None]=None, aligned_sequence: str = None, filtered_aligned_sequence: str = None,
+    def full_pdb(cls,pdb_file: Union[Path,str], chain: Union[str,None]=None, aligned_sequence: str = None, filtered_aligned_sequence: str = None,
                 distance_matrix_method:str = 'CB', pdb_directory: Path = Path.cwd(), repair_pdb:bool = False):
 
         """

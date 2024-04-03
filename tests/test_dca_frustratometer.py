@@ -12,6 +12,7 @@ import pytest
 import pandas as pd
 from frustratometer.utils import _path
 import Bio.AlignIO
+import subprocess
 
 data_path = frustratometer.utils.create_directory(_path/'..'/'tests'/'data')
 #scratch_path = dca_frustratometer.utils.create_directory(_path/'..'/'tests'/'scratch')
@@ -172,16 +173,16 @@ def seq_index_mapping():
 #####
 
 def test_distance_matrix():
-    pdb_path = 'tests/data/6u5e.pdb'
+    pdb_path = f'{data_path}/6u5e.pdb'
     chain_id = 'A'
 
     distance_matrix = frustratometer.pdb.get_distance_matrix(pdb_path, chain_id, method='CB')
-    original_distance_matrix=np.loadtxt("examples/data/6U5E_A_CB_CB_Distance_Map.txt")
+    original_distance_matrix=np.loadtxt(f"{data_path}/6U5E_A_CB_CB_Distance_Map.txt")
     assert (original_distance_matrix==distance_matrix).all()
 
 def test_couplings_mask_with_sequence_threshold():
-    pdb_path = 'examples/data/6U5E_A.pdb'
-    potts_model_path="examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
+    pdb_path = f'{data_path}/6u5e.pdb'
+    potts_model_path=f"{data_path}/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
     chain_id = 'A'
     filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
     structure=frustratometer.Structure.full_pdb(pdb_file=pdb_path,chain=chain_id,filtered_aligned_sequence=filtered_aligned_sequence)
@@ -189,27 +190,27 @@ def test_couplings_mask_with_sequence_threshold():
     assert all(p == False for p in np.diag(DCA_model.mask))
 
 def test_couplings_mask_with_distance_threshold():
-    pdb_path = 'examples/data/6U5E_A.pdb'
-    potts_model_path="examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
+    pdb_path = f'{data_path}/6u5e.pdb'
+    potts_model_path=f"{data_path}/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
     chain_id = 'A'
     filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
     structure=frustratometer.Structure.full_pdb(pdb_file=pdb_path,chain=chain_id,filtered_aligned_sequence=filtered_aligned_sequence)
     DCA_model=frustratometer.DCA.from_potts_model_file(structure,potts_model_file=potts_model_path,distance_cutoff=16)
 
-    original_distance_matrix=np.loadtxt("examples/data/6U5E_A_CB_CB_Distance_Map.txt")
+    original_distance_matrix=np.loadtxt(f"{data_path}/6U5E_A_CB_CB_Distance_Map.txt")
     mask = np.ones([163, 163])
     mask *=original_distance_matrix<=16
     assert (DCA_model.mask==mask.astype(np.bool8)).all()
 
 def test_couplings_mask_with_distance_and_sequence_threshold():
-    pdb_path = 'examples/data/6U5E_A.pdb'
-    potts_model_path="examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
+    pdb_path = f'{data_path}/6u5e.pdb'
+    potts_model_path=f"{data_path}/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
     chain_id = 'A'
     filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
     structure=frustratometer.Structure.full_pdb(pdb_file=pdb_path,chain=chain_id,filtered_aligned_sequence=filtered_aligned_sequence)
     DCA_model=frustratometer.DCA.from_potts_model_file(structure,potts_model_file=potts_model_path,sequence_cutoff=1,distance_cutoff=16)
 
-    original_distance_matrix=np.loadtxt("examples/data/6U5E_A_CB_CB_Distance_Map.txt")
+    original_distance_matrix=np.loadtxt(f"{data_path}/6U5E_A_CB_CB_Distance_Map.txt")
     mask = np.ones([163, 163])
     mask *=original_distance_matrix<=16
     np.fill_diagonal(mask, 0)
@@ -247,13 +248,12 @@ def test_OOP_compute_DCA_native_energy():
     assert np.round(e, 4) == -61.5248
 
 def test_OOP_compute_seq_DCA_energy_with_distance_threshold_without_gap_terms():
-    import subprocess
-    pdb_file = 'examples/data/6U5E_A.pdb'
+    pdb_file = f'{data_path}/6u5e.pdb'
     chain = 'A'
     distance_matrix_method='CB'
-    potts_model_file = "examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
+    potts_model_file = f"{data_path}/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
     filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
-    aligned_sequence=subprocess.check_output(["sed","-n",""'/>%s$/,/>/p'"" % "6U5E_A",'examples/data/PF00160_all_pseudogene_parent_sequences_aligned_PFAM_27.fasta'])
+    aligned_sequence=subprocess.check_output(["sed","-n",""'/>%s$/,/>/p'"" % "6U5E_A",f'{data_path}/PF00160_all_pseudogene_parent_sequences_aligned_PFAM_27.fasta'])
     aligned_sequence="".join(aligned_sequence.decode().split("\n")[1:-2])
 
     structure=frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence,aligned_sequence=aligned_sequence)
@@ -265,13 +265,12 @@ def test_OOP_compute_seq_DCA_energy_with_distance_threshold_without_gap_terms():
     assert np.round(e, 4) == -769.5400
 
 def test_OOP_compute_seq_DCA_energy_with_distance_threshold_with_gap_terms():
-    import subprocess
-    pdb_file = 'examples/data/6U5E_A.pdb'
+    pdb_file = f'{data_path}/6u5e.pdb'
     chain = 'A'
     distance_matrix_method='CB'
-    potts_model_file = "examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
+    potts_model_file = f"{data_path}/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
     filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
-    aligned_sequence=subprocess.check_output(["sed","-n",""'/>%s$/,/>/p'"" % "6U5E_A",'examples/data/PF00160_all_pseudogene_parent_sequences_aligned_PFAM_27.fasta'])
+    aligned_sequence=subprocess.check_output(["sed","-n",""'/>%s$/,/>/p'"" % "6U5E_A",f'{data_path}/PF00160_all_pseudogene_parent_sequences_aligned_PFAM_27.fasta'])
     aligned_sequence="".join(aligned_sequence.decode().split("\n")[1:-2])
 
     structure=frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence,aligned_sequence=aligned_sequence)
@@ -283,11 +282,10 @@ def test_OOP_compute_seq_DCA_energy_with_distance_threshold_with_gap_terms():
     assert np.round(e, 4) == -801.9952
 
 def test_OOP_compute_seq_DCA_energy_without_gap_terms():
-    import subprocess
-    pdb_file = 'examples/data/6U5E_A.pdb'
+    pdb_file = f'{data_path}/6u5e.pdb'
     chain = 'A'
     distance_matrix_method='CB'
-    potts_model_file = "examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
+    potts_model_file = f"{data_path}/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
     filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
 
     structure=frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence)
@@ -298,11 +296,10 @@ def test_OOP_compute_seq_DCA_energy_without_gap_terms():
     assert np.round(e, 4) == -1265.9532
 
 def test_OOP_compute_seq_DCA_energy_with_gap_terms():
-    import subprocess
-    pdb_file = 'examples/data/6U5E_A.pdb'
+    pdb_file = f'{data_path}/6u5e.pdb'
     chain = 'A'
     distance_matrix_method='CB'
-    potts_model_file = "examples/data/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
+    potts_model_file = f"{data_path}/PF00160_PFAM_27_dca_gap_threshold_0.2.mat"
     filtered_aligned_sequence="-FDIAVDGLGRVSFELFADKVPKTAENFRALST-GGYKGSCFHRIIPGFMCQGGDFTRHNG--TGGSIYGEKFEDEN--FILKHGPGILSMANAG--PNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERGSRNGKTSKKITIADCG-"
 
     structure=frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence)
