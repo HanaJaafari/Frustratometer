@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from dca_frustratometer import Map  # Ensure to import the Map class correctly
+from frustratometer import Map  # Ensure to import the Map class correctly
 
 class TestMap(unittest.TestCase):
     def setUp(self):
