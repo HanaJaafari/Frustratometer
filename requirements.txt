@@ -8,11 +8,11 @@ itertools
 openmm
 os
 pathlib
-seaborn
+# seaborn
 subprocess
 logging
 glob
 urllib
-matplotlib.pyplot
+# matplotlib.pyplot
 pydca
 #importlib-metadata; python_version < '3.9'
