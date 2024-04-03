@@ -35,13 +35,12 @@ A clean python environment is recommended.
 The awsem frustatometer package includes a prody based Structure class to load the structure and calculate the properties needed for the AWSEM and DCA Frustratometers.
 
 ```python
-from frustratometer import Structure
-from pathlib import Path
+import frustratometer
 
 # Define the path to your PDB file
 pdb_path = Path('data/my_protein.pdb')
 # Load the structure
-structure = Structure.full_pdb(pdb_path)
+structure = frustratometer.Structure.full_pdb(pdb_path)
 structure.sequence #The sequence of the structure
 ```
 
@@ -50,20 +49,18 @@ structure.sequence #The sequence of the structure
 After loading the structure, create an AWSEM model instance with the desired parameters. Here we provide some typical configurations that can be found elsewhere.
 
 ```python
-from frustratometer import AWSEM
-
 ## Single residue frustration with electrostatics
-model_singleresidue = AWSEM(structure) 
+model_singleresidue = frustratometer.AWSEM(structure) 
 ## Single residue frustration without electrostatics
-model_singleresidue_noelectrostatics = AWSEM(structure, k_electrostatics=0) 
+model_singleresidue_noelectrostatics = frustratometer.AWSEM(structure, k_electrostatics=0) 
 ## Mutational frustration with electrostatics
-model_mutational = AWSEM(structure, min_sequence_separation_contact=0) 
+model_mutational = frustratometer.AWSEM(structure, min_sequence_separation_contact=0) 
 ## Mutational frustration without electrostatics
-model_mutational_noelectrostatics = AWSEM(structure, , min_sequence_separation_contact=0, k_electrostatics=0)
+model_mutational_noelectrostatics = frustratometer.AWSEM(structure, , min_sequence_separation_contact=0, k_electrostatics=0)
 ## Mutational frustration with sequence separation of 12
-model_mutational_seqsep12 = AWSEM(structure, min_sequence_separation_contact=0,min_sequence_separation_rho=13)
+model_mutational_seqsep12 = frustratometer.AWSEM(structure, min_sequence_separation_contact=0,min_sequence_separation_rho=13)
 ## Typical openAWSEM
-model_openAWSEM = AWSEM(min_sequence_separation_contact = 10, distance_cutoff_contact = None)
+model_openAWSEM = frustratometer.AWSEM(min_sequence_separation_contact = 10, distance_cutoff_contact = None)
 ```
 
 ### Calculating Residue Densities
