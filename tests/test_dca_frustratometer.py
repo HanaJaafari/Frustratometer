@@ -12,6 +12,7 @@ import pytest
 import pandas as pd
 from dca_frustratometer.utils import _path
 import Bio.AlignIO
+import typing
 
 data_path = dca_frustratometer.utils.create_directory(_path/'..'/'tests'/'data')
 #scratch_path = dca_frustratometer.utils.create_directory(_path/'..'/'tests'/'scratch')

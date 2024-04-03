@@ -4,15 +4,13 @@ pandas
 biopython
 prody
 pdbfixer
-itertools
 openmm
-os
-pathlib
-seaborn
-subprocess
-logging
-glob
-urllib
-matplotlib.pyplot
-pydca
+# pathlib
+# itertools
+# os
+# subprocess
+# logging
+# glob
+# urllib
+# pydca
 #importlib-metadata; python_version < '3.9'
