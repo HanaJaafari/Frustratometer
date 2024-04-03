@@ -39,8 +39,8 @@ jobs:
 
     - name: Install hmmer
       run: |
-       wget http://eddylab.org/software/hmmer/hmmer.tar.gz
-       tar zxf hmmer.tar.gz
+       wget http://eddylab.org/software/hmmer/hmmer-3.3.2.tar.gz
+       tar zxf hmmer-3.3.2.tar.gz
        cd hmmer-3.3.2
        ./configure
        make
