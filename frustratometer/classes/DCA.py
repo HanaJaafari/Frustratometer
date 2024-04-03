@@ -6,7 +6,6 @@ from pathlib import Path
 
 
 #Import other modules
-from ..utils import _path
 from .. import pdb
 from .. import filter
 from .. import dca

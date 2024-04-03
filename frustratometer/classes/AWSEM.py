@@ -6,7 +6,6 @@ from .Frustratometer import Frustratometer
 from pydantic import BaseModel, Field
 from pydantic.types import Path
 from typing import List,Optional
-import numpy as np
 
 __all__ = ['AWSEM']
 
