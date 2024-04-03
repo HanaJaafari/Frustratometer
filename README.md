@@ -2,7 +2,8 @@ Frustratometer
 ==============================
 [//]: # (Badges)
 [![GitHub Actions Build Status](https://github.com/HanaJaafari/dca_frustratometer/workflows/CI/badge.svg)](https://github.com/HanaJaafari/dca_frustratometer/actions?query=workflow%3ACI)
-[![codecov](https://codecov.io/gh/HanaJaafari/DCA Frustratometer/branch/master/graph/badge.svg)](https://codecov.io/gh/HanaJaafari/DCA_Frustratometer/branch/master)
+[![codecov](https://codecov.io/gh/HanaJaafari/Frustratometer/graph/badge.svg?token=JKDOXOYPRS)](https://codecov.io/gh/HanaJaafari/Frustratometer)
+
 
 A python implementation of the protein frustratometer.
 
