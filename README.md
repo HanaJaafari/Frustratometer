@@ -1,4 +1,4 @@
-DCA Frustratometer
+Frustratometer
 ==============================
 [//]: # (Badges)
 [![GitHub Actions Build Status](https://github.com/HanaJaafari/dca_frustratometer/workflows/CI/badge.svg)](https://github.com/HanaJaafari/dca_frustratometer/actions?query=workflow%3ACI)
@@ -21,8 +21,8 @@ In this module we implement a version of the frustratometer based on Direct Coup
 This module is currently under development.
 To install this modules please clone this repository and install it using the following commands.
 
-    git clone HanaJaafari/dca_frustratometer
-    cd dca_frustratometer
+    git clone HanaJaafari/Frustratometer
+    cd Frustratometer
     conda install -c conda-forge --file requirements.txt
     pip install -e .
 
@@ -30,7 +30,107 @@ A clean python environment is recommended.
 
 ## Usage
 
-...
+### Loading Protein Structures
+
+The awsem frustatometer package includes a prody based Structure class to load the structure and calculate the properties needed for the AWSEM and DCA Frustratometers.
+
+```python
+import frustratometer
+
+# Define the path to your PDB file
+pdb_path = Path('data/my_protein.pdb')
+# Load the structure
+structure = frustratometer.Structure.full_pdb(pdb_path)
+structure.sequence #The sequence of the structure
+```
+
+### Creating an AWSEM Model Instance
+
+After loading the structure, create an AWSEM model instance with the desired parameters. Here we provide some typical configurations that can be found elsewhere.
+
+```python
+## Single residue frustration with electrostatics
+model_singleresidue = frustratometer.AWSEM(structure) 
+## Single residue frustration without electrostatics
+model_singleresidue_noelectrostatics = frustratometer.AWSEM(structure, k_electrostatics=0) 
+## Mutational frustration with electrostatics
+model_mutational = frustratometer.AWSEM(structure, min_sequence_separation_contact=0) 
+## Mutational frustration without electrostatics
+model_mutational_noelectrostatics = frustratometer.AWSEM(structure, , min_sequence_separation_contact=0, k_electrostatics=0)
+## Mutational frustration with sequence separation of 12
+model_mutational_seqsep12 = frustratometer.AWSEM(structure, min_sequence_separation_contact=0,min_sequence_separation_rho=13)
+## Typical openAWSEM
+model_openAWSEM = frustratometer.AWSEM(min_sequence_separation_contact = 10, distance_cutoff_contact = None)
+```
+
+### Calculating Residue Densities
+
+To calculate the density of residues in the structure.
+
+```python
+calculated_densities = model_singleresidue.rho_r
+print(calculated_densities)
+```
+
+### Calculating Frustration Indices
+
+Frustration indices can be calculated for single residues or mutationally. This measurement helps identify energetically favorable or unfavorable interactions within the protein structure.
+
+#### Single Residue Frustration
+
+```python
+# Calculate single residue frustration
+single_residue_frustration = model_singleresidue.frustration(kind='singleresidue')
+print(single_residue_frustration)
+```
+
+#### Single Residue Decoy Fluctuation
+The frustratometer package also allows the quick calculation of the energies of all single residue and mutational decoys.
+
+```python
+# Calculate mutational frustration
+mutational_frustration = model_singleresidue.decoy_fluctuation(kind='singleresidue')
+print(mutational_frustration)
+```
+
+#### Mutational Frustration
+
+```python
+# Calculate mutational frustration
+mutational_frustration = model_mutational.frustration(kind='mutational')
+print(mutational_frustration)
+```
+
+### Energy Calculations
+
+You can calculate different energy contributions, including fields energy (pseudo one-body terms like burial), couplings energy (pseudo two-body terms like contact and electrostatics), and their combination to determine the native energy of the protein structure.
+
+#### Fields Energy
+
+```python
+fields_energy = model_openAWSEM.fields_energy()
+print(fields_energy)
+```
+
+#### Couplings Energy
+
+```python
+couplings_energy = model_openAWSEM.couplings_energy()
+print(couplings_energy)
+```
+
+#### Native Energy
+
+Native energy can be considered as a combination of fields and couplings energy contributions.
+
+```python
+native_energy = model_openAWSEM.native_energy()
+print(native_energy)
+```
+
+## Conclusion
+
+The Frustratometer AWSEM package offers many functionalities for analyzing protein structures. By calculating residue densities, frustration indices, and various energy contributions, researchers can gain insights into the stability, energetics, and potentially functional aspects of protein conformations.
 
 ## Other flavors
 

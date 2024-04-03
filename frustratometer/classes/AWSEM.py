@@ -9,9 +9,8 @@ from typing import List,Optional
 
 __all__ = ['AWSEM']
 
-
 class AWSEMParameters(BaseModel):
-    
+    """Default parameters for AWSEM energy calculations."""
     k_contact: float = Field(4.184, description="Coefficient for contact potential. (kJ/mol)")
     
     #Density
@@ -36,19 +35,19 @@ class AWSEMParameters(BaseModel):
     eta_sigma: float = Field(7.0, description="Sharpness of the density-based switching function between protein-mediated and water-mediated contacts.")
 
     #Gamma files
-    burial_gamma_file: Path = Field(f'{_path}/data/burial_gamma', description="File containing the burial gamma values.")
-    direct_gamma_file: Path = Field(f'{_path}/data/gamma_ijm', description="File containing the gamma_ijm values.")
-    water_gamma_file: Path = Field(f'{_path}/data/water_gamma_ijm', description="File containing the water gamma_ijm values.")
-    protein_gamma_file: Path = Field(f'{_path}/data/protein_gamma_ijm', description="File containing the protein gamma_ijm values.")
+    burial_gamma_file: Path = Field(_path/'data'/'burial_gamma', description="File containing the burial gamma values.")
+    direct_gamma_file: Path = Field(_path/'data'/'gamma_ijm', description="File containing the gamma_ijm values.")
+    water_gamma_file: Path = Field(_path/'data'/'water_gamma_ijm', description="File containing the water gamma_ijm values.")
+    protein_gamma_file: Path = Field(_path/'data'/'protein_gamma_ijm', description="File containing the protein gamma_ijm values.")
     
     #Membrane
     eta_switching: int = Field(10, description="Switching distance for the membrane switching function")
 
     #Membrane gamma files
-    membrane_burial_file: Path = Field(f'{_path}/data/membrane_gamma_ijm', description="File containing the membrane gamma_ijm values.")
-    membrane_direct_gamma_file: Path = Field(f'{_path}/data/membrane_gamma_ijm', description="File containing the membrane gamma_ijm values.")
-    membrane_water_gamma_file: Path = Field(f'{_path}/data/membrane_gamma_ijm_water', description="File containing the membrane gamma_ijm water values.")
-    membrane_protein_gamma_file: Path = Field(f'{_path}/data/membrane_gamma_ijm_protein', description="File containing the membrane gamma_ijm protein values.")
+    membrane_burial_file: Path = Field(_path/'data'/'membrane_gamma_ijm', description="File containing the membrane gamma_ijm values.")
+    membrane_direct_gamma_file: Path = Field(_path/'data'/'membrane_gamma_ijm', description="File containing the membrane gamma_ijm values.")
+    membrane_water_gamma_file: Path = Field(_path/'data'/'membrane_gamma_ijm_water', description="File containing the membrane gamma_ijm water values.")
+    membrane_protein_gamma_file: Path = Field(_path/'data'/'membrane_gamma_ijm_protein', description="File containing the membrane gamma_ijm protein values.")
 
     #Electrostatics
     min_sequence_separation_electrostatics: Optional[int] = Field(1, description="Minimum sequence separation for electrostatics calculation.")
@@ -188,7 +187,7 @@ class AWSEM(Frustratometer):
         self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
         self._native_energy=None
 
-    def compute_configurational_decoy(self, n_decoys=4000):
+    def compute_configurational_decoy_statistics(self, n_decoys=4000):
         # ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
         _AA='ARNDCQEGHILKMFPSTWYV'
         seq_index = np.array([_AA.find(aa) for aa in self.sequence])
@@ -289,5 +288,5 @@ class AWSEM(Frustratometer):
         return configurational_energies
     
     def configurational_frustration(self):
-        mean_decoy_energy, std_decoy_energy = self.compute_configurational_decoy()
+        mean_decoy_energy, std_decoy_energy = self.compute_configurational_decoy_statistics()
         return (self.configurational_energies()-mean_decoy_energy)/std_decoy_energy
