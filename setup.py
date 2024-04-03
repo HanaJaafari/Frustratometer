@@ -21,7 +21,7 @@ except:
 
 setup(
     # Self-descriptive entries which should always be present
-    name='dca_frustratometer',
+    name='frustratometer',
     author='Carlos Bueno',
     author_email='carlos.bueno@rice.edu',
     description=short_description,

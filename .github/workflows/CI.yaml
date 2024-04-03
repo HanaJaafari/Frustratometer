@@ -125,7 +125,7 @@ jobs:
       shell: bash -l {0}
 
       run: |
-        pytest -v --cov=dca_frustratometer --cov-report=xml --color=yes tests/
+        pytest -v --cov=frustratometer --cov-report=xml --color=yes tests/
 
     - name: CodeCov
       uses: codecov/codecov-action@v3
