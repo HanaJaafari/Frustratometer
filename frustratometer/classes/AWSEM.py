@@ -73,6 +73,13 @@ class AWSEM(Frustratometer):
         
         #Set attributes
         p = AWSEMParameters(**parameters)
+        if p.min_sequence_separation_contact is None:
+            p.min_sequence_separation_contact = 1
+        if p.min_sequence_separation_rho is None:
+            p.min_sequence_separation_rho = 1
+        if p.min_sequence_separation_electrostatics is None:
+            p.min_sequence_separation_electrostatics = 1
+
         for field, value in p:
             setattr(self, field, value)
         
@@ -181,3 +188,107 @@ class AWSEM(Frustratometer):
         self.potts_model['h'] = -burial_energy.sum(axis=-1)[:, self.aa_map_awsem_list]
         self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
         self._native_energy=None
+
+    def compute_configurational_decoy(self, n_decoys=4000):
+        # ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
+        _AA='ARNDCQEGHILKMFPSTWYV'
+        seq_index = np.array([_AA.find(aa) for aa in self.sequence])
+        distances = np.triu(self.distance_matrix)
+        distances = distances[(distances<self.distance_cutoff_contact) & (distances>0)]
+
+        rho_b = np.expand_dims(self.rho_r, 1) #(n,1)
+        rho1 = np.expand_dims(self.rho_r, 0) #(1,n)
+        rho2 = np.expand_dims(self.rho_r, 1) #(n,1)
+
+        sigma_water = 0.25 * (1 - np.tanh(self.eta_sigma * (rho1 - self.rho_0))) * (1 - np.tanh(self.eta_sigma * (rho2 - self.rho_0))) #(n,n)
+        sigma_protein = 1 - sigma_water #(n,n)
+
+        #Calculate theta and indicators
+        theta = 0.25 * (1 + np.tanh(self.eta * (distances - self.r_min))) * (1 + np.tanh(self.eta * (self.r_max - distances))) # (c,)
+        thetaII = 0.25 * (1 + np.tanh(self.eta * (distances - self.r_minII))) * (1 + np.tanh(self.eta * (self.r_maxII - distances))) #(c,)
+        burial_indicator = np.tanh(self.burial_kappa * (rho_b - self.burial_ro_min)) + np.tanh(self.burial_kappa * (self.burial_ro_max - rho_b)) #(n,3)
+           
+        charges = np.array([0, 1, 0, -1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
+        electrostatics_indicator = np.exp(-distances / self.electrostatics_screening_length) / distances
+
+        decoy_energies=np.zeros(n_decoys)
+        decoy_data=[None]*n_decoys
+        #decoy_data_columns=['decoy_i','rand_i_resno','rand_j_resno','ires_type','jres_type','i_resno','j_resno','rij','rho_i','rho_j','water_energy','burial_energy_i','burial_energy_j','electrostatic_energy','tert_frust_decoy_energies']
+        for i in range(n_decoys):
+            c=np.random.randint(0,len(distances))
+            n1=np.random.randint(0,self.N)
+            n2=np.random.randint(0,self.N)
+            qi1=np.random.randint(0,self.N)
+            qi2=np.random.randint(0,self.N)
+            q1=seq_index[qi1]
+            q2=seq_index[qi2]
+
+            
+            burial_energy1 = (-0.5 * self.k_contact * self.burial_gamma[q1] * burial_indicator[n1]).sum(axis=0)
+            burial_energy2 = (-0.5 * self.k_contact * self.burial_gamma[q2] * burial_indicator[n2]).sum(axis=0)
+            
+            direct = theta[c] * self.direct_gamma[0, q1, q2]
+            water_mediated = sigma_water[n1,n2] * thetaII[c] * self.water_gamma[0,q1,q2]
+            protein_mediated = sigma_protein[n1,n2] * thetaII[c] * self.protein_gamma[0,q1,q2]
+            contact_energy = -self.k_contact * (direct+water_mediated+protein_mediated)
+            electrostatics_energy = self.k_electrostatics * electrostatics_indicator[c]*charges[q1]*charges[q2]
+
+            decoy_energies[i]=(burial_energy1+burial_energy2+contact_energy+electrostatics_energy)
+            #decoy_data[i]=[i, qi1, qi2, q1, q2, n1, n2, distances[c], self.rho_r[n1], self.rho_r[n2], contact_energy/4.184, burial_energy1/4.184, burial_energy2/4.184, electrostatics_energy/4.184, decoy_energies[i]]
+            
+        mean_decoy_energy = np.mean(decoy_energies)
+        std_decoy_energy = np.std(decoy_energies)
+        return mean_decoy_energy, std_decoy_energy
+    
+    def compute_configurational_energies(self):
+        _AA='ARNDCQEGHILKMFPSTWYV'
+        seq_index = np.array([_AA.find(aa) for aa in self.sequence])
+        distances = np.triu(self.distance_matrix)
+        distances = distances[(distances<self.distance_cutoff_contact) & (distances>0)]
+        n_contacts=len(distances)
+
+        n = self.distance_matrix.shape[0]  # Assuming self.distance_matrix is defined and square
+        tri_upper_indices = np.triu_indices(n, k=1)  # k=1 excludes the diagonal
+        valid_pairs = (self.distance_matrix[tri_upper_indices] < self.distance_cutoff_contact) & \
+                      (self.distance_matrix[tri_upper_indices] > 0)
+        indices1,indices2 = (tri_upper_indices[0][valid_pairs], tri_upper_indices[1][valid_pairs])
+        
+
+        rho_b = np.expand_dims(self.rho_r, 1) #(n,1)
+        rho1 = np.expand_dims(self.rho_r, 0) #(1,n)
+        rho2 = np.expand_dims(self.rho_r, 1) #(n,1)
+
+        sigma_water = 0.25 * (1 - np.tanh(self.eta_sigma * (rho1 - self.rho_0))) * (1 - np.tanh(self.eta_sigma * (rho2 - self.rho_0))) #(n,n)
+        sigma_protein = 1 - sigma_water #(n,n)
+
+        #Calculate theta and indicators
+        theta = 0.25 * (1 + np.tanh(self.eta * (distances - self.r_min))) * (1 + np.tanh(self.eta * (self.r_max - distances))) # (c,)
+        thetaII = 0.25 * (1 + np.tanh(self.eta * (distances - self.r_minII))) * (1 + np.tanh(self.eta * (self.r_maxII - distances))) #(c,)
+        burial_indicator = np.tanh(self.burial_kappa * (rho_b - self.burial_ro_min)) + np.tanh(self.burial_kappa * (self.burial_ro_max - rho_b)) #(n,3)
+           
+        charges = np.array([0, 1, 0, -1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
+        electrostatics_indicator = np.exp(-distances / self.electrostatics_screening_length) / distances
+
+        #decoy_data_columns=['decoy_i','rand_i_resno','rand_j_resno','ires_type','jres_type','i_resno','j_resno','rij','rho_i','rho_j','water_energy','burial_energy_i','burial_energy_j','electrostatic_energy','tert_frust_decoy_energies']
+        configurational_energies=np.zeros(n_contacts)
+        for i,(n1,n2,c) in enumerate(zip(indices1,indices2,range(n_contacts))):
+            c=np.random.randint(0,n_contacts)
+            q1=seq_index[n1]
+            q2=seq_index[n2]
+
+            
+            burial_energy1 = (-0.5 * self.k_contact * self.burial_gamma[q1] * burial_indicator[n1]).sum(axis=0)
+            burial_energy2 = (-0.5 * self.k_contact * self.burial_gamma[q2] * burial_indicator[n2]).sum(axis=0)
+            
+            direct = theta[c] * self.direct_gamma[0, q1, q2]
+            water_mediated = sigma_water[n1,n2] * thetaII[c] * self.water_gamma[0,q1,q2]
+            protein_mediated = sigma_protein[n1,n2] * thetaII[c] * self.protein_gamma[0,q1,q2]
+            contact_energy = -self.k_contact * (direct+water_mediated+protein_mediated)
+            electrostatics_energy = self.k_electrostatics * electrostatics_indicator[c]*charges[q1]*charges[q2]
+
+            configurational_energies[i]=(burial_energy1+burial_energy2+contact_energy+electrostatics_energy)
+        return configurational_energies
+    
+    def configurational_frustration(self):
+        mean_decoy_energy, std_decoy_energy = self.compute_configurational_decoy()
+        return (self.configurational_energies()-mean_decoy_energy)/std_decoy_energy
