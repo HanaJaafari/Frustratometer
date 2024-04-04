@@ -4,8 +4,6 @@ import frustratometer
 from math import exp, log, factorial
 from collections import Counter
 
-native_pdb = "1r69.pdb"  
-
 mcso_seq_output_file = "mcso_sequence.txt"
 mcso_energy_output_file = "mcso_energy.txt"
 
@@ -38,7 +36,7 @@ def mutation_process(temp,model,seq):
     k_b = 0.001987  # Boltzmann constant in kcal/mol*K
     Ep = 100 # Scale factor for heterogeneity in pacc, set 1 for testing
     mcso_seq = seq
-    for _ in range(100): # Maybe 1000 for formal testing
+    for _ in range(1000): # Maybe 1000 for formal testing
                 
         # Perform permutation or point mutation
         x = random.random()
@@ -65,11 +63,14 @@ def mutation_process(temp,model,seq):
     return seq
 
 if __name__=='__main__':
+    
+    native_pdb = "tests/data/1r69.pdb"  
     structure = frustratometer.Structure.full_pdb(native_pdb,"A")
     model = frustratometer.AWSEM(structure,distance_cutoff_contact=10, min_sequence_separation_contact=2)
     seq = list("SISSRVKSKRIQLGLNQAELAQKVGTTQQSIEQLENGKTKRPRFLPELASALGVSVDWLLNGT")
     with open(mcso_seq_output_file, 'w') as seq_file, open(mcso_energy_output_file, 'w') as energy_file:
         for temp in range(800, 199, -1):# Sample temperatures For simulated annealing
+            print(temp)
             seq = mutation_process(temp,model,seq)
             seq_file.write(f'Temperature: {temp} Sequence: {" ".join(seq)}\n')
             energy_file.write(f'Temperature: {temp} Energy: {frust(model, seq)}\n')
