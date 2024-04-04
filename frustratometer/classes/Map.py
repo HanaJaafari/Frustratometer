@@ -37,8 +37,14 @@ class Map():
         alignments = aligner.align(sequence_a, sequence_b)
         alignment = sorted(alignments)[0]
         print("Score = %.1f:" % alignment.score) # Takes only first possible alignment
-        print(alignment)
-        return cls.from_path(alignment.path)
+        try:
+            #Biopython 1.79
+            path=alignment.path
+        except AttributeError:
+            #Biopython 1.83
+            path=alignment.coordinates.T
+        
+        return cls.from_path(path)
             
     def map(self, sequence=None, reverse=False):
         seq=np.array([a for a in sequence+'-'])
@@ -79,7 +85,25 @@ class Map():
         self.seq1_len = max(value[0]) + 1
         self.seq2_len = max(value[1]) + 1
 
-
+if __name__ == "__main__":
     
+    class O(object):
+        pass
+    self = O()
+    self.map_array = np.array([[-1,  0,  1,  2,  3,  4, -1, -1],
+                                [ 0,  1, -1,  2,  3, -1,  4,  5]])
+    self.path = ((0, 0), (0, 1), (1, 2), (2, 2), (4, 4), (5, 4), (5, 6))
+    self.sequence_a = 'ACAEA'
+    self.sequence_b = 'AAAECD'
+    
+    test_map = Map.from_sequences(self.sequence_a, self.sequence_b)
+    
+    
+    
+    np.testing.assert_allclose(test_map.map_array, self.map_array)
+    self.assertEqual(test_map.seq1_len, len(self.sequence_a))
+    self.assertEqual(test_map.seq2_len, len(self.sequence_b))
+    
+
     
 
