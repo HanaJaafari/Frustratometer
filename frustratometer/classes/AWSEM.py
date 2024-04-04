@@ -3,13 +3,14 @@ import numpy as np
 from ..utils import _path
 from .. import frustration
 from .Frustratometer import Frustratometer
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from pydantic.types import Path
 from typing import List,Optional
 
 __all__ = ['AWSEM']
 
 class AWSEMParameters(BaseModel):
+    model_config = ConfigDict(extra='ignore')
     """Default parameters for AWSEM energy calculations."""
     k_contact: float = Field(4.184, description="Coefficient for contact potential. (kJ/mol)")
     
@@ -54,8 +55,6 @@ class AWSEMParameters(BaseModel):
     k_electrostatics: float = Field(17.3636, description="Coefficient for electrostatic interactions. (kJ/mol)")
     electrostatics_screening_length: float = Field(10, description="Screening length for electrostatic interactions. (Angstrom)")
 
-    class Config:
-        extra = 'forbid'
 
 class AWSEM(Frustratometer):
 
@@ -250,8 +249,10 @@ class AWSEM(Frustratometer):
         valid_pairs = (self.distance_matrix[tri_upper_indices] < self.distance_cutoff_contact) & \
                       (self.distance_matrix[tri_upper_indices] > 0)
         indices1,indices2 = (tri_upper_indices[0][valid_pairs], tri_upper_indices[1][valid_pairs])
-        
 
+        # for n1,n2,c in zip(indices1,indices2,range(n_contacts)):
+        #     assert self.distance_matrix[n1,n2] == distances[c]
+        
         rho_b = np.expand_dims(self.rho_r, 1) #(n,1)
         rho1 = np.expand_dims(self.rho_r, 0) #(1,n)
         rho2 = np.expand_dims(self.rho_r, 1) #(n,1)
@@ -267,14 +268,15 @@ class AWSEM(Frustratometer):
         charges = np.array([0, 1, 0, -1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
         electrostatics_indicator = np.exp(-distances / self.electrostatics_screening_length) / distances
 
-        #decoy_data_columns=['decoy_i','rand_i_resno','rand_j_resno','ires_type','jres_type','i_resno','j_resno','rij','rho_i','rho_j','water_energy','burial_energy_i','burial_energy_j','electrostatic_energy','tert_frust_decoy_energies']
-        configurational_energies=np.zeros(n_contacts)
-        for i,(n1,n2,c) in enumerate(zip(indices1,indices2,range(n_contacts))):
-            c=np.random.randint(0,n_contacts)
+        # decoy_data_columns=['decoy_i','i_resno','j_resno','ires_type','jres_type','aa1','aa2','rij','rho_i','rho_j','water_energy','burial_energy_i','burial_energy_j','electrostatic_energy','total_energies']
+        # decoy_data=[]
+        configurational_energies=np.zeros((n,n))
+        for c in range(n_contacts):
+            n1=indices1[c]
+            n2=indices2[c]
             q1=seq_index[n1]
             q2=seq_index[n2]
 
-            
             burial_energy1 = (-0.5 * self.k_contact * self.burial_gamma[q1] * burial_indicator[n1]).sum(axis=0)
             burial_energy2 = (-0.5 * self.k_contact * self.burial_gamma[q2] * burial_indicator[n2]).sum(axis=0)
             
@@ -284,9 +286,13 @@ class AWSEM(Frustratometer):
             contact_energy = -self.k_contact * (direct+water_mediated+protein_mediated)
             electrostatics_energy = self.k_electrostatics * electrostatics_indicator[c]*charges[q1]*charges[q2]
 
-            configurational_energies[i]=(burial_energy1+burial_energy2+contact_energy+electrostatics_energy)
-        return configurational_energies
+            energy=(burial_energy1+burial_energy2+contact_energy+electrostatics_energy)
+            configurational_energies[n1,n2]=energy
+            configurational_energies[n2,n1]=energy
+            # decoy_data+=[[c, n1, n2, q1, q2, _AA[q1],_AA[q2], distances[c], self.rho_r[n1], self.rho_r[n2], contact_energy/4.184, burial_energy1/4.184, burial_energy2/4.184, electrostatics_energy/4.184, energy/4.184]]
+        # import pandas as pd
+        return configurational_energies #, pd.DataFrame(decoy_data, columns=decoy_data_columns)
     
-    def configurational_frustration(self):
-        mean_decoy_energy, std_decoy_energy = self.compute_configurational_decoy_statistics()
-        return (self.configurational_energies()-mean_decoy_energy)/std_decoy_energy
+    def configurational_frustration(self,n_decoys=4000):
+        mean_decoy_energy, std_decoy_energy = self.compute_configurational_decoy_statistics(n_decoys=n_decoys)
+        return -(self.compute_configurational_energies()-mean_decoy_energy)/std_decoy_energy

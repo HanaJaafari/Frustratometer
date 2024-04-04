@@ -157,7 +157,7 @@ def test_identify_pfamID():
     """Test the get_pfamID function to ensure it correctly identifies the Pfam ID."""
     pdb_id = "6U5E"
     chain_id = "A"
-    expected_pfam_id = "PF11976"
+    expected_pfam_id = "PF00160"
 
     pfam_id = frustratometer.map.get_pfamID(pdb_id, chain_id)
     assert pfam_id == expected_pfam_id
@@ -200,7 +200,7 @@ def test_couplings_mask_with_distance_threshold():
     original_distance_matrix=np.loadtxt(f"{data_path}/6JXX_A_CB_CB_Distance_Map.txt")
     mask = np.ones([77, 77])
     mask *=original_distance_matrix<=16
-    assert (DCA_model.mask==mask.astype(np.bool8)).all()
+    assert (DCA_model.mask==mask.astype(np.bool_)).all()
 
 def test_couplings_mask_with_distance_and_sequence_threshold():
     pdb_path = f'{data_path}/6JXX_A.pdb'

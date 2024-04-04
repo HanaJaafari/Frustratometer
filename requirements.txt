@@ -4,6 +4,7 @@ pandas
 biopython
 prody
 pdbfixer
+pydantic
 openmm
 # pathlib
 # itertools

@@ -24,7 +24,7 @@ def compute_mask(distance_matrix: np.array,
     if distance_cutoff is not None:
         mask *= distance_matrix <= distance_cutoff
 
-    return mask.astype(np.bool8)
+    return mask.astype(np.bool_)
 
 
 def compute_native_energy(seq: str,

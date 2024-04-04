@@ -12,7 +12,7 @@ If you want to retrieve a single alignment use the alignemnt function
 
 Examples:
     
-        $ dca_frustratometer.pfam.database('/media/databases',
+        $ frustratometer.pfam.database('/media/databases',
         https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.full.uniprot.gz)
 
 Todo:
