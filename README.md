@@ -1,7 +1,7 @@
 Frustratometer
 ==============================
 [//]: # (Badges)
-[![GitHub Actions Build Status](https://github.com/HanaJaafari/dca_frustratometer/workflows/CI/badge.svg)](https://github.com/HanaJaafari/dca_frustratometer/actions?query=workflow%3ACI)
+[![GitHub Actions Build Status](https://github.com/HanaJaafari/Frustratometer/workflows/CI/badge.svg)](https://github.com/HanaJaafari/Frustratometer/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/HanaJaafari/Frustratometer/graph/badge.svg?token=JKDOXOYPRS)](https://codecov.io/gh/HanaJaafari/Frustratometer)
 
 
