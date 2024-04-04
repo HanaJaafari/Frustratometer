@@ -148,7 +148,7 @@ Atomistic
 
 ## Copyright
 
-Copyright (c) 2022, Carlos Bueno, Hana Jaafari
+Copyright (c) 2022-2024, Carlos Bueno, Hana Jaafari
 
 
 ## Acknowledgements
