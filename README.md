@@ -51,17 +51,17 @@ After loading the structure, create an AWSEM model instance with the desired par
 
 ```python
 ## Single residue frustration with electrostatics
-model_singleresidue = frustratometer.AWSEM(structure) 
+model_singleresidue = frustratometer.AWSEM(structure, min_sequence_separation_contact=2) 
 ## Single residue frustration without electrostatics
-model_singleresidue_noelectrostatics = frustratometer.AWSEM(structure, k_electrostatics=0) 
-## Mutational frustration with electrostatics
-model_mutational = frustratometer.AWSEM(structure, min_sequence_separation_contact=0) 
-## Mutational frustration without electrostatics
-model_mutational_noelectrostatics = frustratometer.AWSEM(structure, , min_sequence_separation_contact=0, k_electrostatics=0)
+model_singleresidue_noelectrostatics = frustratometer.AWSEM(structure, min_sequence_separation_contact=2, k_electrostatics=0) 
+## Mutational/Configurational frustration with electrostatics
+model_mutational = frustratometer.AWSEM(structure) 
+## Mutational/Configurational frustration without electrostatics
+model_mutational_noelectrostatics = frustratometer.AWSEM(structure, k_electrostatics=0)
 ## Mutational frustration with sequence separation of 12
-model_mutational_seqsep12 = frustratometer.AWSEM(structure, min_sequence_separation_contact=0,min_sequence_separation_rho=13)
+model_mutational_seqsep12 = frustratometer.AWSEM(structure, min_sequence_separation_rho=13)
 ## Typical openAWSEM
-model_openAWSEM = frustratometer.AWSEM(min_sequence_separation_contact = 10, distance_cutoff_contact = None)
+model_openAWSEM = frustratometer.AWSEM(structure, min_sequence_separation_contact = 10, distance_cutoff_contact = None)
 ```
 
 ### Calculating Residue Densities
