@@ -97,7 +97,7 @@ class Structure:
         return self
     
     @classmethod
-    def spliced_pdb(cls,pdb_file:str, chain:str, seq_selection: str, aligned_sequence: str = None,
+    def spliced_pdb(cls,pdb_file:Union[Path,str], chain:str, seq_selection: str, aligned_sequence: str = None,
                     filtered_aligned_sequence: str = None, distance_matrix_method:str = 'CB',repair_pdb:bool = True, 
                     pdb_directory: str = os.getcwd()):
         """
@@ -223,7 +223,7 @@ class Structure:
                 # self.fin_index_shift=self.fin_index+1  
     
 
-        self.structure = prody.parsePDB(self.pdb_file, chain=self.chain).select(f"protein and {self.seq_selection}")
+        self.structure = prody.parsePDB(str(self.pdb_file), chain=self.chain).select(f"protein and {self.seq_selection}")
         self.sequence=pdb.get_sequence(self.pdb_file,self.chain)
 
         self.distance_matrix=pdb.get_distance_matrix(pdb_file=self.pdb_file,chain=self.chain,
