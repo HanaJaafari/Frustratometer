@@ -81,6 +81,42 @@ def test_mutational_frustration(test_data):
         print(f"Assertion failed: Maximum absolute tolerance found was {max_atol}, which exceeds the allowed tolerance.")
         raise AssertionError(f"Maximum absolute tolerance found was {max_atol}, which exceeds the allowed tolerance of 3E-1.")
 
+@pytest.mark.parametrize("test_data", tests_config.to_dict(orient="records"))
+def test_configurational_frustration(test_data):
+    #This test may fail due to the randomness of the decoy generation
+    structure = frustratometer.Structure.full_pdb(test_data_path/f"{test_data['pdb']}.pdb")
+    sequence_separation = 2 if test_data['seqsep'] == 3 else 13
+    
+    if test_data['k_electrostatics'] == 1000:
+        assert True
+        return
+
+    model = frustratometer.AWSEM(structure, distance_cutoff_contact=9.5, 
+                                 min_sequence_separation_rho=sequence_separation, 
+                                 min_sequence_separation_contact=0, 
+                                 k_electrostatics=test_data['k_electrostatics'] * 4.184, 
+                                 min_sequence_separation_electrostatics=1)
+    
+    data = pd.read_csv(test_data['configurational'], delim_whitespace=True)
+    
+    if test_data['pdb'] != "ijge":
+        chains = ['A', 'B', 'C']
+        for chain, next_chain in zip(chains, chains[1:]):
+            max_resid = {'A': 277, 'B': 277 + 99, 'C': 9}
+            data.loc[data['ChainRes1'] == next_chain, '#Res1'] += max_resid[chain]
+            data.loc[data['ChainRes2'] == next_chain, 'Res2'] += max_resid[chain]
+    
+    start_pdb = 1 if (test_data['pdb'] != "6u5e" or test_data['lammps']) else 2
+    data['Calculated_frustration'] = model.configurational_frustration(n_decoys=10000)[data['#Res1'] - start_pdb, data['Res2'] - start_pdb]
+    data['Expected_frustration'] = data['FrstIndex']
+    
+    try:
+        assert np.allclose(data['Calculated_frustration'], data['Expected_frustration'], atol=3E-1)
+    except AssertionError:
+        max_atol = np.max(np.abs(data['Calculated_frustration'] - data['Expected_frustration']))
+        print(f"Assertion failed: Maximum absolute tolerance found was {max_atol}, which exceeds the allowed tolerance.")
+        raise AssertionError(f"Maximum absolute tolerance found was {max_atol}, which exceeds the allowed tolerance of 3E-1.")
+
 #####
 #Test AWSEM Native Energy Calculations
 #####
