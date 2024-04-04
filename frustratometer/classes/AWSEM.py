@@ -3,13 +3,14 @@ import numpy as np
 from ..utils import _path
 from .. import frustration
 from .Frustratometer import Frustratometer
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from pydantic.types import Path
 from typing import List,Optional
 
 __all__ = ['AWSEM']
 
 class AWSEMParameters(BaseModel):
+    model_config = ConfigDict(extra='ignore')
     """Default parameters for AWSEM energy calculations."""
     k_contact: float = Field(4.184, description="Coefficient for contact potential. (kJ/mol)")
     
@@ -54,8 +55,6 @@ class AWSEMParameters(BaseModel):
     k_electrostatics: float = Field(17.3636, description="Coefficient for electrostatic interactions. (kJ/mol)")
     electrostatics_screening_length: float = Field(10, description="Screening length for electrostatic interactions. (Angstrom)")
 
-    class Config:
-        extra = 'forbid'
 
 class AWSEM(Frustratometer):
 
