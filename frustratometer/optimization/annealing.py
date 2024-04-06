@@ -5,20 +5,43 @@ import pandas as pd  # Import pandas for data manipulation
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
 
-def sequence_permutation(sequence, model):
+def sequence_permutation(sequence, potts_model,mask):
     sequence = sequence.copy()
     res1, res2 = random.sample(range(len(sequence)), 2)
-    sequence[res1], sequence[res2] = sequence[res2], sequence[res1]
+    
     het_difference = 0
-    
-    
-    
-    
-    
-    energy_difference = 0
-    return sequence, het_difference, energy_difference
 
-def sequence_mutation(sequence, model):
+    pos1, pos2 = res1, res2
+    seq_index = np.array([_AA.find(aa) for aa in sequence])
+    aa2 , aa1 = seq_index[pos1],seq_index[pos2]
+    
+    #Compute fields
+    decoy_energy = 0
+    decoy_energy -= (potts_model['h'][pos1, aa1] - potts_model['h'][pos1, seq_index[pos1]])  # h correction aa1
+    decoy_energy -= (potts_model['h'][pos2, aa2] - potts_model['h'][pos2, seq_index[pos2]])  # h correction aa2
+
+    #Compute couplings
+    j_correction = 0
+    for pos, aa in enumerate(seq_index):
+        # J correction interactions with other aminoacids
+        reduced_j = potts_model['J'][pos, :, aa, :].astype(np.float32)
+        j_correction += reduced_j[pos1, seq_index[pos1]] * mask[pos, pos1]
+        j_correction -= reduced_j[pos1, aa1] * mask[pos, pos1]
+        j_correction += reduced_j[pos2, seq_index[pos2]] * mask[pos, pos2]
+        j_correction -= reduced_j[pos2, aa2] * mask[pos, pos2]
+    # J correction, interaction with self aminoacids
+    j_correction -= potts_model['J'][pos1, pos2, seq_index[pos1], seq_index[pos2]] * mask[pos1, pos2]  # Taken two times
+    j_correction += potts_model['J'][pos1, pos2, aa1, seq_index[pos2]] * mask[pos1, pos2]  # Added mistakenly
+    j_correction += potts_model['J'][pos1, pos2, seq_index[pos1], aa2] * mask[pos1, pos2]  # Added mistakenly
+    j_correction -= potts_model['J'][pos1, pos2, aa1, aa2] * mask[pos1, pos2]  # Correct combination
+    decoy_energy += j_correction
+
+        
+    sequence[res1], sequence[res2] = sequence[res2], sequence[res1]
+
+    return sequence, het_difference, decoy_energy
+
+def sequence_mutation(sequence, potts_model,mask):
     amino_acids = 'ACDEFGHIKLMNPQRSTVWY'
     sequence = sequence.copy()
     res = random.randint(0, len(sequence) - 1)
@@ -26,12 +49,12 @@ def sequence_mutation(sequence, model):
     aa_old=sequence[res]
     
     het_difference = np.log(sequence.count(aa_old)/ (sequence.count(aa_new)+1))
-    energy_difference = -model.potts_model['h'][res,_AA.find(aa_new)] + model.potts_model['h'][res,_AA.find(aa_old)]
+    energy_difference = -potts_model['h'][res,_AA.find(aa_new)] + potts_model['h'][res,_AA.find(aa_old)]
 
-    reduced_j = model.potts_model['J'][range(len(sequence)), :, np.array([_AA.find(aa) for aa in sequence]), :]
+    reduced_j = potts_model['J'][range(len(sequence)), :, np.array([_AA.find(aa) for aa in sequence]), :]
     print(reduced_j.shape)
-    j_correction = reduced_j[:, res, _AA.find(aa_old)] * model.mask[res]
-    j_correction -= reduced_j[:, res, _AA.find(aa_new)] * model.mask[res]
+    j_correction = reduced_j[:, res, _AA.find(aa_old)] * mask[res]
+    j_correction -= reduced_j[:, res, _AA.find(aa_new)] * mask[res]
     
     # J correction, interaction with self aminoacids
     energy_difference += j_correction.sum(axis=0)
@@ -69,7 +92,7 @@ def montecarlo_steps(temperature, model, sequence, Ep=100, n_steps = 1000):
     energy = model.native_energy(sequence)
     het = heterogeneity_approximation(sequence)
     for _ in range(n_steps):
-        new_sequence, het_difference, energy_difference = sequence_permutation(sequence, model) if random.random() > 0.5 else sequence_mutation(sequence, model)
+        new_sequence, het_difference, energy_difference = sequence_permutation(sequence, model.potts_model,model.mask) if random.random() > 0.5 else sequence_mutation(sequence, model.potts_model,model.mask)
         new_energy = model.native_energy(new_sequence)
         new_het = heterogeneity_approximation(new_sequence)
         energy_difference = new_energy - energy
@@ -109,7 +132,7 @@ def test_energy_difference_permutation():
     structure = frustratometer.Structure.full_pdb(native_pdb, "A")
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
     sequence = list(model.sequence)
-    new_sequence, het_difference, energy_difference = sequence_permutation(sequence, model)
+    new_sequence, het_difference, energy_difference = sequence_permutation(sequence, model.potts_model,model.mask)
     energy = model.native_energy(sequence)
     new_energy = model.native_energy(new_sequence)
     energy_difference2 = new_energy - energy
@@ -120,7 +143,7 @@ def test_energy_difference_mutation():
     structure = frustratometer.Structure.full_pdb(native_pdb, "A")
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
     sequence = list(model.sequence)
-    new_sequence, het_difference, energy_difference = sequence_mutation(sequence, model)
+    new_sequence, het_difference, energy_difference = sequence_mutation(sequence, model.potts_model,model.mask)
     energy = model.native_energy(sequence)
     new_energy = model.native_energy(new_sequence)
     energy_difference2 = new_energy - energy
