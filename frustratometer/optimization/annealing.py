@@ -5,19 +5,26 @@ import pandas as pd  # Import pandas for data manipulation
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
 
-def sequence_swap(sequence, potts_model,mask):
-    sequence = sequence.copy()
-    res1, res2 = random.sample(range(len(sequence)), 2)
+def index_to_sequence(seq_index):
+    """Converts sequence index array back to sequence string."""
+    return ''.join([_AA[index] for index in seq_index])
+
+def sequence_to_index(sequence):
+    """Converts sequence string to sequence index array."""
+    return np.array([_AA.find(aa) for aa in sequence])
+
+def sequence_swap(seq_index, potts_model,mask):
+    seq_index = seq_index.copy()
+    res1, res2 = random.sample(range(len(seq_index)), 2)
     
     het_difference = 0
-    energy_difference = compute_swap_energy(potts_model, mask, sequence, res1, res2)
+    energy_difference = compute_swap_energy(potts_model, mask, seq_index, res1, res2)
 
-    sequence[res1], sequence[res2] = sequence[res2], sequence[res1]
+    seq_index[res1], seq_index[res2] = seq_index[res2], seq_index[res1]
 
-    return sequence, het_difference, energy_difference
+    return seq_index, het_difference, energy_difference
 
-def compute_swap_energy(potts_model, mask, sequence, pos1, pos2):
-    seq_index = np.array([_AA.find(aa) for aa in sequence])
+def compute_swap_energy(potts_model, mask, seq_index, pos1, pos2):
     aa2 , aa1 = seq_index[pos1],seq_index[pos2]
     
     #Compute fields
@@ -42,44 +49,61 @@ def compute_swap_energy(potts_model, mask, sequence, pos1, pos2):
     energy_difference += j_correction
     return energy_difference
 
-def sequence_mutation(sequence, potts_model,mask):
-    amino_acids = 'ACDEFGHIKLMNPQRSTVWY'
-    sequence = sequence.copy()
-    res = random.randint(0, len(sequence) - 1)
-    aa_new = random.choice(amino_acids)
+def sequence_mutation(seq_index, potts_model,mask):
+    seq_index = seq_index.copy()
+    res = random.randint(0, len(seq_index) - 1)
+    aa_new = random.choice(range(1, 21))
+
+    aa_old_count = np.sum(seq_index == seq_index[res])
+    aa_new_count = np.sum(seq_index == aa_new)
     
-    het_difference = np.log(sequence.count(sequence[res])/ (sequence.count(aa_new)+1))
-    energy_difference = compute_mutation_energy(potts_model, mask, sequence, res, aa_new)
+    het_difference = np.log(aa_old_count/ (aa_new_count+1))
+    energy_difference = compute_mutation_energy(potts_model, mask, seq_index, res, aa_new)
 
-    sequence[res] = aa_new
+    seq_index[res] = aa_new
     
-    return sequence, het_difference, energy_difference
+    return seq_index, het_difference, energy_difference
 
-def compute_mutation_energy(potts_model, mask, sequence, pos, aa_new):
-    aa_old=sequence[pos]
-    energy_difference = -potts_model['h'][pos,_AA.find(aa_new)] + potts_model['h'][pos,_AA.find(aa_old)]
+def compute_mutation_energy(potts_model, mask, seq_index, pos, aa_new):
+    aa_old=seq_index[pos]
+    energy_difference = -potts_model['h'][pos,aa_new] + potts_model['h'][pos,aa_old]
 
-    reduced_j = potts_model['J'][range(len(sequence)), :, np.array([_AA.find(aa) for aa in sequence]), :]
-    j_correction = reduced_j[:, pos, _AA.find(aa_old)] * mask[pos]
-    j_correction -= reduced_j[:, pos, _AA.find(aa_new)] * mask[pos]
+    reduced_j = potts_model['J'][range(len(seq_index)), :, seq_index, :]
+    j_correction = reduced_j[:, pos, aa_old] * mask[pos]
+    j_correction -= reduced_j[:, pos, aa_new] * mask[pos]
     
     # J correction, interaction with self aminoacids
     energy_difference += j_correction.sum(axis=0)
     return energy_difference
 
-def heterogeneity(sequence):
-    N = len(sequence)
-    _, counts = np.unique(sequence, return_counts=True)
+def native_energy(seq_index: np.array,
+                  potts_model: dict,
+                  mask: np.array) -> float:
+    seq_len = len(seq_index)
+
+    pos1, pos2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), indexing='ij', sparse=True)
+    aa1, aa2 = np.meshgrid(seq_index, seq_index, indexing='ij', sparse=True)
+
+    h = -potts_model['h'][range(seq_len), seq_index]
+    j = -potts_model['J'][pos1, pos2, aa1, aa2]
+    j_prime = j * mask        
+
+    energy = h.sum() + j_prime.sum() / 2
+    return energy
+
+def heterogeneity(seq_index):
+    N = len(seq_index)
+    _, counts = np.unique(seq_index, return_counts=True)
     denominator = np.prod(np.array([np.math.factorial(count) for count in counts]))
     het = np.math.factorial(N) / denominator
     return np.log(het)
 
-def heterogeneity_approximation(sequence):
+def heterogeneity_approximation(seq_index):
     """
     Uses Stirling's approximation to calculate the heterogeneity of a sequence
     """
-    N = len(sequence)
-    _, counts = np.unique(sequence, return_counts=True)
+    N = len(seq_index)
+    _, counts = np.unique(seq_index, return_counts=True)
     def stirling_log(n):
         if n < 40:
             return np.log(np.math.factorial(n))
@@ -91,23 +115,33 @@ def heterogeneity_approximation(sequence):
     het = log_n_factorial - log_denominator
     return het
 
-def montecarlo_steps(temperature, model, sequence, Ep=100, n_steps = 1000):
+def montecarlo_steps(temperature, potts_model, mask, seq_index, Ep=100, n_steps = 1000):
     kb = 0.001987
-    energy = model.native_energy(sequence)
-    het = heterogeneity_approximation(sequence)
+    energy = native_energy(seq_index, potts_model,mask)
+    het = heterogeneity_approximation(seq_index)
     for _ in range(n_steps):
-        new_sequence, het_difference, energy_difference = sequence_swap(sequence, model.potts_model,model.mask) if random.random() > 0.5 else sequence_mutation(sequence, model.potts_model,model.mask)
-        new_energy = model.native_energy(new_sequence)
-        new_het = heterogeneity_approximation(new_sequence)
-        energy_difference = new_energy - energy
-        het_difference = new_het - het
+        new_sequence, het_difference, energy_difference = sequence_swap(seq_index, potts_model, mask) if random.random() > 0.5 else sequence_mutation(seq_index, potts_model, mask)
         exponent=(-energy_difference + Ep * het_difference) / (kb * temperature)
         acceptance_probability = np.exp(min(0, exponent))
         if random.random() < acceptance_probability:
-            sequence = new_sequence
-            energy = new_energy
-            het = new_het
-    return sequence, energy, het
+            seq_index = new_sequence
+            energy += energy_difference
+            het += het_difference
+    return seq_index, energy, het
+
+def annealing():
+    native_pdb = "tests/data/1r69.pdb"
+    structure = frustratometer.Structure.full_pdb(native_pdb, "A")
+    model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
+    seq_index = sequence_to_index("SISSRVKSKRIQLGLNQAELAQKVGTTQQSIEQLENGKTKRPRFLPELASALGVSVDWLLNGT")
+    
+    simulation_data = []
+    for temp in range(800, 1, -1):
+        seq_index, energy, het = montecarlo_steps(temp, model.potts_model, model.mask, seq_index, Ep=10, n_steps=1000)
+        simulation_data.append({'Temperature': temp, 'Sequence': index_to_sequence(seq_index), 'Energy': energy, 'Heterogeneity': het})
+        print(temp, index_to_sequence(seq_index), energy, het)
+    simulation_df = pd.DataFrame(simulation_data)
+    simulation_df.to_csv("mcso_simulation_results.csv", index=False)
 
 def test_heterogeneity_approximation():
     sequence = list("SISSRVKSKRIQLGLNQAELAQKVGTTQQSIEQLENGKTKRPRFLP")
@@ -119,9 +153,9 @@ def test_heterogeneity_difference_permutation():
     native_pdb = "tests/data/1r69.pdb"
     structure = frustratometer.Structure.full_pdb(native_pdb, "A")
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
-    sequence = list(model.sequence)
-    new_sequence, het_difference, energy_difference = sequence_swap(sequence, model.potts_model,model.mask)
-    het = heterogeneity_approximation(sequence)
+    seq_index = sequence_to_index(model.sequence)
+    new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model.potts_model,model.mask)
+    het = heterogeneity_approximation(seq_index)
     new_het = heterogeneity_approximation(new_sequence)
     het_difference2 = new_het - het
     assert np.isclose(het_difference, het_difference2), f"Heterogeneity difference: {het_difference}, {het_difference2}"
@@ -130,10 +164,13 @@ def test_heterogeneity_difference_mutation():
     native_pdb = "tests/data/1r69.pdb"
     structure = frustratometer.Structure.full_pdb(native_pdb, "A")
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
-    sequence = list(model.sequence)
-    new_sequence, het_difference, energy_difference = sequence_swap(sequence, model.potts_model,model.mask)
-    het = heterogeneity_approximation(sequence)
+    seq_index = sequence_to_index(model.sequence)
+    new_sequence, het_difference, energy_difference = sequence_mutation(seq_index, model.potts_model,model.mask)
+    print(model.sequence)
+    print(index_to_sequence(new_sequence))
+    het = heterogeneity_approximation(seq_index)
     new_het = heterogeneity_approximation(new_sequence)
+    print(het, new_het)
     het_difference2 = new_het - het
     assert np.isclose(het_difference, het_difference2), f"Heterogeneity difference: {het_difference}, {het_difference2}"
 
@@ -141,10 +178,10 @@ def test_energy_difference_permutation():
     native_pdb = "tests/data/1r69.pdb"
     structure = frustratometer.Structure.full_pdb(native_pdb, "A")
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
-    sequence = list(model.sequence)
-    new_sequence, het_difference, energy_difference = sequence_swap(sequence, model.potts_model,model.mask)
-    energy = model.native_energy(sequence)
-    new_energy = model.native_energy(new_sequence)
+    seq_index = sequence_to_index(model.sequence)
+    new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model.potts_model,model.mask)
+    energy = native_energy(seq_index, model.potts_model,model.mask)
+    new_energy = native_energy(new_sequence, model.potts_model,model.mask)
     energy_difference2 = new_energy - energy
     assert np.isclose(energy_difference, energy_difference2), f"Energy difference: {energy_difference}, {energy_difference2}"
 
@@ -152,27 +189,14 @@ def test_energy_difference_mutation():
     native_pdb = "tests/data/1r69.pdb"
     structure = frustratometer.Structure.full_pdb(native_pdb, "A")
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
-    sequence = list(model.sequence)
-    new_sequence, het_difference, energy_difference = sequence_mutation(sequence, model.potts_model,model.mask)
-    energy = model.native_energy(sequence)
-    new_energy = model.native_energy(new_sequence)
+    seq_index = sequence_to_index(model.sequence)
+    new_sequence, het_difference, energy_difference = sequence_mutation(seq_index, model.potts_model,model.mask)
+    energy = native_energy(seq_index, model.potts_model,model.mask)
+    new_energy = native_energy(new_sequence, model.potts_model,model.mask)
     energy_difference2 = new_energy - energy
     assert np.isclose(energy_difference, energy_difference2), f"Energy difference: {energy_difference}, {energy_difference2}"
 
 
-def annealing():
-    native_pdb = "tests/data/1r69.pdb"
-    structure = frustratometer.Structure.full_pdb(native_pdb, "A")
-    model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
-    sequence = list("SISSRVKSKRIQLGLNQAELAQKVGTTQQSIEQLENGKTKRPRFLPELASALGVSVDWLLNGT")
-    
-    simulation_data = []
-    for temp in range(800, 1, -1):
-        sequence, energy, het = montecarlo_steps(temp, model, sequence, Ep=10, n_steps=10)
-        simulation_data.append({'Temperature': temp, 'Sequence': ''.join(sequence), 'Energy': energy, 'Heterogeneity': het})
-        print(temp, ''.join(sequence), energy, het)
-    simulation_df = pd.DataFrame(simulation_data)
-    simulation_df.to_csv("mcso_simulation_results.csv", index=False)
 
 if __name__ == '__main__':
     test_heterogeneity_approximation()
