@@ -12,7 +12,7 @@ from . import dca
 from . import map
 from . import align
 from . import frustration
-
+from . import optimization
 
 # Handle versioneer
 from ._version import get_versions
