@@ -202,11 +202,42 @@ def test_energy_difference_mutation():
 
 
 
-if __name__ == '__main__':
+def benchmark_montecarlo_steps(n_repeats=100, n_steps=1000):
+    import time
+    # Initialize the model for 1r69
+    native_pdb = "tests/data/1r69.pdb"  # Ensure this path is correct
+    structure = frustratometer.Structure.full_pdb(native_pdb, "A")
+    model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
+    
+    seq_len = len(model.sequence)
+    times = []
+
+    for _ in range(n_repeats):  # Run benchmark 10 times
+        # Generate a new random sequence for each run
+        seq_index = np.random.randint(1, 21, size=seq_len)
+        start_time = time.time()
+        
+        montecarlo_steps(temperature=500, potts_model=model.potts_model, mask=model.mask, seq_index=seq_index, Ep=100, n_steps=n_steps)
+        
+        end_time = time.time()
+        times.append(end_time - start_time)
+    
+    average_time = sum(times) / len(times) / n_steps * 1000
+    average_time_per_step_s = average_time / 1000
+    steps_per_hour = 3600 / average_time_per_step_s
+    hours_needed = 1E10 / steps_per_hour / 8  # 8 processes in parallel
+
+    print(f"Number of hours needed to explore 10^10 sequences with 8 process in parallel: {hours_needed:.2e} hours")
+    print(f"Number of sequences explored per hour: {steps_per_hour:.2e}")
+    print(f"Average execution time per step: {average_time:.5f} miliseconds")
+
+def tests():
     test_heterogeneity_approximation()
     test_heterogeneity_difference_permutation()
     test_heterogeneity_difference_mutation()
     test_energy_difference_permutation()
     test_energy_difference_mutation()
-    annealing()
+
+if __name__ == '__main__':
+    benchmark_montecarlo_steps()
 
