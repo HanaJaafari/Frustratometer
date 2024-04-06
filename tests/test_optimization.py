@@ -13,7 +13,7 @@ def test_heterogeneity_difference_permutation():
     structure = frustratometer.Structure.full_pdb(native_pdb, "A")
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
     seq_index = sequence_to_index(model.sequence)
-    new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model.potts_model,model.mask)
+    new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model.potts_model['h'], model.potts_model['J'], model.mask)
     het = heterogeneity_approximation(seq_index)
     new_het = heterogeneity_approximation(new_sequence)
     het_difference2 = new_het - het
@@ -24,7 +24,7 @@ def test_heterogeneity_difference_mutation():
     structure = frustratometer.Structure.full_pdb(native_pdb, "A")
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
     seq_index = sequence_to_index(model.sequence)
-    new_sequence, het_difference, energy_difference = sequence_mutation(seq_index, model.potts_model,model.mask)
+    new_sequence, het_difference, energy_difference = sequence_mutation(seq_index, model.potts_model['h'], model.potts_model['J'],model.mask)
     het = heterogeneity_approximation(seq_index)
     new_het = heterogeneity_approximation(new_sequence)
     het_difference2 = new_het - het
@@ -35,7 +35,7 @@ def test_energy_difference_permutation():
     structure = frustratometer.Structure.full_pdb(native_pdb, "A")
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
     seq_index = sequence_to_index(model.sequence)
-    new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model.potts_model,model.mask)
+    new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model.potts_model['h'], model.potts_model['J'],model.mask)
     energy = native_energy(seq_index, model.potts_model,model.mask)
     new_energy = native_energy(new_sequence, model.potts_model,model.mask)
     energy_difference2 = new_energy - energy
@@ -46,7 +46,7 @@ def test_energy_difference_mutation():
     structure = frustratometer.Structure.full_pdb(native_pdb, "A")
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
     seq_index = sequence_to_index(model.sequence)
-    new_sequence, het_difference, energy_difference = sequence_mutation(seq_index, model.potts_model,model.mask)
+    new_sequence, het_difference, energy_difference = sequence_mutation(seq_index, model.potts_model['h'], model.potts_model['J'],model.mask)
     energy = native_energy(seq_index, model.potts_model,model.mask)
     new_energy = native_energy(new_sequence, model.potts_model,model.mask)
     energy_difference2 = new_energy - energy

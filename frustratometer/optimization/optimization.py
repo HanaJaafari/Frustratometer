@@ -15,46 +15,46 @@ def sequence_to_index(sequence):
     return np.array([_AA.find(aa) for aa in sequence])
 
 #@numba.jit
-def sequence_swap(seq_index, potts_model,mask):
+def sequence_swap(seq_index, model_h, model_J, mask):
     seq_index = seq_index.copy()
     res1, res2 = random.sample(range(len(seq_index)), 2)
     
     het_difference = 0
-    energy_difference = compute_swap_energy(seq_index, potts_model, mask, res1, res2)
+    energy_difference = compute_swap_energy(seq_index, model_h, model_J, mask, res1, res2)
 
     seq_index[res1], seq_index[res2] = seq_index[res2], seq_index[res1]
 
     return seq_index, het_difference, energy_difference
 
-#@numba.jit
-def compute_swap_energy(seq_index, potts_model, mask, pos1, pos2):
+@numba.njit
+def compute_swap_energy(seq_index, model_h, model_J, mask, pos1, pos2):
     aa2 , aa1 = seq_index[pos1],seq_index[pos2]
     
     #Compute fields
     energy_difference = 0
-    energy_difference -= (potts_model['h'][pos1, aa1] - potts_model['h'][pos1, seq_index[pos1]])  # h correction aa1
-    energy_difference -= (potts_model['h'][pos2, aa2] - potts_model['h'][pos2, seq_index[pos2]])  # h correction aa2
+    energy_difference -= (model_h[pos1, aa1] - model_h[pos1, seq_index[pos1]])  # h correction aa1
+    energy_difference -= (model_h[pos2, aa2] - model_h[pos2, seq_index[pos2]])  # h correction aa2
     
     #Compute couplings
-    j_correction = 0
-    for pos, aa in enumerate(seq_index):
-        # J correction interactions with other aminoacids
-        reduced_j = potts_model['J'][pos, :, aa, :].astype(np.float32)
-        j_correction += reduced_j[pos1, seq_index[pos1]] * mask[pos, pos1]
-        j_correction -= reduced_j[pos1, aa1] * mask[pos, pos1]
-        j_correction += reduced_j[pos2, seq_index[pos2]] * mask[pos, pos2]
-        j_correction -= reduced_j[pos2, aa2] * mask[pos, pos2]
-    
+    j_correction = 0.0
+    for pos in range(len(seq_index)):
+        aa = seq_index[pos]
+        # Corrections for interactions with pos1 and pos2
+        j_correction += model_J[pos, pos1, aa, seq_index[pos1]] * mask[pos, pos1]
+        j_correction -= model_J[pos, pos1, aa, aa1] * mask[pos, pos1]
+        j_correction += model_J[pos, pos2, aa, seq_index[pos2]] * mask[pos, pos2]
+        j_correction -= model_J[pos, pos2, aa, aa2] * mask[pos, pos2]
+
     # J correction, interaction with self aminoacids
-    j_correction -= potts_model['J'][pos1, pos2, seq_index[pos1], seq_index[pos2]] * mask[pos1, pos2]  # Taken two times
-    j_correction += potts_model['J'][pos1, pos2, aa1, seq_index[pos2]] * mask[pos1, pos2]  # Added mistakenly
-    j_correction += potts_model['J'][pos1, pos2, seq_index[pos1], aa2] * mask[pos1, pos2]  # Added mistakenly
-    j_correction -= potts_model['J'][pos1, pos2, aa1, aa2] * mask[pos1, pos2]  # Correct combination
+    j_correction -= model_J[pos1, pos2, seq_index[pos1], seq_index[pos2]] * mask[pos1, pos2]  # Taken two times
+    j_correction += model_J[pos1, pos2, aa1, seq_index[pos2]] * mask[pos1, pos2]  # Added mistakenly
+    j_correction += model_J[pos1, pos2, seq_index[pos1], aa2] * mask[pos1, pos2]  # Added mistakenly
+    j_correction -= model_J[pos1, pos2, aa1, aa2] * mask[pos1, pos2]  # Correct combination
     energy_difference += j_correction
     return energy_difference
 
 #@numba.jit
-def sequence_mutation(seq_index, potts_model,mask):
+def sequence_mutation(seq_index, model_h, model_J, mask):
     seq_index = seq_index.copy()
     res = random.randint(0, len(seq_index) - 1)
     aa_new = random.choice(range(1, 21))
@@ -63,23 +63,41 @@ def sequence_mutation(seq_index, potts_model,mask):
     aa_new_count = np.sum(seq_index == aa_new)
     
     het_difference = np.log(aa_old_count/ (aa_new_count+1))
-    energy_difference = compute_mutation_energy(seq_index, potts_model, mask, res, aa_new)
+    energy_difference = compute_mutation_energy(seq_index, model_h, model_J, mask, res, aa_new)
 
     seq_index[res] = aa_new
     
     return seq_index, het_difference, energy_difference
 
-#@numba.jit
-def compute_mutation_energy(seq_index, potts_model, mask, pos, aa_new):
+@numba.njit
+def compute_mutation_energy(seq_index: np.ndarray, model_h: np.ndarray, model_J: np.ndarray, mask: np.ndarray, pos: int, aa_new: int) -> float:
     aa_old=seq_index[pos]
-    energy_difference = -potts_model['h'][pos,aa_new] + potts_model['h'][pos,aa_old]
+    energy_difference = -model_h[pos,aa_new] + model_h[pos,aa_old]
 
-    reduced_j = potts_model['J'][range(len(seq_index)), :, seq_index, :]
-    j_correction = reduced_j[:, pos, aa_old] * mask[pos]
-    j_correction -= reduced_j[:, pos, aa_new] * mask[pos]
+    energy_difference = -model_h[pos, aa_new] + model_h[pos, aa_old]
+
+    # Initialize j_correction to 0
+    j_correction = 0.0
+
+    # Manually iterate over the sequence indices
+    for idx in range(len(seq_index)):
+        aa_idx = seq_index[idx]  # The amino acid at the current position
+        # Accumulate corrections for positions other than the mutated one
+        j_correction += model_J[idx, pos, aa_idx, aa_old] * mask[idx, pos]
+        j_correction -= model_J[idx, pos, aa_idx, aa_new] * mask[idx, pos]
+
+    # For self-interaction, subtract the old interaction and add the new one
+    j_correction -= model_J[pos, pos, aa_old, aa_old] * mask[pos, pos]
+    j_correction += model_J[pos, pos, aa_new, aa_new] * mask[pos, pos]
+
+    energy_difference += j_correction
+
+    # reduced_j = model_J[range(len(seq_index)), :, seq_index, :]
+    # j_correction = reduced_j[:, pos, aa_old] * mask[pos]
+    # j_correction -= reduced_j[:, pos, aa_new] * mask[pos]
     
-    # J correction, interaction with self aminoacids
-    energy_difference += j_correction.sum(axis=0)
+    # # J correction, interaction with self aminoacids
+    # energy_difference += j_correction.sum(axis=0)
     return energy_difference
 
 #@numba.jit
@@ -125,9 +143,9 @@ def heterogeneity_approximation(seq_index):
     return het
 
 #@numba.njit
-def montecarlo_steps(temperature, potts_model, mask, seq_index, Ep=100, n_steps = 1000, kb = 0.001987) -> np.array:
+def montecarlo_steps(temperature, model_h, model_J, mask, seq_index, Ep=100, n_steps = 1000, kb = 0.001987) -> np.array:
     for _ in range(n_steps):
-        new_sequence, het_difference, energy_difference = sequence_swap(seq_index, potts_model, mask) if random.random() > 0.5 else sequence_mutation(seq_index, potts_model, mask)
+        new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model_h, model_J, mask) if random.random() > 0.5 else sequence_mutation(seq_index, model_h, model_J, mask)
         exponent=(-energy_difference + Ep * het_difference) / (kb * temperature)
         acceptance_probability = np.exp(min(0, exponent))
         if random.random() < acceptance_probability:
@@ -142,7 +160,7 @@ def annealing():
     
     simulation_data = []
     for temp in range(800, 1, -1):
-        seq_index= montecarlo_steps(temp, model.potts_model, model.mask, seq_index, Ep=10, n_steps=1000)
+        seq_index= montecarlo_steps(temp, model.potts_model['h'], model.potts_model['J'], model.mask, seq_index, Ep=10, n_steps=1000)
         energy = native_energy(seq_index, model.potts_model, model.mask)
         het = heterogeneity_approximation(seq_index)
         simulation_data.append({'Temperature': temp, 'Sequence': index_to_sequence(seq_index), 'Energy': energy, 'Heterogeneity': het})
@@ -164,12 +182,15 @@ def benchmark_montecarlo_steps(n_repeats=100, n_steps=1000):
     seq_len = len(model.sequence)
     times = []
 
+    #Adds one step for numba compilation time
+    montecarlo_steps(temperature=500, model_h=model.potts_model['h'], model_J=model.potts_model['J'], mask=model.mask, seq_index=sequence_to_index(model.sequence), Ep=100, n_steps=1)
+
     for _ in range(n_repeats):  # Run benchmark 10 times
         # Generate a new random sequence for each run
         seq_index = np.random.randint(1, 21, size=seq_len)
         start_time = time.time()
         
-        montecarlo_steps(temperature=500, potts_model=model.potts_model, mask=model.mask, seq_index=seq_index, Ep=100, n_steps=n_steps)
+        montecarlo_steps(temperature=500, model_h=model.potts_model['h'], model_J=model.potts_model['J'], mask=model.mask, seq_index=seq_index, Ep=100, n_steps=n_steps)
         
         end_time = time.time()
         times.append(end_time - start_time)
