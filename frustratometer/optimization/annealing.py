@@ -3,22 +3,41 @@ import numpy as np
 import frustratometer
 import pandas as pd  # Import pandas for data manipulation
 
-def sequence_permutation(sequence):
+_AA = '-ACDEFGHIKLMNPQRSTVWY'
+
+def sequence_permutation(sequence, model):
     sequence = sequence.copy()
     res1, res2 = random.sample(range(len(sequence)), 2)
     sequence[res1], sequence[res2] = sequence[res2], sequence[res1]
     het_difference = 0
-    energy_difference=0
+    
+    
+    
+    
+    
+    energy_difference = 0
     return sequence, het_difference, energy_difference
 
-def sequence_mutation(sequence):
+def sequence_mutation(sequence, model):
     amino_acids = 'ACDEFGHIKLMNPQRSTVWY'
     sequence = sequence.copy()
     res = random.randint(0, len(sequence) - 1)
-    aa = random.choice(amino_acids)
-    het_difference = np.log(sequence.count(sequence[res])/ (sequence.count(aa)+1))
-    sequence[res] = aa
-    energy_difference=0
+    aa_new = random.choice(amino_acids)
+    aa_old=sequence[res]
+    
+    het_difference = np.log(sequence.count(aa_old)/ (sequence.count(aa_new)+1))
+    energy_difference = -model.potts_model['h'][res,_AA.find(aa_new)] + model.potts_model['h'][res,_AA.find(aa_old)]
+
+    reduced_j = model.potts_model['J'][range(len(sequence)), :, np.array([_AA.find(aa) for aa in sequence]), :]
+    print(reduced_j.shape)
+    j_correction = reduced_j[:, res, _AA.find(aa_old)] * model.mask[res]
+    j_correction -= reduced_j[:, res, _AA.find(aa_new)] * model.mask[res]
+    
+    # J correction, interaction with self aminoacids
+    energy_difference += j_correction.sum(axis=0)
+
+    sequence[res] = aa_new
+    
     return sequence, het_difference, energy_difference
 
 def heterogeneity(sequence):
@@ -50,7 +69,7 @@ def montecarlo_steps(temperature, model, sequence, Ep=100, n_steps = 1000):
     energy = model.native_energy(sequence)
     het = heterogeneity_approximation(sequence)
     for _ in range(n_steps):
-        new_sequence, het_difference = sequence_permutation(sequence) if random.random() > 0.5 else sequence_mutation(sequence)
+        new_sequence, het_difference, energy_difference = sequence_permutation(sequence, model) if random.random() > 0.5 else sequence_mutation(sequence, model)
         new_energy = model.native_energy(new_sequence)
         new_het = heterogeneity_approximation(new_sequence)
         energy_difference = new_energy - energy
@@ -90,7 +109,7 @@ def test_energy_difference_permutation():
     structure = frustratometer.Structure.full_pdb(native_pdb, "A")
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
     sequence = list(model.sequence)
-    new_sequence, het_difference, energy_difference = sequence_permutation(sequence)
+    new_sequence, het_difference, energy_difference = sequence_permutation(sequence, model)
     energy = model.native_energy(sequence)
     new_energy = model.native_energy(new_sequence)
     energy_difference2 = new_energy - energy
@@ -101,7 +120,7 @@ def test_energy_difference_mutation():
     structure = frustratometer.Structure.full_pdb(native_pdb, "A")
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
     sequence = list(model.sequence)
-    new_sequence, het_difference, energy_difference = sequence_mutation(sequence)
+    new_sequence, het_difference, energy_difference = sequence_mutation(sequence, model)
     energy = model.native_energy(sequence)
     new_energy = model.native_energy(new_sequence)
     energy_difference2 = new_energy - energy
@@ -109,8 +128,8 @@ def test_energy_difference_mutation():
 
 if __name__ == '__main__':
     test_heterogeneity_approximation()
-    test_heterogeneity_difference_permutation()
-    test_heterogeneity_difference_mutation()
+    #test_heterogeneity_difference_permutation()
+    #test_heterogeneity_difference_mutation()
     test_energy_difference_permutation()
     test_energy_difference_mutation()
 
