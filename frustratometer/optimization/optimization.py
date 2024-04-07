@@ -14,10 +14,15 @@ def sequence_to_index(sequence):
     """Converts sequence string to sequence index array."""
     return np.array([_AA.find(aa) for aa in sequence])
 
-#@numba.jit
+
+
+@numba.njit
 def sequence_swap(seq_index, model_h, model_J, mask):
     seq_index = seq_index.copy()
-    res1, res2 = random.sample(range(len(seq_index)), 2)
+    n=len(seq_index)
+    res1 = np.random.randint(0,n-1)
+    res2 = np.random.randint(0,n-2)
+    res2 += (res2 >= res1)
     
     het_difference = 0
     energy_difference = compute_swap_energy(seq_index, model_h, model_J, mask, res1, res2)
@@ -53,11 +58,13 @@ def compute_swap_energy(seq_index, model_h, model_J, mask, pos1, pos2):
     energy_difference += j_correction
     return energy_difference
 
-#@numba.jit
+
+@numba.njit
 def sequence_mutation(seq_index, model_h, model_J, mask):
     seq_index = seq_index.copy()
-    res = random.randint(0, len(seq_index) - 1)
-    aa_new = random.choice(range(1, 21))
+    r = np.random.randint(0, len(seq_index)*20-1)  # Select a random index    
+    res = r // 20
+    aa_new = r % 20 + 1
 
     aa_old_count = np.sum(seq_index == seq_index[res])
     aa_new_count = np.sum(seq_index == aa_new)
@@ -146,20 +153,20 @@ def heterogeneity_approximation(seq_index):
 def montecarlo_steps(temperature, model_h, model_J, mask, seq_index, Ep=100, n_steps = 1000, kb = 0.001987) -> np.array:
     for _ in range(n_steps):
         new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model_h, model_J, mask) if random.random() > 0.5 else sequence_mutation(seq_index, model_h, model_J, mask)
-        exponent=(-energy_difference + Ep * het_difference) / (kb * temperature)
-        acceptance_probability = np.exp(min(0, exponent))
+        exponent=(-energy_difference + Ep * het_difference) 
+        acceptance_probability = np.exp(min(0, exponent)) * kb * temperature
         if random.random() < acceptance_probability:
             seq_index = new_sequence
     return seq_index
 
-def annealing():
+def annealing(temp_max=500, temp_min=0, n_steps=1000):
     native_pdb = "tests/data/1r69.pdb"
     structure = frustratometer.Structure.full_pdb(native_pdb, "A")
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
     seq_index = sequence_to_index("SISSRVKSKRIQLGLNQAELAQKVGTTQQSIEQLENGKTKRPRFLPELASALGVSVDWLLNGT")
     
     simulation_data = []
-    for temp in range(800, 1, -1):
+    for temp in range(temp_max, temp_min, -1):
         seq_index= montecarlo_steps(temp, model.potts_model['h'], model.potts_model['J'], model.mask, seq_index, Ep=10, n_steps=1000)
         energy = native_energy(seq_index, model.potts_model, model.mask)
         het = heterogeneity_approximation(seq_index)
@@ -172,7 +179,7 @@ def annealing():
 
 
 
-def benchmark_montecarlo_steps(n_repeats=100, n_steps=1000):
+def benchmark_montecarlo_steps(n_repeats=100, n_steps=20000):
     import time
     # Initialize the model for 1r69
     native_pdb = "tests/data/1r69.pdb"  # Ensure this path is correct
@@ -195,15 +202,17 @@ def benchmark_montecarlo_steps(n_repeats=100, n_steps=1000):
         end_time = time.time()
         times.append(end_time - start_time)
     
-    average_time = sum(times) / len(times) / n_steps * 1000
-    average_time_per_step_s = average_time / 1000
+    average_time_per_step_s = sum(times) / len(times) / n_steps
+    average_time_per_step_us = average_time_per_step_s * 1000000
+    
     steps_per_hour = 3600 / average_time_per_step_s
-    hours_needed = 1E10 / steps_per_hour / 8  # 8 processes in parallel
+    minutes_needed = 1E10 / steps_per_hour / 8 * 60  # 8 processes in parallel
 
-    print(f"Number of hours needed to explore 10^10 sequences with 8 process in parallel: {hours_needed:.2e} hours")
+    print(f"Time needed to explore 10^10 sequences with 8 process in parallel: {minutes_needed:.2e} minutes")
     print(f"Number of sequences explored per hour: {steps_per_hour:.2e}")
-    print(f"Average execution time per step: {average_time:.5f} miliseconds")
+    print(f"Average execution time per step: {average_time_per_step_us:.5f} microseconds")
 
 if __name__ == '__main__':
     benchmark_montecarlo_steps()
+    #annealing()
 
