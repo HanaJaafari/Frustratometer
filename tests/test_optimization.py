@@ -5,7 +5,7 @@ from frustratometer.optimization import *
 def test_heterogeneity_approximation():
     sequence = list("SISSRVKSKRIQLGLNQAELAQKVGTTQQSIEQLENGKTKRPRFLP")
     het = heterogeneity(sequence)
-    het_approx = heterogeneity_approximation(sequence)
+    het_approx = heterogeneity_approximation(optimization.sequence_to_index(sequence))
     assert np.isclose(het, het_approx), f"Heterogeneity: {het}, Approximation: {het_approx}"
 
 def test_heterogeneity_difference_permutation():
@@ -36,8 +36,8 @@ def test_energy_difference_permutation():
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
     seq_index = sequence_to_index(model.sequence)
     new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model.potts_model['h'], model.potts_model['J'],model.mask)
-    energy = native_energy(seq_index, model.potts_model,model.mask)
-    new_energy = native_energy(new_sequence, model.potts_model,model.mask)
+    energy = model_energy(seq_index, model.potts_model['h'], model.potts_model['J'],model.mask)
+    new_energy = model_energy(new_sequence, model.potts_model['h'], model.potts_model['J'],model.mask)
     energy_difference2 = new_energy - energy
     assert np.isclose(energy_difference, energy_difference2), f"Energy difference: {energy_difference}, {energy_difference2}"
 
@@ -47,7 +47,7 @@ def test_energy_difference_mutation():
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
     seq_index = sequence_to_index(model.sequence)
     new_sequence, het_difference, energy_difference = sequence_mutation(seq_index, model.potts_model['h'], model.potts_model['J'],model.mask)
-    energy = native_energy(seq_index, model.potts_model,model.mask)
-    new_energy = native_energy(new_sequence, model.potts_model,model.mask)
+    energy = model_energy(seq_index, model.potts_model['h'], model.potts_model['J'],model.mask)
+    new_energy = model_energy(new_sequence, model.potts_model['h'], model.potts_model['J'],model.mask)
     energy_difference2 = new_energy - energy
     assert np.isclose(energy_difference, energy_difference2), f"Energy difference: {energy_difference}, {energy_difference2}"
