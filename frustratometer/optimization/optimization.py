@@ -14,8 +14,6 @@ def sequence_to_index(sequence):
     """Converts sequence string to sequence index array."""
     return np.array([_AA.find(aa) for aa in sequence])
 
-
-
 @numba.njit
 def sequence_swap(seq_index, model_h, model_J, mask):
     seq_index = seq_index.copy()
@@ -99,12 +97,6 @@ def compute_mutation_energy(seq_index: np.ndarray, model_h: np.ndarray, model_J:
 
     energy_difference += j_correction
 
-    # reduced_j = model_J[range(len(seq_index)), :, seq_index, :]
-    # j_correction = reduced_j[:, pos, aa_old] * mask[pos]
-    # j_correction -= reduced_j[:, pos, aa_new] * mask[pos]
-    
-    # # J correction, interaction with self aminoacids
-    # energy_difference += j_correction.sum(axis=0)
     return energy_difference
 
 #@numba.jit
@@ -149,7 +141,7 @@ def heterogeneity_approximation(seq_index):
     het = log_n_factorial - log_denominator
     return het
 
-#@numba.njit
+@numba.njit
 def montecarlo_steps(temperature, model_h, model_J, mask, seq_index, Ep=100, n_steps = 1000, kb = 0.001987) -> np.array:
     for _ in range(n_steps):
         new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model_h, model_J, mask) if random.random() > 0.5 else sequence_mutation(seq_index, model_h, model_J, mask)
@@ -159,25 +151,22 @@ def montecarlo_steps(temperature, model_h, model_J, mask, seq_index, Ep=100, n_s
             seq_index = new_sequence
     return seq_index
 
-def annealing(temp_max=500, temp_min=0, n_steps=1000):
+def annealing(temp_max=500, temp_min=0, n_steps=1E8, Ep=10):
     native_pdb = "tests/data/1r69.pdb"
     structure = frustratometer.Structure.full_pdb(native_pdb, "A")
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
     seq_index = sequence_to_index("SISSRVKSKRIQLGLNQAELAQKVGTTQQSIEQLENGKTKRPRFLPELASALGVSVDWLLNGT")
     
     simulation_data = []
+    n_steps_per_cycle=n_steps//(temp_max-temp_min)
     for temp in range(temp_max, temp_min, -1):
-        seq_index= montecarlo_steps(temp, model.potts_model['h'], model.potts_model['J'], model.mask, seq_index, Ep=10, n_steps=1000)
+        seq_index= montecarlo_steps(temp, model.potts_model['h'], model.potts_model['J'], model.mask, seq_index, Ep=Ep, n_steps=n_steps_per_cycle)
         energy = native_energy(seq_index, model.potts_model, model.mask)
         het = heterogeneity_approximation(seq_index)
-        simulation_data.append({'Temperature': temp, 'Sequence': index_to_sequence(seq_index), 'Energy': energy, 'Heterogeneity': het})
-        print(temp, index_to_sequence(seq_index), energy, het)
+        simulation_data.append({'Temperature': temp, 'Sequence': index_to_sequence(seq_index), 'Energy': energy, 'Heterogeneity': het, 'Total Energy': energy + Ep * het})
+        print(temp, index_to_sequence(seq_index), energy, het, energy + Ep * het)
     simulation_df = pd.DataFrame(simulation_data)
     simulation_df.to_csv("mcso_simulation_results.csv", index=False)
-
-
-
-
 
 def benchmark_montecarlo_steps(n_repeats=100, n_steps=20000):
     import time
@@ -214,5 +203,5 @@ def benchmark_montecarlo_steps(n_repeats=100, n_steps=20000):
 
 if __name__ == '__main__':
     benchmark_montecarlo_steps()
-    #annealing()
+    #annealing(n_steps=1E8)
 
