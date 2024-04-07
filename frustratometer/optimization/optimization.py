@@ -99,21 +99,25 @@ def compute_mutation_energy(seq_index: np.ndarray, model_h: np.ndarray, model_J:
 
     return energy_difference
 
-#@numba.jit
-def native_energy(seq_index: np.array,
-                  potts_model: dict,
+@numba.njit
+def model_energy(seq_index: np.array,
+                  model_h: np.ndarray, model_J: np.ndarray,
                   mask: np.array) -> float:
     seq_len = len(seq_index)
+    energy_h = 0.0
+    energy_J = 0.0
 
-    pos1, pos2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), indexing='ij', sparse=True)
-    aa1, aa2 = np.meshgrid(seq_index, seq_index, indexing='ij', sparse=True)
-
-    h = -potts_model['h'][range(seq_len), seq_index]
-    j = -potts_model['J'][pos1, pos2, aa1, aa2]
-    j_prime = j * mask        
-
-    energy = h.sum() + j_prime.sum() / 2
-    return energy
+    for i in range(seq_len):
+        energy_h -= model_h[i, seq_index[i]]
+    
+    for i in range(seq_len):
+        for j in range(seq_len):
+            aa_i = seq_index[i]
+            aa_j = seq_index[j]
+            energy_J -= model_J[i, j, aa_i, aa_j] * mask[i, j]
+    
+    total_energy = energy_h + energy_J / 2
+    return total_energy
 
 def heterogeneity(seq_index):
     N = len(seq_index)
@@ -122,20 +126,26 @@ def heterogeneity(seq_index):
     het = np.math.factorial(N) / denominator
     return np.log(het)
 
+log_factorial_table=np.log(np.array([np.math.factorial(i) for i in range(40)],dtype=np.float64))
+
+@numba.njit
 def stirling_log(n):
     if n < 40:
-        return np.log(np.math.factorial(n))
+        return log_factorial_table[n]
     else:
         return n * np.log(n / np.e) + 0.5 * np.log(2 * np.pi * n) + 1.0 / (12 * n)
 
+@numba.njit
 def heterogeneity_approximation(seq_index):
     """
     Uses Stirling's approximation to calculate the heterogeneity of a sequence
     """
     N = len(seq_index)
-    _, counts = np.unique(seq_index, return_counts=True)
-
+    counts = np.zeros(21, dtype=np.int32)
     
+    for val in seq_index:
+        counts[val] += 1
+        
     log_n_factorial = stirling_log(N)
     log_denominator = sum([stirling_log(count) for count in counts])
     het = log_n_factorial - log_denominator
@@ -145,11 +155,67 @@ def heterogeneity_approximation(seq_index):
 def montecarlo_steps(temperature, model_h, model_J, mask, seq_index, Ep=100, n_steps = 1000, kb = 0.001987) -> np.array:
     for _ in range(n_steps):
         new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model_h, model_J, mask) if random.random() > 0.5 else sequence_mutation(seq_index, model_h, model_J, mask)
-        exponent=(-energy_difference + Ep * het_difference) 
-        acceptance_probability = np.exp(min(0, exponent)) * kb * temperature
+        exponent=(-energy_difference + Ep * het_difference) / (kb * temperature + 1E-10)
+        acceptance_probability = np.exp(min(0, exponent)) 
         if random.random() < acceptance_probability:
             seq_index = new_sequence
     return seq_index
+
+@numba.njit
+def replica_exchanges(energies, seq_indices, temperatures, kb=0.001987):
+    """
+    Attempt to exchange configurations between pairs of replicas.
+    """
+    n_replicas = len(temperatures)
+    for i in range(n_replicas - 1):
+        energy1, energy2 = energies[i], energies[i + 1]
+        temp1, temp2 = temperatures[i], temperatures[i + 1]
+        delta = (1/temp2 - 1/temp1) * (energy2 - energy1)
+            
+        # Calculate exchange probability
+        exponent = -delta / kb
+        prob= np.exp(min(0, exponent)) 
+
+        # Decide whether to exchange
+        if np.random.rand() < prob:
+            # Exchange sequences
+            seq_indices[i], seq_indices[i + 1] = seq_indices[i + 1].copy(), seq_indices[i].copy()
+
+@numba.njit(parallel=True)
+def parallel_tempering_step(model_h, model_J, mask, seq_indices, temperatures, n_steps_per_cycle, Ep):
+    n_replicas = len(temperatures)
+    energies = np.zeros(n_replicas)
+    heterogeneities = np.zeros(n_replicas)
+    total_energies = np.zeros(n_replicas)
+    for i in numba.prange(n_replicas):
+        temp_seq_index = seq_indices[i]
+        seq_indices[i] = montecarlo_steps(temperatures[i], model_h, model_J, mask, seq_index=temp_seq_index, Ep=Ep, n_steps=n_steps_per_cycle)
+        energy = model_energy(seq_indices[i], model_h, model_J, mask)
+        het = heterogeneity_approximation(seq_indices[i])
+        # Compute energy for the new sequence
+        total_energies[i] = energy - Ep * het # Placeholder for actual energy calculation
+        energies[i] = energy
+        heterogeneities[i] = het
+
+    # Perform replica exchanges
+    replica_exchanges(energies, seq_indices, temperatures)
+    return seq_indices, energies, heterogeneities
+
+def parallel_tempering(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep):
+    simulation_data=[]
+    for s in range(n_steps//n_steps_per_cycle):
+        seq_indices, energy, het = parallel_tempering_step(model_h, model_J, mask, seq_indices, temperatures, n_steps_per_cycle, Ep)
+        #Save data every 100 exchanges
+        if s%100==99:
+            for i,temp in enumerate(temperatures):
+                simulation_data.append({'Step':(s+1)*n_steps_per_cycle,'Temperature': temp, 'Sequence': index_to_sequence(seq_indices[i]), 'Energy': energy[i], 'Heterogeneity': het[i], 'Total Energy': energy[i] + Ep * het[i]})
+            print(*simulation_data[-1].values())
+        if s%10000==0:
+            simulation_df = pd.DataFrame(simulation_data)
+            simulation_df.to_csv("parallel_tempering_results.csv", index=False)
+    simulation_df = pd.DataFrame(simulation_data)
+    simulation_df.to_csv("parallel_tempering_results.csv", index=False)
+
 
 def annealing(temp_max=500, temp_min=0, n_steps=1E8, Ep=10):
     native_pdb = "tests/data/1r69.pdb"
@@ -161,10 +227,10 @@ def annealing(temp_max=500, temp_min=0, n_steps=1E8, Ep=10):
     n_steps_per_cycle=n_steps//(temp_max-temp_min)
     for temp in range(temp_max, temp_min, -1):
         seq_index= montecarlo_steps(temp, model.potts_model['h'], model.potts_model['J'], model.mask, seq_index, Ep=Ep, n_steps=n_steps_per_cycle)
-        energy = native_energy(seq_index, model.potts_model, model.mask)
+        energy = model_energy(seq_index, model.potts_model, model.mask)
         het = heterogeneity_approximation(seq_index)
         simulation_data.append({'Temperature': temp, 'Sequence': index_to_sequence(seq_index), 'Energy': energy, 'Heterogeneity': het, 'Total Energy': energy + Ep * het})
-        print(temp, index_to_sequence(seq_index), energy, het, energy + Ep * het)
+        print(temp, index_to_sequence(seq_index), energy + Ep * het, energy, het)
     simulation_df = pd.DataFrame(simulation_data)
     simulation_df.to_csv("mcso_simulation_results.csv", index=False)
 
@@ -204,4 +270,19 @@ def benchmark_montecarlo_steps(n_repeats=100, n_steps=20000):
 if __name__ == '__main__':
     benchmark_montecarlo_steps()
     #annealing(n_steps=1E8)
+    import warnings
+    import numpy as np
 
+    # Convert overflow warnings to exceptions
+    warnings.filterwarnings('error', 'overflow encountered in power', category=RuntimeWarning)
+
+
+    native_pdb = "tests/data/1r69.pdb"
+    structure = frustratometer.Structure.full_pdb(native_pdb, "A")
+    model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
+    seq_index = sequence_to_index("SISSRVKSKRIQLGLNQAELAQKVGTTQQSIEQLENGKTKRPRFLPELASALGVSVDWLLNGT")
+
+    temperatures=np.logspace(0,5,11)
+    seq_indices=np.random.randint(1, 21, size=(len(temperatures),len(model.sequence)))
+    print(len(seq_indices))
+    parallel_tempering(model.potts_model['h'], model.potts_model['J'], model.mask, seq_indices, temperatures, n_steps=int(1E10), n_steps_per_cycle=int(1E3), Ep=10)
