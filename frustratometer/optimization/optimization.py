@@ -2,6 +2,7 @@ import numpy as np
 import frustratometer
 import pandas as pd  # Import pandas for data manipulation
 import numba
+from pathlib import Path
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
 
@@ -166,7 +167,9 @@ def replica_exchanges(energies, seq_indices, temperatures, kb=0.001987):
     Attempt to exchange configurations between pairs of replicas.
     """
     n_replicas = len(temperatures)
-    for i in range(n_replicas - 1):
+    start_index = np.random.randint(0, 1)
+    
+    for i in np.arange(start_index,n_replicas - 1, 2):
         energy1, energy2 = energies[i], energies[i + 1]
         temp1, temp2 = temperatures[i], temperatures[i + 1]
         delta = (1/temp2 - 1/temp1) * (energy2 - energy1)
@@ -200,20 +203,35 @@ def parallel_tempering_step(model_h, model_J, mask, seq_indices, temperatures, n
     replica_exchanges(energies, seq_indices, temperatures)
     return seq_indices, energies, heterogeneities
 
-def parallel_tempering(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep):
-    simulation_data=[]
+@numba.njit
+def parallel_tempering_numba(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep):
     for s in range(n_steps//n_steps_per_cycle):
         seq_indices, energy, het = parallel_tempering_step(model_h, model_J, mask, seq_indices, temperatures, n_steps_per_cycle, Ep)
-        #Save data every 10 exchanges
-        if s%10==9:
-            for i,temp in enumerate(temperatures):
-                simulation_data.append({'Step':(s+1)*n_steps_per_cycle,'Temperature': temp, 'Sequence': index_to_sequence(seq_indices[i]), 'Energy': energy[i], 'Heterogeneity': het[i], 'Total Energy': energy[i] - Ep * het[i]})
-            print(*simulation_data[-1].values())
-        if s%10000==0:
-            simulation_df = pd.DataFrame(simulation_data)
-            simulation_df.to_csv("parallel_tempering_resultsv2.csv", index=False)
-    simulation_df = pd.DataFrame(simulation_data)
-    simulation_df.to_csv("parallel_tempering_results.csv", index=False)
+        
+        # Yield data every 1000 exchanges
+        if s % 1000 == 999:
+            yield s, seq_indices, energy, het
+
+def parallel_tempering(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep, filename="parallel_tempering_results.csv"):
+    
+    columns=['Step', 'Temperature', 'Sequence', 'Energy', 'Heterogeneity', 'Total Energy']
+    df_headers = pd.DataFrame(columns=columns)
+    df_headers.to_csv(filename, index=False)
+    print(columns, sep='\t')
+
+    # Run the simulation and append data periodically
+    for s, updated_seq_indices, energy, het in parallel_tempering_numba(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep):
+        # Prepare data for this chunk
+        data_chunk = []
+        for i, temp in enumerate(temperatures):
+            sequence_str = index_to_sequence(updated_seq_indices[i])  # Convert sequence index back to string
+            total_energy = energy[i] - Ep * het[i]
+            data_chunk.append({'Step': (s+1) * n_steps_per_cycle, 'Temperature': temp, 'Sequence': sequence_str, 'Energy': energy[i], 'Heterogeneity': het[i], 'Total Energy': total_energy})
+        
+        # Convert the chunk to a DataFrame and append it to the CSV
+        df_chunk = pd.DataFrame(data_chunk)
+        print(*df_chunk.iloc[-1].values, sep='\t')
+        df_chunk.to_csv(filename, mode='a', header=False, index=False)
 
 
 def annealing(temp_max=500, temp_min=0, n_steps=1E8, Ep=10):
@@ -281,7 +299,7 @@ if __name__ == '__main__':
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
     seq_index = sequence_to_index("SISSRVKSKRIQLGLNQAELAQKVGTTQQSIEQLENGKTKRPRFLPELASALGVSVDWLLNGT")
 
-    temperatures=np.logspace(0,5,21)
+    temperatures=np.logspace(0,6,49)
     seq_indices=np.random.randint(1, 21, size=(len(temperatures),len(model.sequence)))
     print(len(seq_indices))
-    parallel_tempering(model.potts_model['h'], model.potts_model['J'], model.mask, seq_indices, temperatures, n_steps=int(1E12), n_steps_per_cycle=int(1E4), Ep=10)
+    parallel_tempering(model.potts_model['h'], model.potts_model['J'], model.mask, seq_indices, temperatures, n_steps=int(1E11), n_steps_per_cycle=int(1E2), Ep=10)
