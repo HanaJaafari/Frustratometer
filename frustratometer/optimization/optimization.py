@@ -18,8 +18,8 @@ def sequence_to_index(sequence):
 def sequence_swap(seq_index, model_h, model_J, mask):
     seq_index = seq_index.copy()
     n=len(seq_index)
-    res1 = np.random.randint(0,n-1)
-    res2 = np.random.randint(0,n-2)
+    res1 = np.random.randint(0,n)
+    res2 = np.random.randint(0,n-1)
     res2 += (res2 >= res1)
     
     het_difference = 0
@@ -60,7 +60,7 @@ def compute_swap_energy(seq_index, model_h, model_J, mask, pos1, pos2):
 @numba.njit
 def sequence_mutation(seq_index, model_h, model_J, mask):
     seq_index = seq_index.copy()
-    r = np.random.randint(0, len(seq_index)*20-1)  # Select a random index    
+    r = np.random.randint(0, len(seq_index)*20)  # Select a random index    
     res = r // 20
     aa_new = r % 20 + 1
 
@@ -167,7 +167,7 @@ def replica_exchanges(energies, seq_indices, temperatures, kb=0.001987):
     Attempt to exchange configurations between pairs of replicas.
     """
     n_replicas = len(temperatures)
-    start_index = np.random.randint(0, 1)
+    start_index = np.random.randint(0, 2)
     
     for i in np.arange(start_index,n_replicas - 1, 2):
         energy1, energy2 = energies[i], energies[i + 1]
@@ -209,7 +209,7 @@ def parallel_tempering_numba(model_h, model_J, mask, seq_indices, temperatures, 
         seq_indices, energy, het = parallel_tempering_step(model_h, model_J, mask, seq_indices, temperatures, n_steps_per_cycle, Ep)
         
         # Yield data every 1000 exchanges
-        if s % 1000 == 999:
+        if s % 100 == 99:
             yield s, seq_indices, energy, het
 
 def parallel_tempering(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep, filename="parallel_tempering_results.csv"):
@@ -217,7 +217,7 @@ def parallel_tempering(model_h, model_J, mask, seq_indices, temperatures, n_step
     columns=['Step', 'Temperature', 'Sequence', 'Energy', 'Heterogeneity', 'Total Energy']
     df_headers = pd.DataFrame(columns=columns)
     df_headers.to_csv(filename, index=False)
-    print(columns, sep='\t')
+    print(*columns, sep='\t')
 
     # Run the simulation and append data periodically
     for s, updated_seq_indices, energy, het in parallel_tempering_numba(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep):
@@ -302,4 +302,4 @@ if __name__ == '__main__':
     temperatures=np.logspace(0,6,49)
     seq_indices=np.random.randint(1, 21, size=(len(temperatures),len(model.sequence)))
     print(len(seq_indices))
-    parallel_tempering(model.potts_model['h'], model.potts_model['J'], model.mask, seq_indices, temperatures, n_steps=int(1E11), n_steps_per_cycle=int(1E2), Ep=10)
+    parallel_tempering(model.potts_model['h'], model.potts_model['J'], model.mask, seq_indices, temperatures, n_steps=int(1E10), n_steps_per_cycle=int(1E3), Ep=10)
