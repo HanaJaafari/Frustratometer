@@ -175,13 +175,15 @@ def replica_exchanges(energies, seq_indices, temperatures, kb=0.001987):
         delta = (1/temp2 - 1/temp1) * (energy2 - energy1)
             
         # Calculate exchange probability
-        exponent = delta / kb
+        exponent = -delta / kb #Check this sign
         prob= np.exp(min(0, exponent)) 
 
         # Decide whether to exchange
         if np.random.rand() < prob:
             # Exchange sequences
-            seq_indices[i], seq_indices[i + 1] = seq_indices[i + 1].copy(), seq_indices[i].copy()
+            temp=seq_indices[i + 1].copy()
+            seq_indices[i+i] = seq_indices[i].copy()
+            seq_indices[i] = temp
 
 @numba.njit(parallel=True)
 def parallel_tempering_step(model_h, model_J, mask, seq_indices, temperatures, n_steps_per_cycle, Ep):
@@ -208,8 +210,8 @@ def parallel_tempering_numba(model_h, model_J, mask, seq_indices, temperatures, 
     for s in range(n_steps//n_steps_per_cycle):
         seq_indices, energy, het = parallel_tempering_step(model_h, model_J, mask, seq_indices, temperatures, n_steps_per_cycle, Ep)
         
-        # Yield data every 1000 exchanges
-        if s % 100 == 99:
+        # Yield data every 100 exchanges
+        if s % 10 == 9:
             yield s, seq_indices, energy, het
 
 def parallel_tempering(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep, filename="parallel_tempering_results.csv"):
@@ -302,4 +304,4 @@ if __name__ == '__main__':
     temperatures=np.logspace(0,6,49)
     seq_indices=np.random.randint(1, 21, size=(len(temperatures),len(model.sequence)))
     print(len(seq_indices))
-    parallel_tempering(model.potts_model['h'], model.potts_model['J'], model.mask, seq_indices, temperatures, n_steps=int(1E10), n_steps_per_cycle=int(1E3), Ep=10)
+    parallel_tempering(model.potts_model['h'], model.potts_model['J'], model.mask, seq_indices, temperatures, n_steps=int(1E11), n_steps_per_cycle=int(1E4), Ep=10)
