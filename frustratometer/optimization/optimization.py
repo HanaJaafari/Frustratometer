@@ -1,4 +1,3 @@
-import random
 import numpy as np
 import frustratometer
 import pandas as pd  # Import pandas for data manipulation
@@ -154,10 +153,10 @@ def heterogeneity_approximation(seq_index):
 @numba.njit
 def montecarlo_steps(temperature, model_h, model_J, mask, seq_index, Ep=100, n_steps = 1000, kb = 0.001987) -> np.array:
     for _ in range(n_steps):
-        new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model_h, model_J, mask) if random.random() > 0.5 else sequence_mutation(seq_index, model_h, model_J, mask)
+        new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model_h, model_J, mask) if np.random.random() > 0.5 else sequence_mutation(seq_index, model_h, model_J, mask)
         exponent=(-energy_difference + Ep * het_difference) / (kb * temperature + 1E-10)
         acceptance_probability = np.exp(min(0, exponent)) 
-        if random.random() < acceptance_probability:
+        if np.random.random() < acceptance_probability:
             seq_index = new_sequence
     return seq_index
 
@@ -173,7 +172,7 @@ def replica_exchanges(energies, seq_indices, temperatures, kb=0.001987):
         delta = (1/temp2 - 1/temp1) * (energy2 - energy1)
             
         # Calculate exchange probability
-        exponent = -delta / kb
+        exponent = delta / kb
         prob= np.exp(min(0, exponent)) 
 
         # Decide whether to exchange
@@ -205,14 +204,14 @@ def parallel_tempering(model_h, model_J, mask, seq_indices, temperatures, n_step
     simulation_data=[]
     for s in range(n_steps//n_steps_per_cycle):
         seq_indices, energy, het = parallel_tempering_step(model_h, model_J, mask, seq_indices, temperatures, n_steps_per_cycle, Ep)
-        #Save data every 100 exchanges
-        if s%100==99:
+        #Save data every 10 exchanges
+        if s%10==9:
             for i,temp in enumerate(temperatures):
-                simulation_data.append({'Step':(s+1)*n_steps_per_cycle,'Temperature': temp, 'Sequence': index_to_sequence(seq_indices[i]), 'Energy': energy[i], 'Heterogeneity': het[i], 'Total Energy': energy[i] + Ep * het[i]})
+                simulation_data.append({'Step':(s+1)*n_steps_per_cycle,'Temperature': temp, 'Sequence': index_to_sequence(seq_indices[i]), 'Energy': energy[i], 'Heterogeneity': het[i], 'Total Energy': energy[i] - Ep * het[i]})
             print(*simulation_data[-1].values())
         if s%10000==0:
             simulation_df = pd.DataFrame(simulation_data)
-            simulation_df.to_csv("parallel_tempering_results.csv", index=False)
+            simulation_df.to_csv("parallel_tempering_resultsv2.csv", index=False)
     simulation_df = pd.DataFrame(simulation_data)
     simulation_df.to_csv("parallel_tempering_results.csv", index=False)
 
@@ -229,8 +228,8 @@ def annealing(temp_max=500, temp_min=0, n_steps=1E8, Ep=10):
         seq_index= montecarlo_steps(temp, model.potts_model['h'], model.potts_model['J'], model.mask, seq_index, Ep=Ep, n_steps=n_steps_per_cycle)
         energy = model_energy(seq_index, model.potts_model, model.mask)
         het = heterogeneity_approximation(seq_index)
-        simulation_data.append({'Temperature': temp, 'Sequence': index_to_sequence(seq_index), 'Energy': energy, 'Heterogeneity': het, 'Total Energy': energy + Ep * het})
-        print(temp, index_to_sequence(seq_index), energy + Ep * het, energy, het)
+        simulation_data.append({'Temperature': temp, 'Sequence': index_to_sequence(seq_index), 'Energy': energy, 'Heterogeneity': het, 'Total Energy': energy - Ep * het})
+        print(temp, index_to_sequence(seq_index), energy - Ep * het, energy, het)
     simulation_df = pd.DataFrame(simulation_data)
     simulation_df.to_csv("mcso_simulation_results.csv", index=False)
 
@@ -282,7 +281,7 @@ if __name__ == '__main__':
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
     seq_index = sequence_to_index("SISSRVKSKRIQLGLNQAELAQKVGTTQQSIEQLENGKTKRPRFLPELASALGVSVDWLLNGT")
 
-    temperatures=np.logspace(0,5,11)
+    temperatures=np.logspace(0,5,21)
     seq_indices=np.random.randint(1, 21, size=(len(temperatures),len(model.sequence)))
     print(len(seq_indices))
-    parallel_tempering(model.potts_model['h'], model.potts_model['J'], model.mask, seq_indices, temperatures, n_steps=int(1E10), n_steps_per_cycle=int(1E3), Ep=10)
+    parallel_tempering(model.potts_model['h'], model.potts_model['J'], model.mask, seq_indices, temperatures, n_steps=int(1E12), n_steps_per_cycle=int(1E4), Ep=10)
