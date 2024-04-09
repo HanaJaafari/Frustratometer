@@ -162,14 +162,14 @@ def montecarlo_steps(temperature, model_h, model_J, mask, seq_index, Ep=100, n_s
     return seq_index
 
 @numba.njit
-def replica_exchanges(energies, temperatures, kb=0.001987):
+def replica_exchanges(energies, temperatures, kb=0.001987, exchange_id=0):
     """
     Determine pairs of configurations between replicas for exchange.
     
     Returns a list of tuples with the indices of replicas to be exchanged.
     """
     n_replicas = len(temperatures)
-    start_index = np.random.randint(0, 2)
+    start_index = exchange_id % 2
     order = np.arange(len(temperatures), dtype=np.int64)
     
     for i in np.arange(start_index, n_replicas - 1, 2):
@@ -186,7 +186,7 @@ def replica_exchanges(energies, temperatures, kb=0.001987):
     return order
 
 @numba.njit(parallel=True)
-def parallel_tempering_step(model_h, model_J, mask, seq_indices, temperatures, n_steps_per_cycle, Ep):
+def parallel_montecarlo_step(model_h, model_J, mask, seq_indices, temperatures, n_steps_per_cycle, Ep):
     n_replicas = len(temperatures)
     energies = np.zeros(n_replicas)
     heterogeneities = np.zeros(n_replicas)
@@ -201,38 +201,38 @@ def parallel_tempering_step(model_h, model_J, mask, seq_indices, temperatures, n
         energies[i] = energy
         heterogeneities[i] = het
 
-    # Perform replica exchanges
-    order = replica_exchanges(energies, temperatures)
-    seq_indices = seq_indices[order]
-    energies = energies[order]
-    heterogeneities = heterogeneities[order]
     
-    return seq_indices, energies, heterogeneities
+    return seq_indices, energies, heterogeneities, total_energies
 
 @numba.njit
 def parallel_tempering_numba(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep):
     for s in range(n_steps//n_steps_per_cycle):
-        seq_indices, energy, het = parallel_tempering_step(model_h, model_J, mask, seq_indices, temperatures, n_steps_per_cycle, Ep)
-        
-        # Yield data every 100 exchanges
+        seq_indices, energy, het, total_energies = parallel_montecarlo_step(model_h, model_J, mask, seq_indices, temperatures, n_steps_per_cycle, Ep)
+
+        # Yield data every 10 exchanges
         if s % 10 == 9:
-            yield s, seq_indices, energy, het
+            yield s, seq_indices, energy, het, total_energies
+
+        # Perform replica exchanges
+        order = replica_exchanges(total_energies, temperatures, exchange_id=s)
+        seq_indices = seq_indices[order]
+        
+
 
 def parallel_tempering(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep, filename="parallel_tempering_resultsv3.csv"):
-    
     columns=['Step', 'Temperature', 'Sequence', 'Energy', 'Heterogeneity', 'Total Energy']
     df_headers = pd.DataFrame(columns=columns)
     df_headers.to_csv(filename, index=False)
     print(*columns, sep='\t')
 
     # Run the simulation and append data periodically
-    for s, updated_seq_indices, energy, het in parallel_tempering_numba(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep):
+    for s, updated_seq_indices, energy, het, total_energy in parallel_tempering_numba(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep):
         # Prepare data for this chunk
         data_chunk = []
         for i, temp in enumerate(temperatures):
             sequence_str = index_to_sequence(updated_seq_indices[i])  # Convert sequence index back to string
-            total_energy = energy[i] - Ep * het[i]
-            data_chunk.append({'Step': (s+1) * n_steps_per_cycle, 'Temperature': temp, 'Sequence': sequence_str, 'Energy': energy[i], 'Heterogeneity': het[i], 'Total Energy': total_energy})
+            #total_energy = energy[i] - Ep * het[i]
+            data_chunk.append({'Step': (s+1) * n_steps_per_cycle, 'Temperature': temp, 'Sequence': sequence_str, 'Energy': energy[i], 'Heterogeneity': het[i], 'Total Energy': total_energy[i]})
         
         # Convert the chunk to a DataFrame and append it to the CSV
         df_chunk = pd.DataFrame(data_chunk)
