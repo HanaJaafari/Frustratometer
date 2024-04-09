@@ -162,28 +162,28 @@ def montecarlo_steps(temperature, model_h, model_J, mask, seq_index, Ep=100, n_s
     return seq_index
 
 @numba.njit
-def replica_exchanges(energies, seq_indices, temperatures, kb=0.001987):
+def replica_exchanges(energies, temperatures, kb=0.001987):
     """
-    Attempt to exchange configurations between pairs of replicas.
+    Determine pairs of configurations between replicas for exchange.
+    
+    Returns a list of tuples with the indices of replicas to be exchanged.
     """
     n_replicas = len(temperatures)
     start_index = np.random.randint(0, 2)
+    order = np.arange(len(temperatures), dtype=np.int64)
     
-    for i in np.arange(start_index,n_replicas - 1, 2):
+    for i in np.arange(start_index, n_replicas - 1, 2):
         energy1, energy2 = energies[i], energies[i + 1]
         temp1, temp2 = temperatures[i], temperatures[i + 1]
         delta = (1/temp2 - 1/temp1) * (energy2 - energy1)
             
-        # Calculate exchange probability
-        exponent = -delta / kb #Check this sign
-        prob= np.exp(min(0, exponent)) 
+        exponent = delta / kb # Sign is correct, as we want to swap when the system with higher temperature has lower energy
+        prob = np.exp(min(0., exponent)) 
 
-        # Decide whether to exchange
-        if np.random.rand() < prob:
-            # Exchange sequences
-            temp=seq_indices[i + 1].copy()
-            seq_indices[i+i] = seq_indices[i].copy()
-            seq_indices[i] = temp
+        if 1 <= prob:
+            order[i]=i+1
+            order[i+1]=i
+    return order
 
 @numba.njit(parallel=True)
 def parallel_tempering_step(model_h, model_J, mask, seq_indices, temperatures, n_steps_per_cycle, Ep):
@@ -202,7 +202,11 @@ def parallel_tempering_step(model_h, model_J, mask, seq_indices, temperatures, n
         heterogeneities[i] = het
 
     # Perform replica exchanges
-    replica_exchanges(energies, seq_indices, temperatures)
+    order = replica_exchanges(energies, temperatures)
+    seq_indices = seq_indices[order]
+    energies = energies[order]
+    heterogeneities = heterogeneities[order]
+    
     return seq_indices, energies, heterogeneities
 
 @numba.njit
@@ -214,7 +218,7 @@ def parallel_tempering_numba(model_h, model_J, mask, seq_indices, temperatures, 
         if s % 10 == 9:
             yield s, seq_indices, energy, het
 
-def parallel_tempering(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep, filename="parallel_tempering_results.csv"):
+def parallel_tempering(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep, filename="parallel_tempering_resultsv3.csv"):
     
     columns=['Step', 'Temperature', 'Sequence', 'Energy', 'Heterogeneity', 'Total Energy']
     df_headers = pd.DataFrame(columns=columns)
