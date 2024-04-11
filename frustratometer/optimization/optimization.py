@@ -152,7 +152,7 @@ def heterogeneity_approximation(seq_index):
     return het
 
 @numba.njit
-def montecarlo_steps(temperature, model_h, model_J, mask, seq_index, Ep=100, n_steps = 1000, kb = 0.001987) -> np.array:
+def montecarlo_steps(temperature, model_h, model_J, mask, seq_index, Ep=100, n_steps = 1000, kb = 0.008314) -> np.array:
     for _ in range(n_steps):
         new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model_h, model_J, mask) if np.random.random() > 0.5 else sequence_mutation(seq_index, model_h, model_J, mask)
         exponent=(-energy_difference + Ep * het_difference) / (kb * temperature + 1E-10)
@@ -162,7 +162,7 @@ def montecarlo_steps(temperature, model_h, model_J, mask, seq_index, Ep=100, n_s
     return seq_index
 
 @numba.njit
-def replica_exchanges(energies, temperatures, kb=0.001987, exchange_id=0):
+def replica_exchanges(energies, temperatures, kb=0.008314, exchange_id=0):
     """
     Determine pairs of configurations between replicas for exchange.
     
