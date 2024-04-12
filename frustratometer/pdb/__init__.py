@@ -1,9 +1,10 @@
 from .pdb import *
 
 try:
-    from .fix import *
+    from .fix import repair_pdb
 except ImportError as e:
-    if 'openmm' in str(e) or 'pdbfixer' in str(e):
+    error_message=str(e)
+    if ('openmm' in error_message) or ('pdbfixer' in error_message) or ('simtk' in error_message):
         def repair_pdb(*args, **kwargs):
             warn_pdbfixer_not_installed()
             raise ImportError("openmm and pdbfixer must be installed to use the repair_pdb function.")
