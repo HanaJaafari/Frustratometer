@@ -4,6 +4,7 @@ import sys
 
 def test_frustratometer_imported():
     """Sample test, will always pass so long as import statement worked."""
+    import frustratometer
     assert "frustratometer" in sys.modules
 
 def mock_import(module_name):
