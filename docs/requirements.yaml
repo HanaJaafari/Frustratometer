@@ -15,6 +15,9 @@ dependencies:
   - pydantic
   - openmm
   - numba
+  - sphinx
     # Pip-only installs
-  #- pip:
+  - pip:
+    - sphinx-rtd-theme
+
 
