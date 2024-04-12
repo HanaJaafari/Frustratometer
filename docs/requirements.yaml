@@ -11,9 +11,7 @@ dependencies:
   - pandas
   - biopython
   - prody
-  - pdbfixer
   - pydantic
-  - openmm
   - numba
   - sphinx
     # Pip-only installs

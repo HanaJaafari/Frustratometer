@@ -3,8 +3,6 @@ scipy
 pandas
 biopython
 prody
-pdbfixer
 pydantic
-openmm
 numba
 #importlib-metadata; python_version < '3.9'

@@ -17,13 +17,23 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
 
+from unittest.mock import MagicMock
+class Mock(MagicMock):
+    @classmethod
+    def __getattr__(cls, name):
+        return MagicMock()
+
+# List all the modules that are heavy or not needed for the docs to build
+MOCK_MODULES = ['pydca','pdbfixer','openmm']
+sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+
 import frustratometer
 
 
 # -- Project information -----------------------------------------------------
 
 project = 'Frustratometer'
-copyright = ("2022, Carlos Bueno, Hana Jaafari.")
+copyright = ("2022, Carlos Bueno, Hana Jaafari")
 author = 'Carlos Bueno'
 
 # The short X.Y version
