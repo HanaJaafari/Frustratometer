@@ -5,14 +5,14 @@ API Documentation
    :recursive:
    :toctree: autosummary
 
-   dca_frustratometer.AWSEMFrustratometer
-   dca_frustratometer.PottsModel
-   dca_frustratometer.pfam
-   dca_frustratometer.pdb
-   dca_frustratometer.align
-   dca_frustratometer.filter
-   dca_frustratometer.map
-   dca_frustratometer.dca
-   dca_frustratometer.frustration
-   dca_frustratometer.utils
+   frustratometer.AWSEM
+   frustratometer.DCA
+   frustratometer.pfam
+   frustratometer.pdb
+   frustratometer.align
+   frustratometer.filter
+   frustratometer.map
+   frustratometer.dca
+   frustratometer.frustration
+   frustratometer.utils
 

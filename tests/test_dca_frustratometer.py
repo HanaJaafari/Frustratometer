@@ -1,5 +1,5 @@
 """
-Unit and regression test for the dca_frustratometer package.
+Unit and regression tests for the frustratometer package.
 """
 
 # Import package, test suite, and other packages as needed
@@ -15,7 +15,7 @@ import Bio.AlignIO
 import subprocess
 
 data_path = frustratometer.utils.create_directory(_path/'..'/'tests'/'data')
-#scratch_path = dca_frustratometer.utils.create_directory(_path/'..'/'tests'/'scratch')
+#scratch_path = frustratometer.utils.create_directory(_path/'..'/'tests'/'scratch')
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
 

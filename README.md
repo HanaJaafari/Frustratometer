@@ -153,6 +153,7 @@ Copyright (c) 2022-2024, Carlos Bueno, Hana Jaafari
 
 ## Acknowledgements
  
+This work was supported by National Science Foundation (NSF) Center for Theoretical Biological Physics (NSF PHY-2019745) and NSF grants PHY-1522550.
 Project skeleton based on the [Computational Molecular Science Python Cookiecutter] (https://github.com/molssi/cookiecutter-cms) version 1.6.
 
 ## References

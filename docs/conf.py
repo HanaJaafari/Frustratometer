@@ -22,9 +22,8 @@ import frustratometer
 
 # -- Project information -----------------------------------------------------
 
-project = 'DCA Frustratometer'
-copyright = ("2022, Carlos Bueno. Project structure based on the "
-             "Computational Molecular Science Python Cookiecutter version 1.6")
+project = 'Frustratometer'
+copyright = ("2022, Carlos Bueno, Hana Jaafari.")
 author = 'Carlos Bueno'
 
 # The short X.Y version
@@ -50,7 +49,7 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.intersphinx',
     'sphinx.ext.extlinks',
-    'sphinx.ext.todo'
+    'sphinx.ext.todo',
 ]
 
 autosummary_generate = True
@@ -118,7 +117,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'dca_frustratometerdoc'
+htmlhelp_basename = 'frustratometerdoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -145,8 +144,8 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'dca_frustratometer.tex', 'DCA Frustratometer Documentation',
-     'dca_frustratometer', 'manual'),
+    (master_doc, 'frustratometer.tex', 'Frustratometer Documentation',
+     'frustratometer', 'manual'),
 ]
 
 
@@ -155,7 +154,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'dca_frustratometer', 'DCA Frustratometer Documentation',
+    (master_doc, 'frustratometer', 'Frustratometer Documentation',
      [author], 1)
 ]
 
@@ -166,8 +165,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'dca_frustratometer', 'DCA Frustratometer Documentation',
-     author, 'dca_frustratometer', 'Calculates single residue frustration, and mutational frustration of proteins.',
+    (master_doc, 'frustratometer', 'Frustratometer Documentation',
+     author, 'frustratometer', 'Calculates single residue frustration, and mutational frustration of proteins.',
      'Miscellaneous'),
 ]
 
