@@ -6,12 +6,5 @@ prody
 pdbfixer
 pydantic
 openmm
-# pathlib
-# itertools
-# os
-# subprocess
-# logging
-# glob
-# urllib
-# pydca
+numba
 #importlib-metadata; python_version < '3.9'
