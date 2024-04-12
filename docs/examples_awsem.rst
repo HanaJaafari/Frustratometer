@@ -1,5 +1,5 @@
-Getting Started
-===============
+AWSEM Frustratometer examples
+=============================
 
 Loading Protein Structures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

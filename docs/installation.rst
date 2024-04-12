@@ -47,10 +47,10 @@ Installing pydca
 
       ./install.sh
 
-Installing OpenMM and pdbfixer
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Installing pdbfixer
+~~~~~~~~~~~~~~~~~~~
 
-`OpenMM` and `pdbfixer` are optional dependencies that this module uses for fixing pdbs. They are usually installed from the `conda-forge` channel. To install these packages, run the following command:
+`pdbfixer` is an optional dependency used for fixing incomplete pdbs. They are usually installed from the `conda-forge` channel. To install these packages, run the following command:
 
 .. code-block:: sh
 

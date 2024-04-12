@@ -12,8 +12,9 @@ Welcome to Frustratometer's documentation!
 
    frustratometer
    installation
-   getting_started
-   api
+   examples_awsem
+   api_classes
+   api_modules
 
 Indices and tables
 ==================

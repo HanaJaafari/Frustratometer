@@ -1,9 +1,8 @@
 from pathlib import Path
-from pdbfixer import PDBFixer
-try:
-    from openmm.app import PDBFile
-except ModuleNotFoundError:
-    from simtk.openmm.app import PDBFile
+import pdbfixer
+
+PDBFile = pdbfixer.pdbfixer.app.PDBFile
+PDBFixer = pdbfixer.PDBFixer
 
 def repair_pdb(pdb_file: str, chain: str, pdb_directory: Path= Path.cwd()) -> PDBFixer:
     pdb_directory=Path(pdb_directory)

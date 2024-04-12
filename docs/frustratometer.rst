@@ -29,5 +29,6 @@ Acknowledgements
 ----------------
 
 This work was supported by National Science Foundation (NSF) Center for Theoretical Biological Physics (NSF PHY-2019745) and NSF grants PHY-1522550.
+
 Project skeleton based on the Computational Molecular Science Python Cookiecutter version 1.6.
 

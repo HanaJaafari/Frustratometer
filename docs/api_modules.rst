@@ -1,12 +1,10 @@
-API Documentation
-=================
+Frustratometer modules
+======================
 
 .. autosummary::
    :recursive:
    :toctree: autosummary
 
-   frustratometer.AWSEM
-   frustratometer.DCA
    frustratometer.pfam
    frustratometer.pdb
    frustratometer.align
@@ -15,4 +13,3 @@ API Documentation
    frustratometer.dca
    frustratometer.frustration
    frustratometer.utils
-
