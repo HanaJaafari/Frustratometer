@@ -4,9 +4,6 @@ dependencies:
     # Base depends
   - python
   - pip
-
-
-
     # Pip-only installs
   #- pip:
 
