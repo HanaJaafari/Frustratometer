@@ -18,7 +18,7 @@ Optional Dependencies
 Installing pydca
 ~~~~~~~~~~~~~~~~~
 
-`pydca` is an optional dependency that enables advanced bioinformatics functionalities. To install `pydca`, follow these steps:
+`pydca` is an optional dependency that enables the calculation of DCA Potts Models from multiple sequence alignments. To install `pydca`, follow these steps:
 
 1. **Clone the pydca Repository**
    Use Git to clone the repository to your local machine:
@@ -50,7 +50,7 @@ Installing pydca
 Installing OpenMM and pdbfixer
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-`OpenMM` and `pdbfixer` are optional dependencies useful for fixing pdbs. They are usually installed from the `conda-forge` channel. To install these packages, run the following command:
+`OpenMM` and `pdbfixer` are optional dependencies that this module uses for fixing pdbs. They are usually installed from the `conda-forge` channel. To install these packages, run the following command:
 
 .. code-block:: sh
 
