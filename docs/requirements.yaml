@@ -1,12 +1,21 @@
 name: docs
 channels:
+  - conda-forge
+  - defaults
 dependencies:
     # Base depends
   - python
   - pip
-
-
-
+  - numpy
+  - scipy
+  - pandas
+  - biopython
+  - prody
+  - pydantic
+  - numba
+  - sphinx
     # Pip-only installs
-  #- pip:
+  - pip:
+    - sphinx-rtd-theme
+
 

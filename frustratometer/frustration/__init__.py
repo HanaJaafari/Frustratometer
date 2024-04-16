@@ -1,1 +1,1 @@
-from .frustratometer import *
+from .frustration import *

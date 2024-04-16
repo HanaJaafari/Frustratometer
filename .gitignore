@@ -117,7 +117,7 @@ ENV/
 .DS_Store
 
 #Other files
-dca_frustratometer/databases
+frustratometer/databases
 docs/autosummary/*
 
 tests/data/*/FrustrationData/*5adens

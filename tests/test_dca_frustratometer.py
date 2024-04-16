@@ -1,27 +1,21 @@
 """
-Unit and regression test for the dca_frustratometer package.
+Unit and regression tests for the frustratometer package.
 """
 
 # Import package, test suite, and other packages as needed
-import sys
 import frustratometer
 import numpy as np
 from pathlib import Path
 import tempfile
 import pytest
-import pandas as pd
 from frustratometer.utils import _path
 import Bio.AlignIO
 import subprocess
 
 data_path = frustratometer.utils.create_directory(_path/'..'/'tests'/'data')
-#scratch_path = dca_frustratometer.utils.create_directory(_path/'..'/'tests'/'scratch')
+#scratch_path = frustratometer.utils.create_directory(_path/'..'/'tests'/'scratch')
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
-
-def test_frustratometer_imported():
-    """Sample test, will always pass so long as import statement worked."""
-    assert "frustratometer" in sys.modules
 
 def test_download_pfam_database():
     """Downloads a small database from Pfam and tests that the files are splitted correctly."""
