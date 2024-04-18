@@ -49,12 +49,4 @@ The frustratometer package provides a handful of classes used to encapsulate the
    :inherited-members:
    :private-members:  
 
-.. autoclass:: PlanetCalculator
-   :members:
-   :undoc-members:
-   :member-order: bysource
-   :show-inheritance:
-   :inherited-members:
-   :private-members:  
-
 
