@@ -7,6 +7,10 @@ Frustratometer
 .. image:: https://codecov.io/gh/HanaJaafari/Frustratometer/graph/badge.svg?token=JKDOXOYPRS
     :target: https://codecov.io/gh/HanaJaafari/Frustratometer
 
+.. image:: https://readthedocs.org/projects/frustratometer/badge/?version=latest
+    :target: https://frustratometer.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+    
 A python implementation of the protein frustratometer.
 
 .. image:: https://imgs.xkcd.com/comics/movie_seating.png
