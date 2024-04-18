@@ -5,6 +5,7 @@ PDBFile = pdbfixer.pdbfixer.app.PDBFile
 PDBFixer = pdbfixer.PDBFixer
 
 def repair_pdb(pdb_file: str, chain: str, pdb_directory: Path= Path.cwd()) -> PDBFixer:
+    """ Repairs a pdb file using pdbfixer"""
     pdb_directory=Path(pdb_directory)
     pdb_file=Path(pdb_file)
     

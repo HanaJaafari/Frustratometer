@@ -1,3 +1,5 @@
+"""DCA functions"""
+
 from . import matlab
 
 try:

@@ -67,6 +67,21 @@ napoleon_google_docstring = False
 napoleon_use_param = False
 napoleon_use_ivar = True
 
+# Intersphinx mapping
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3/', None),
+    'numpy': ('https://numpy.org/doc/stable/', None),
+    'scipy': ('https://docs.scipy.org/doc/scipy/reference/', None),
+}
+
+# Extlinks configuration
+extlinks = {
+    'issue': ('https://github.com/cabb99/Frustratometer/issues/%s', 'issue #'),
+}
+
+# Todos configuration
+todo_include_todos = True
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 

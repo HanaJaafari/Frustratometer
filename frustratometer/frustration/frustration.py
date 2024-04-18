@@ -6,23 +6,50 @@ import typing
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
 
 def compute_mask(distance_matrix: np.array,
-                 distance_cutoff: typing.Union[float, None] = None,
-                 sequence_distance_cutoff: typing.Union[int, None] = None) -> np.array:
+                 maximum_contact_distance: typing.Union[float, None] = None,
+                 minimum_sequence_separation: typing.Union[int, None] = None) -> np.array:
     """
-    Computes mask for couplings based on maximum distance cutoff and minimum sequence separation.
-    The cutoffs are inclusive
-    :param distance_matrix:
-    :param distance_cutoff:
-    :param sequence_distance_cutoff:
-    :return:
+    Computes a 2D Boolean mask from a given distance matrix based on a distance cutoff and a sequence separation cutoff.
+
+    Parameters
+    ----------
+    distance_matrix : np.array
+        A 2D array where the element at index [i, j] represents the spatial distance
+        between residues i and j. This matrix is assumed to be symmetric.
+    maximum_contact_distance : float, optional
+        The maximum distance of a contact. Pairs of residues with distances less than this
+        threshold are marked as True in the mask. If None, the spatial distance criterion
+        is ignored and all distances are included. Default is None.
+    minimum_sequence_separation : int, optional
+        A minimum sequence distance threshold. Pairs of residues with sequence indices
+        differing by at least this value are marked as True in the mask. If None,
+        the sequence distance criterion is ignored. Default is None.
+
+    Returns
+    -------
+    mask : np.array
+        A 2D Boolean array of the same dimensions as `distance_matrix`. Elements of the mask
+        are True where the residue pairs meet the specified `distance_cutoff` and
+        `sequence_distance_cutoff` criteria.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> dm = np.array([[0, 1, 2], [1, 0, 1], [2, 1, 0]])
+    >>> print(compute_mask(dm, distance_cutoff=1.5, sequence_distance_cutoff=1))
+    [[False  True False]
+     [ True False  True]
+     [False  True False]]
+
+    .. todo:: Add chain information for sequence separation
     """
     seq_len = len(distance_matrix)
     mask = np.ones([seq_len, seq_len])
-    if sequence_distance_cutoff is not None:
+    if minimum_sequence_separation is not None:
         sequence_distance = sdist.squareform(sdist.pdist(np.arange(seq_len)[:, np.newaxis]))
-        mask *= sequence_distance >= sequence_distance_cutoff
-    if distance_cutoff is not None:
-        mask *= distance_matrix <= distance_cutoff
+        mask *= sequence_distance >= minimum_sequence_separation
+    if maximum_contact_distance is not None:
+        mask *= distance_matrix <= maximum_contact_distance
 
     return mask.astype(np.bool_)
 
@@ -30,8 +57,55 @@ def compute_mask(distance_matrix: np.array,
 def compute_native_energy(seq: str,
                           potts_model: dict,
                           mask: np.array,
-                          ignore_couplings_of_gaps: bool = False,
-                          ignore_fields_of_gaps: bool = False) -> float:
+                          ignore_gap_couplings: bool = False,
+                          ignore_gap_fields: bool = False) -> float:
+    
+    """
+    Computes the native energy of a protein sequence based on a given Potts model and an interaction mask.
+    
+    .. math::
+        E = \\sum_i h_i + \\frac{1}{2} \\sum_{i,j} J_{ij} \\Theta_{ij}
+        
+    Parameters
+    ----------
+    seq : str
+        The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+    potts_model : dict
+        A dictionary containing the Potts model parameters 'h' (fields) and 'J' (couplings). The fields are a 2D array of shape (L, 20), where L is the length of the sequence and 20 is the number of amino acids. The couplings are a 4D array of shape (L, L, 20, 20). The fields and couplings are assumed to be in units of energy.
+    mask : np.array
+        A 2D Boolean array that determines which residue pairs should be considered in the energy computation. The mask should have dimensions (L, L), where L is the length of the sequence.
+    ignore_couplings_of_gaps : bool, optional
+        If True, couplings involving gaps ('-') in the sequence are set to 0 in the energy calculation.
+        Default is False.
+    ignore_fields_of_gaps : bool, optional
+        If True, fields corresponding to gaps ('-') in the sequence are set to 0 in the energy calculation.
+        Default is False.
+
+    Returns
+    -------
+    energy : float
+        The computed energy of the protein sequence based on the Potts model and the interaction mask.
+
+    Examples
+    --------
+    >>> seq = "ACDEFGHIKLMNPQRSTVWY"
+    >>> potts_model = {
+        'h': np.random.rand(20, 20),  # Random fields
+        'J': np.random.rand(20, 20, 20, 20)  # Random couplings
+    }
+    >>> mask = np.ones((len(seq), len(seq)), dtype=bool) # Include all pairs
+    >>> energy = compute_native_energy(seq, potts_model, mask)
+    >>> print(f"Computed energy: {energy:.2f}")
+
+    Notes
+    -----
+    The energy is computed as the sum of the fields and the half-sum of the couplings for all pairs of residues
+    where the mask is True. The division by 2 for the couplings accounts for double-counting in symmetric
+    matrices.
+
+    .. todo:: Optimize the computation.
+    """
+        
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
 
@@ -40,16 +114,16 @@ def compute_native_energy(seq: str,
 
     h = -potts_model['h'][range(seq_len), seq_index]
     j = -potts_model['J'][pos1, pos2, aa1, aa2]
-    j_prime = j * mask        
+    j_prime = j * mask 
 
     gap_indices=[int(i) for i,j in enumerate(seq) if j=="-"]
 
-    if ignore_couplings_of_gaps==True:
+    if ignore_gap_couplings==True:
         if len(gap_indices)>0:
             j_prime[gap_indices,:]=False
             j_prime[:,gap_indices]=False
 
-    if ignore_fields_of_gaps==True:
+    if ignore_gap_fields==True:
         if len(gap_indices)>0:
             h[gap_indices]=False
 
@@ -490,4 +564,5 @@ def canvas(with_attribution=True):
     if with_attribution:
         quote += "\n\t- Adapted from Henry David Thoreau"
     return quote
+
 

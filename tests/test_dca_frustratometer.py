@@ -224,7 +224,7 @@ def test_functional_compute_DCA_native_energy():
     sequence = frustratometer.pdb.get_sequence(pdb_path, chain_id)
     distance_matrix = frustratometer.pdb.get_distance_matrix(pdb_path, chain_id, method='minimum')
     potts_model = frustratometer.dca.matlab.load_potts_model(potts_model_path)
-    mask = frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff=4, sequence_distance_cutoff=0)
+    mask = frustratometer.frustration.compute_mask(distance_matrix, maximum_contact_distance=4, minimum_sequence_separation=0)
     energy = frustratometer.frustration.compute_native_energy(sequence, potts_model, mask)
 
     assert np.round(energy, 4) == expected_energy

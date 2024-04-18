@@ -1,3 +1,5 @@
+"""PDB functions"""
+
 from .pdb import *
 try:
     from .fix import repair_pdb
@@ -18,3 +20,5 @@ except ImportError as e:
             )
     else:
         raise e
+    
+__all__ = ['download', 'get_sequence', 'get_distance_matrix', 'full_to_filtered_aligned_mapping', 'repair_pdb']

@@ -1,4 +1,3 @@
-"""Provide the primary functions."""
 import numpy as np
 from ..utils import _path
 from .. import frustration
@@ -57,7 +56,6 @@ class AWSEMParameters(BaseModel):
 
 
 class AWSEM(Frustratometer):
-
     #Mapping to DCA
     q = 20
     aa_map_awsem_list = [0, 0, 4, 3, 6, 13, 7, 8, 9, 11, 10, 12, 2, 14, 5, 1, 15, 16, 19, 17, 18] #A gap is equivalent to Alanine
@@ -103,11 +101,11 @@ class AWSEM(Frustratometer):
 
 
         sequence_mask_rho = frustration.compute_mask(self.distance_matrix, 
-                                                     distance_cutoff=None, 
-                                                     sequence_distance_cutoff = p.min_sequence_separation_rho)
+                                                     maximum_contact_distance=None, 
+                                                     minimum_sequence_separation = p.min_sequence_separation_rho)
         sequence_mask_contact = frustration.compute_mask(self.distance_matrix, 
-                                                     distance_cutoff=p.distance_cutoff_contact, 
-                                                     sequence_distance_cutoff = p.min_sequence_separation_contact)
+                                                     maximum_contact_distance=p.distance_cutoff_contact, 
+                                                     minimum_sequence_separation = p.min_sequence_separation_contact)
         
         self._decoy_fluctuation = {}
         self.minimally_frustrated_threshold=.78
@@ -162,7 +160,7 @@ class AWSEM(Frustratometer):
             self.distance_cutoff=None
             
             
-            electrostatics_mask = frustration.compute_mask(self.distance_matrix, distance_cutoff=None, sequence_distance_cutoff=p.min_sequence_separation_electrostatics)
+            electrostatics_mask = frustration.compute_mask(self.distance_matrix, maximum_contact_distance=None, minimum_sequence_separation=p.min_sequence_separation_electrostatics)
             # ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
             charges = np.array([0, 1, 0, -1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
             charges2 = charges[:,np.newaxis]*charges[np.newaxis,:]
@@ -174,7 +172,7 @@ class AWSEM(Frustratometer):
         else:
             self.sequence_cutoff=p.min_sequence_separation_contact
             self.distance_cutoff=p.distance_cutoff_contact
-        self.mask = frustration.compute_mask(self.distance_matrix, distance_cutoff=self.distance_cutoff, sequence_distance_cutoff = self.sequence_cutoff)
+        self.mask = frustration.compute_mask(self.distance_matrix, maximum_contact_distance=self.distance_cutoff, minimum_sequence_separation = self.sequence_cutoff)
 
         self.contact_energy = contact_energy
 

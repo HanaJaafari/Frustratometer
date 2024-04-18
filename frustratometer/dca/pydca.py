@@ -51,3 +51,5 @@ def mfdca(filtered_alignment_file):
 
     potts_model = {'h':fields,'J':couplings,'N':N,'q':q}
     return potts_model
+
+__all__ = ['plmdca', 'mfdca']
