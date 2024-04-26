@@ -2,6 +2,7 @@ import numpy as np
 from ..utils import _path
 from .. import frustration
 from .Frustratometer import Frustratometer
+from .Gamma import Gamma
 from pydantic import BaseModel, Field, ConfigDict
 from pydantic.types import Path
 from typing import List,Optional
@@ -30,17 +31,14 @@ class AWSEMParameters(BaseModel):
     r_max: float = Field(6.5, description="Maximum distance for direct contact potential. (Angstrom)")
     
     #Mediated contacts
+    gamma_file: Path = Field(_path/'data'/'AWSEM_2015.json', description="File containing the Gamma values")
     r_minII: float = Field(6.5, description="Minimum distance for mediated contact potential. (Angstrom)")
     r_maxII: float = Field(9.5, description="Maximum distance for mediated contact potential. (Angstrom)")
     eta_sigma: float = Field(7.0, description="Sharpness of the density-based switching function between protein-mediated and water-mediated contacts.")
-
-    #Gamma files
-    burial_gamma_file: Path = Field(_path/'data'/'burial_gamma', description="File containing the burial gamma values.")
-    direct_gamma_file: Path = Field(_path/'data'/'gamma_ijm', description="File containing the gamma_ijm values.")
-    water_gamma_file: Path = Field(_path/'data'/'water_gamma_ijm', description="File containing the water gamma_ijm values.")
-    protein_gamma_file: Path = Field(_path/'data'/'protein_gamma_ijm', description="File containing the protein gamma_ijm values.")
     
+
     #Membrane
+    membrane_gamma_file: Path = Field(_path/'data'/'AWSEM_membrane_2015.json', description="File containing the membrane Gamma values (for membrane proteins)")
     eta_switching: int = Field(10, description="Switching distance for the membrane switching function")
 
     #Membrane gamma files
@@ -78,11 +76,12 @@ class AWSEM(Frustratometer):
         for field, value in p:
             setattr(self, field, value)
         
-        #Gamma files
-        self.burial_gamma = np.fromfile(p.burial_gamma_file).reshape(20, 3)
-        self.direct_gamma = np.fromfile(p.direct_gamma_file).reshape(2, 20, 20)
-        self.water_gamma = np.fromfile(p.water_gamma_file).reshape(2, 20, 20)
-        self.protein_gamma = np.fromfile(p.protein_gamma_file).reshape(2, 20, 20)
+        #Gamma parameters
+        gamma = Gamma(p.gamma_file)
+        self.burial_gamma = gamma['Burial'].T
+        self.direct_gamma = gamma['Direct'][0]
+        self.protein_gamma = gamma['Protein'][0]
+        self.water_gamma = gamma['Water'][0]
 
         #Structure details
         self.full_to_aligned_index_dict=pdb_structure.full_to_aligned_index_dict
@@ -149,9 +148,9 @@ class AWSEM(Frustratometer):
         self.burial_energy=burial_energy
 
         #Contact energy
-        direct = direct_indicator * self.direct_gamma[0, J_index[2], J_index[3]]
-        water_mediated = water_indicator * self.water_gamma[0, J_index[2], J_index[3]]
-        protein_mediated = protein_indicator  * self.protein_gamma[0, J_index[2], J_index[3]]
+        direct = direct_indicator * self.direct_gamma[J_index[2], J_index[3]]
+        water_mediated = water_indicator * self.water_gamma[J_index[2], J_index[3]]
+        protein_mediated = protein_indicator  * self.protein_gamma[J_index[2], J_index[3]]
         contact_energy = -p.k_contact * np.array([direct, water_mediated, protein_mediated]) * sequence_mask_contact[np.newaxis, :, :, np.newaxis, np.newaxis]
 
         # Compute electrostatics
@@ -222,9 +221,9 @@ class AWSEM(Frustratometer):
             burial_energy1 = (-0.5 * self.k_contact * self.burial_gamma[q1] * burial_indicator[n1]).sum(axis=0)
             burial_energy2 = (-0.5 * self.k_contact * self.burial_gamma[q2] * burial_indicator[n2]).sum(axis=0)
             
-            direct = theta[c] * self.direct_gamma[0, q1, q2]
-            water_mediated = sigma_water[n1,n2] * thetaII[c] * self.water_gamma[0,q1,q2]
-            protein_mediated = sigma_protein[n1,n2] * thetaII[c] * self.protein_gamma[0,q1,q2]
+            direct = theta[c] * self.direct_gamma[q1, q2]
+            water_mediated = sigma_water[n1,n2] * thetaII[c] * self.water_gamma[q1,q2]
+            protein_mediated = sigma_protein[n1,n2] * thetaII[c] * self.protein_gamma[q1,q2]
             contact_energy = -self.k_contact * (direct+water_mediated+protein_mediated)
             electrostatics_energy = self.k_electrostatics * electrostatics_indicator[c]*charges[q1]*charges[q2]
 
@@ -278,9 +277,9 @@ class AWSEM(Frustratometer):
             burial_energy1 = (-0.5 * self.k_contact * self.burial_gamma[q1] * burial_indicator[n1]).sum(axis=0)
             burial_energy2 = (-0.5 * self.k_contact * self.burial_gamma[q2] * burial_indicator[n2]).sum(axis=0)
             
-            direct = theta[c] * self.direct_gamma[0, q1, q2]
-            water_mediated = sigma_water[n1,n2] * thetaII[c] * self.water_gamma[0,q1,q2]
-            protein_mediated = sigma_protein[n1,n2] * thetaII[c] * self.protein_gamma[0,q1,q2]
+            direct = theta[c] * self.direct_gamma[q1, q2]
+            water_mediated = sigma_water[n1,n2] * thetaII[c] * self.water_gamma[q1,q2]
+            protein_mediated = sigma_protein[n1,n2] * thetaII[c] * self.protein_gamma[q1,q2]
             contact_energy = -self.k_contact * (direct+water_mediated+protein_mediated)
             electrostatics_energy = self.k_electrostatics * electrostatics_indicator[c]*charges[q1]*charges[q2]
 

@@ -8,8 +8,9 @@ class Gamma:
     default_segment_definition = {
         'Burial': (3, 20),
         'Direct': (1, 20, 20),
+        'Protein': (1, 20, 20),
         'Water': (1, 20, 20),
-        'Protein': (1, 20, 20)
+        
     }
 
     # Initialization
@@ -19,6 +20,8 @@ class Gamma:
             self._init_from_array(data)
         elif isinstance(data, Gamma):
             self._init_from_instance(data)
+        elif isinstance(data, Path) and data.exists():
+            self._init_from_file(data)
         elif isinstance(data, str):
             self._init_from_file(data)
         else:
@@ -234,7 +237,7 @@ class Gamma:
         self.segment_definition = new_segment_order
 
     def divide_into_segments(self, split=False):
-        # This method should split the gamma_array based on the current segment definitions
+        '''Split the gamma_array based on the current segment definitions'''
         segments = {}
         
         start = 0
@@ -255,6 +258,7 @@ class Gamma:
                 segments[name]=segment
                 start = end
         return segments
+    
     #Compact and expand segments to account for symmetrical 2D matrices
     @staticmethod
     def compact(matrix,sum_offdiagonal=False):
