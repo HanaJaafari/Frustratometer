@@ -58,7 +58,7 @@ def compute_swap_energy(seq_index, model_h, model_J, mask, pos1, pos2):
 
 
 @numba.njit
-def sequence_mutation(seq_index, model_h, model_J, mask,valid_indices=range(len(_AA))):
+def sequence_mutation(seq_index, model_h, model_J, mask,valid_indices=np.arange(len(_AA))):
     seq_index = seq_index.copy()
     r = np.random.randint(0, len(valid_indices)*len(seq_index)) # Select a random index
     res = r // len(valid_indices)
@@ -152,7 +152,7 @@ def heterogeneity_approximation(seq_index):
     return het
 
 @numba.njit
-def montecarlo_steps(temperature, model_h, model_J, mask, seq_index, Ep=100, n_steps = 1000, kb = 0.008314,valid_indices=range(len(_AA))) -> np.array:
+def montecarlo_steps(temperature, model_h, model_J, mask, seq_index, Ep=100, n_steps = 1000, kb = 0.008314,valid_indices=np.arange(len(_AA))) -> np.array:
     for _ in range(n_steps):
         new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model_h, model_J, mask) if np.random.random() > 0.5 else sequence_mutation(seq_index, model_h, model_J, mask,valid_indices)
         exponent=(-energy_difference + Ep * het_difference) / (kb * temperature + 1E-10)
@@ -186,7 +186,7 @@ def replica_exchanges(energies, temperatures, kb=0.008314, exchange_id=0):
     return order
 
 @numba.njit(parallel=True)
-def parallel_montecarlo_step(model_h, model_J, mask, seq_indices, temperatures, n_steps_per_cycle, Ep,valid_indices=range(len(_AA))):
+def parallel_montecarlo_step(model_h, model_J, mask, seq_indices, temperatures, n_steps_per_cycle, Ep,valid_indices=np.arange(len(_AA))):
     n_replicas = len(temperatures)
     energies = np.zeros(n_replicas)
     heterogeneities = np.zeros(n_replicas)
@@ -205,7 +205,7 @@ def parallel_montecarlo_step(model_h, model_J, mask, seq_indices, temperatures, 
     return seq_indices, energies, heterogeneities, total_energies
 
 @numba.njit
-def parallel_tempering_numba(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep,valid_indices=range(len(_AA))):
+def parallel_tempering_numba(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep,valid_indices=np.arange(len(_AA))):
     for s in range(n_steps//n_steps_per_cycle):
         seq_indices, energy, het, total_energies = parallel_montecarlo_step(model_h, model_J, mask, seq_indices, temperatures, n_steps_per_cycle, Ep,valid_indices=valid_indices)
 
@@ -219,7 +219,7 @@ def parallel_tempering_numba(model_h, model_J, mask, seq_indices, temperatures, 
         
 
 
-def parallel_tempering(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep, filename="parallel_tempering_resultsv3.csv",valid_indices=range(len(_AA))):
+def parallel_tempering(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep, filename="parallel_tempering_resultsv3.csv",valid_indices=np.arange(len(_AA))):
     columns=['Step', 'Temperature', 'Sequence', 'Energy', 'Heterogeneity', 'Total Energy']
     df_headers = pd.DataFrame(columns=columns)
     df_headers.to_csv(filename, index=False)
@@ -240,7 +240,7 @@ def parallel_tempering(model_h, model_J, mask, seq_indices, temperatures, n_step
         df_chunk.to_csv(filename, mode='a', header=False, index=False)
 
 
-def annealing(temp_max=500, temp_min=0, n_steps=1E8, Ep=10,valid_indices=range(len(_AA))):
+def annealing(temp_max=500, temp_min=0, n_steps=1E8, Ep=10,valid_indices=np.arange(len(_AA))):
     native_pdb = "tests/data/1r69.pdb"
     structure = frustratometer.Structure.full_pdb(native_pdb, "A")
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
@@ -257,7 +257,7 @@ def annealing(temp_max=500, temp_min=0, n_steps=1E8, Ep=10,valid_indices=range(l
     simulation_df = pd.DataFrame(simulation_data)
     simulation_df.to_csv("mcso_simulation_results.csv", index=False)
 
-def benchmark_montecarlo_steps(n_repeats=100, n_steps=20000,valid_indices=range(len(_AA))):
+def benchmark_montecarlo_steps(n_repeats=100, n_steps=20000,valid_indices=np.arange(len(_AA))):
     import time
     # Initialize the model for 1r69
     native_pdb = "tests/data/1r69.pdb"  # Ensure this path is correct
