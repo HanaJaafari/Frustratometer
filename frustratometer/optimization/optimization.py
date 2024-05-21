@@ -3,6 +3,7 @@ import frustratometer
 import pandas as pd  # Import pandas for data manipulation
 import numba
 from pathlib import Path
+from .inner_product import build_mean_inner_product_matrix
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
 
@@ -289,6 +290,66 @@ def benchmark_montecarlo_steps(n_repeats=100, n_steps=20000):
     print(f"Time needed to explore 10^10 sequences with 8 process in parallel: {minutes_needed:.2e} minutes")
     print(f"Number of sequences explored per hour: {steps_per_hour:.2e}")
     print(f"Average execution time per step: {average_time_per_step_us:.5f} microseconds")
+
+alphabet_awsem = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
+
+def compute_AB(sequence, indicators, alphabet=None):
+    """Computes A B """
+    
+    if alphabet is None:
+        alphabet=alphabet_awsem
+
+    #aa_count=dict(a for a in np.array(np.unique(list(sequence), return_counts=True)).T)
+    aa_count = [sequence.count(letter) for letter in alphabet]
+    freq_i=np.array(aa_count)
+    freq_ij=np.outer(freq_i,freq_i)
+    alpha = np.diag(freq_i)
+    beta = freq_ij.copy()
+    np.fill_diagonal(beta, freq_i*(freq_i-1))
+
+    phi_len=sum([len(alphabet)**len(ind.shape) for ind in indicators])
+    phi_mean = np.zeros(phi_len)
+    offset=0
+    for indicator in indicators:
+        if len(indicator.shape) == 1:  # 1D indicator
+            phi_mean[offset:offset+len(alphabet_awsem)]=np.mean(indicator)*freq_i
+            offset += len(alphabet)
+        elif len(indicator.shape) == 2:  # 2D indicator
+            
+            temp_indicator=indicator.copy()
+            mean_diagonal_indicator = np.diag(temp_indicator).mean()
+            np.fill_diagonal(temp_indicator, 0)
+            mean_offdiagonal_indicator = temp_indicator.mean()
+            
+            phi_mean[offset:offset+len(alphabet)**2]=alpha.ravel()*mean_diagonal_indicator + beta.ravel()*mean_offdiagonal_indicator
+            offset += len(alphabet)**2
+    
+    phi_native=phi(sequence=sequence,indicators=indicators,alphabet=alphabet)
+    A = phi_mean-phi_native
+    B = build_mean_inner_product_matrix(freq_i,indicators) - np.outer(phi_mean,phi_mean)
+    return A,B
+
+def phi(sequence, indicators, alphabet=None):
+    """ Sums the indicators according to the type determined by the sequence"""
+
+    if alphabet is None:
+        alphabet=alphabet_awsem
+    
+    aa_to_index = {aa: index for index, aa in enumerate(alphabet)}
+    seq_index = np.array([aa_to_index[aa] for aa in sequence])
+    phi_len=sum([len(alphabet)**len(ind.shape) for ind in indicators])
+    seq_pairs = (np.array(np.meshgrid(seq_index, seq_index)) * np.array([1, len(alphabet_awsem)])[:, None, None]).sum(axis=0).ravel()
+
+    phi_sum=np.zeros(phi_len)
+    offset=0
+    for indicator in indicators:
+        if len(indicator.shape) == 1:  # 1D indicator
+            np.add.at(phi_sum, seq_index + offset, indicator)
+            offset += len(alphabet)
+        elif len(indicator.shape) == 2:  # 2D indicator
+            np.add.at(phi_sum, seq_pairs + offset, indicator.ravel())
+            offset += len(alphabet) ** 2
+    return phi_sum
 
 if __name__ == '__main__':
     benchmark_montecarlo_steps()
