@@ -5,12 +5,12 @@ from .Frustratometer import Frustratometer
 from .Gamma import Gamma
 from pydantic import BaseModel, Field, ConfigDict
 from pydantic.types import Path
-from typing import List,Optional
+from typing import List,Optional,Union
 
 __all__ = ['AWSEM']
 
 class AWSEMParameters(BaseModel):
-    model_config = ConfigDict(extra='ignore')
+    model_config = ConfigDict(extra='ignore', arbitrary_types_allowed=True)
     """Default parameters for AWSEM energy calculations."""
     k_contact: float = Field(4.184, description="Coefficient for contact potential. (kJ/mol)")
     
@@ -31,21 +31,15 @@ class AWSEMParameters(BaseModel):
     r_max: float = Field(6.5, description="Maximum distance for direct contact potential. (Angstrom)")
     
     #Mediated contacts
-    gamma_file: Path = Field(_path/'data'/'AWSEM_2015.json', description="File containing the Gamma values")
+    gamma: Union[Path,Gamma] = Field(_path/'data'/'AWSEM_2015.json', description="File or Gamma object containing the Gamma values")
     r_minII: float = Field(6.5, description="Minimum distance for mediated contact potential. (Angstrom)")
     r_maxII: float = Field(9.5, description="Maximum distance for mediated contact potential. (Angstrom)")
     eta_sigma: float = Field(7.0, description="Sharpness of the density-based switching function between protein-mediated and water-mediated contacts.")
     
 
     #Membrane
-    membrane_gamma_file: Path = Field(_path/'data'/'AWSEM_membrane_2015.json', description="File containing the membrane Gamma values (for membrane proteins)")
+    membrane_gamma: Union[Path,Gamma] = Field(_path/'data'/'AWSEM_membrane_2015.json', description="File or Gamma object containing the membrane Gamma values (for membrane proteins)")
     eta_switching: int = Field(10, description="Switching distance for the membrane switching function")
-
-    #Membrane gamma files
-    membrane_burial_file: Path = Field(_path/'data'/'membrane_gamma_ijm', description="File containing the membrane gamma_ijm values.")
-    membrane_direct_gamma_file: Path = Field(_path/'data'/'membrane_gamma_ijm', description="File containing the membrane gamma_ijm values.")
-    membrane_water_gamma_file: Path = Field(_path/'data'/'membrane_gamma_ijm_water', description="File containing the membrane gamma_ijm water values.")
-    membrane_protein_gamma_file: Path = Field(_path/'data'/'membrane_gamma_ijm_protein', description="File containing the membrane gamma_ijm protein values.")
 
     #Electrostatics
     min_sequence_separation_electrostatics: Optional[int] = Field(1, description="Minimum sequence separation for electrostatics calculation.")
@@ -77,7 +71,13 @@ class AWSEM(Frustratometer):
             setattr(self, field, value)
         
         #Gamma parameters
-        gamma = Gamma(p.gamma_file)
+        if isinstance(p.gamma, Gamma):
+            gamma = p.gamma
+        elif isinstance(p.gamma, Path):
+            gamma = Gamma(p.gamma)
+        else:
+            raise ValueError("Gamma parameter must be a path or a Gamma object.")
+                
         self.burial_gamma = gamma['Burial'].T
         self.direct_gamma = gamma['Direct'][0]
         self.protein_gamma = gamma['Protein'][0]

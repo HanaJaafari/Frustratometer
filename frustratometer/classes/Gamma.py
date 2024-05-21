@@ -397,8 +397,6 @@ class Gamma:
             correlation = np.corrcoef(seg1.flatten(), seg2.flatten())[0, 1]
             correlations[name]=correlation
         return correlations
-    
-
 
     # Plotting
     def plot_gamma(self, new_order=None):
