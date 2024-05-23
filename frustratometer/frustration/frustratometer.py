@@ -420,7 +420,7 @@ def plot_singleresidue_decoy_energy(decoy_energy, native_energy, method='cluster
 def write_tcl_script(pdb_file, chain, single_frustration, pair_frustration, tcl_script='frustration.tcl',
                      max_connections=100):
     fo = open(tcl_script, 'w+')
-    structure = prody.parsePDB(pdb_file)
+    structure = prody.parsePDB(str(pdb_file))
     selection = structure.select('protein', chain=chain)
     residues = np.unique(selection.getResindices())
 
@@ -428,7 +428,7 @@ def write_tcl_script(pdb_file, chain, single_frustration, pair_frustration, tcl_
     # Single residue frustration
     for r, f in zip(residues, single_frustration):
         # print(f)
-        fo.write(f'[atomselect top "chain {chain} and residue {r}"] set beta {f}\n')
+        fo.write(f'[atomselect top "chain {chain} and residue {int(r)}"] set beta {f}\n')
 
     # Mutational frustration:
     r1, r2 = np.meshgrid(residues, residues, indexing='ij')
