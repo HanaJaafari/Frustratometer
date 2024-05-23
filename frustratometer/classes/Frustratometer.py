@@ -130,8 +130,8 @@ class Frustratometer:
         if sequence is None:
             sequence=self.sequence
         tcl_script = frustration.write_tcl_script(self.pdb_file, self.chain,
-                                      self.frustration(kind=single, sequence=sequence, aa_freq=aa_freq, correction=correction),
-                                      self.frustration(kind=pair, sequence=sequence, aa_freq=aa_freq, correction=correction),
+                                      -self.frustration(kind=single, sequence=sequence, aa_freq=aa_freq, correction=correction),
+                                      -self.frustration(kind=pair, sequence=sequence, aa_freq=aa_freq, correction=correction),
                                       max_connections=max_connections)
         frustration.call_vmd(self.pdb_file, tcl_script)
 
