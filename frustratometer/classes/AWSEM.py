@@ -63,6 +63,7 @@ class AWSEM(Frustratometer):
 
     def __init__(self, 
                  pdb_structure,
+                 sequence=None
                  expose_indicator_functions=False,
                  **parameters):
         
@@ -86,7 +87,10 @@ class AWSEM(Frustratometer):
 
         #Structure details
         self.full_to_aligned_index_dict=pdb_structure.full_to_aligned_index_dict
-        self.sequence=pdb_structure.sequence
+        if sequence is None:
+            self.sequence=pdb_structure.sequence
+        else:
+            self.sequence=sequence
         self.structure=pdb_structure.structure
         self.chain=pdb_structure.chain
         self.pdb_file=pdb_structure.pdb_file
