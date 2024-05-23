@@ -63,7 +63,7 @@ class AWSEM(Frustratometer):
 
     def __init__(self, 
                  pdb_structure,
-                 sequence=None
+                 sequence=None,
                  expose_indicator_functions=False,
                  **parameters):
         
