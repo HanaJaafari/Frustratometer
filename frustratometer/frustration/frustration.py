@@ -492,11 +492,11 @@ def plot_singleresidue_decoy_energy(decoy_energy, native_energy, method='cluster
 
 
 def write_tcl_script(pdb_file, chain, single_frustration, pair_frustration, tcl_script='frustration.tcl',
-                     max_connections=100):
+                     max_connections=None):
     fo = open(tcl_script, 'w+')
     structure = prody.parsePDB(str(pdb_file))
     selection = structure.select('protein', chain=chain)
-    residues = np.unique(selection.getResindices())
+    residues = np.unique(selection.getResnums())
 
     fo.write(f'[atomselect top all] set beta 0\n')
     # Single residue frustration
@@ -507,25 +507,47 @@ def write_tcl_script(pdb_file, chain, single_frustration, pair_frustration, tcl_
     # Mutational frustration:
     r1, r2 = np.meshgrid(residues, residues, indexing='ij')
     sel_frustration = np.array([r1.ravel(), r2.ravel(), pair_frustration.ravel()]).T
-    print(sel_frustration)
-    print(sel_frustration.shape)
     minimally_frustrated = sel_frustration[sel_frustration[:, -1] < -0.78]
     s = np.argsort(minimally_frustrated[:, -1])
-    minimally_frustrated = minimally_frustrated[s][:max_connections]
+    minimally_frustrated = minimally_frustrated[s]
+    if max_connections:
+        minimally_frustrated = minimally_frustrated[:max_connections]
     fo.write('draw color green\n')
     for r1, r2, f in minimally_frustrated:
+        r1=int(r1)
+        r2=int(r2)
+        pos1 = selection.select(f'resid {r1} and chain {chain} and (name CB or (resname GLY and name CA))').getCoords()[0]
+        pos2 = selection.select(f'resid {r2} and chain {chain} and (name CB or (resname GLY and name CA))').getCoords()[0]
+        distance = np.linalg.norm(pos1 - pos2)
+        if distance > 9.5 or distance < 3.5:
+            continue
         fo.write(f'lassign [[atomselect top "resid {r1} and name CA and chain {chain}"] get {{x y z}}] pos1\n')
         fo.write(f'lassign [[atomselect top "resid {r2} and name CA and chain {chain}"] get {{x y z}}] pos2\n')
-        fo.write(f'draw line $pos1 $pos2 style solid width 2\n')
+        if 3.5 <= distance <= 6.5:
+            fo.write(f'draw line $pos1 $pos2 style solid width 2\n')
+        else:
+            fo.write(f'draw line $pos1 $pos2 style dashed width 2\n')
 
     frustrated = sel_frustration[sel_frustration[:, -1] > 1]
     s = np.argsort(frustrated[:, -1])[::-1]
-    frustrated = frustrated[s][:max_connections]
+    frustrated = frustrated[s]
+    if max_connections:
+        frustrated = frustrated[:max_connections]
     fo.write('draw color red\n')
     for r1, r2, f in frustrated:
+        r1=int(r1)
+        r2=int(r2)
+        pos1 = selection.select(f'resid {r1} and chain {chain} and (name CB or (resname GLY and name CA))').getCoords()[0]
+        pos2 = selection.select(f'resid {r2} and chain {chain} and (name CB or (resname GLY and name CA))').getCoords()[0]
+        distance = np.linalg.norm(pos1 - pos2)
+        if distance > 9.5 or distance < 3.5:
+            continue
         fo.write(f'lassign [[atomselect top "resid {r1} and name CA and chain {chain}"] get {{x y z}}] pos1\n')
         fo.write(f'lassign [[atomselect top "resid {r2} and name CA and chain {chain}"] get {{x y z}}] pos2\n')
-        fo.write('draw line $pos1 $pos2 style solid width 2\n')
+        if 3.5 <= distance <= 6.5:
+            fo.write(f'draw line $pos1 $pos2 style solid width 2\n')
+        else:
+            fo.write(f'draw line $pos1 $pos2 style dashed width 2\n')
     fo.write('''mol delrep top 0
             mol color Beta
             mol representation NewCartoon 0.300000 10.000000 4.100000 0
