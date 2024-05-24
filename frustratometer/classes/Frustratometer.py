@@ -128,14 +128,15 @@ class Frustratometer:
            Function intended"""
         return frustration.compute_auc(self.roc())
 
-    def vmd(self, sequence: str = None, single:typing.Union[str,np.array] = 'singleresidue', pair:typing.Union[str,np.array] = 'mutational', aa_freq:np.array = None, correction:int = 0, max_connections:typing.Union[int,None] = None):
+    def vmd(self, sequence: str = None, single:typing.Union[str,np.array] = 'singleresidue', pair:typing.Union[str,np.array] = 'mutational',
+             aa_freq:np.array = None, correction:int = 0, max_connections:typing.Union[int,None] = None, movie_name=None):
         if sequence is None:
             sequence=self.sequence
 
         tcl_script = frustration.write_tcl_script(self.pdb_file, self.chain, self.mask, self.distance_matrix, self.distance_cutoff,
                                       -self.frustration(kind=single, sequence=sequence, aa_freq=aa_freq, correction=correction),
                                       -self.frustration(kind=pair, sequence=sequence, aa_freq=aa_freq, correction=correction),
-                                      max_connections=max_connections)
+                                      max_connections=max_connections, movie_name=movie_name)
         frustration.call_vmd(self.pdb_file, tcl_script)
 
     def view_frustration(self, sequence:str = None, single:str = 'singleresidue', pair:str = 'mutational', aa_freq:np.array = None, correction:int = 0):

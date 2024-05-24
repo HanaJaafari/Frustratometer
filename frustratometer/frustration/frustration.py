@@ -492,7 +492,7 @@ def plot_singleresidue_decoy_energy(decoy_energy, native_energy, method='cluster
 
 
 def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, single_frustration, pair_frustration, tcl_script='frustration.tcl',
-                     max_connections=None, movie=False):
+                     max_connections=None, movie_name=None):
     fo = open(tcl_script, 'w+')
     single_frustration = np.nan_to_num(single_frustration,nan=0,posinf=0,neginf=0)
     pair_frustration = np.nan_to_num(pair_frustration,nan=0,posinf=0,neginf=0)
@@ -568,17 +568,19 @@ def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, si
             color scale method GWR
             ''')
     
-    if movie==True:
+    if movie_name:
         fo.write('''axes location Off
             color Display Background white
             display resetview
             display resize 800 800
             display projection Orthographic
+            display depthcue off
+            display resetview
 
             # Set up the movie directory and base file name
             mkdir movie_tmp
-            set workdir "tmp"
-            set basename "movie_frame"
+            set workdir "movie_tmp"
+            ''' + f'set basename "{movie_name}"' + '''
             set numframes 360
             set framerate 25
 
@@ -590,7 +592,8 @@ def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, si
                     rotate y by 1
                     
                     # Capture the frame
-                    render Tachyon $workdir/$basename.$i.tga
+                    set output [format "%s/$basename.%05d.tga" $workdir $i]
+                    render snapshot $output
                 }
             }
 
@@ -599,15 +602,13 @@ def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, si
                 global workdir basename numframes framerate
 
                 set mybasefilename [format "%s/%s" $workdir $basename]
-                set outputFile [format "%s.mp4" $mybasefilename]
-                
-                # Remove any existing output file
-                file delete -force $outputFile
+                set outputFile [format "%s.mp4" $basename]
                 
                 # Construct and execute the ffmpeg command
-                set command "ffmpeg -framerate $framerate -i $mybasefilename.%d.tga -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p $outputFile"
+                
+                set command "ffmpeg -y -framerate $framerate -i $mybasefilename.%05d.tga -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p $outputFile"
                 puts "Executing: $command"
-                exec $command >&@ stdout
+                exec ffmpeg -y -framerate $framerate -i $mybasefilename.%05d.tga -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p $outputFile >&@ stdout
             }
 
             # Main script execution
@@ -615,7 +616,10 @@ def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, si
             convertToMP4
 
             # Cleanup the TGA files if desired
-            exec rm $workdir/$basename*.tga
+            for {set i 0} {$i < $numframes} {incr i} {
+                set output [format "%s/$basename.%05d.tga" $workdir $i]
+                exec rm $output
+            }
             exit
         ''')
     fo.close()
