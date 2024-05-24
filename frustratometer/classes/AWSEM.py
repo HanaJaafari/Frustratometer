@@ -188,10 +188,18 @@ class AWSEM(Frustratometer):
         self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
         self._native_energy=None
 
-    def compute_configurational_decoy_statistics(self, n_decoys=4000):
+    def compute_configurational_decoy_statistics(self, n_decoys=4000,aa_freq=None):
         # ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
         _AA='ARNDCQEGHILKMFPSTWYV'
-        seq_index = np.array([_AA.find(aa) for aa in self.sequence])
+        if aa_freq is None:
+            seq_index = np.array([_AA.find(aa) for aa in self.sequence])
+            N=self.N
+        else:
+            N=self.N*10
+            total = sum(aa_freq)
+            probabilities = [freq / total for freq in aa_freq.ravel()]
+            seq_index = np.random.choice(a=len(aa_freq), size=N, p=probabilities)
+        
         distances = np.triu(self.distance_matrix)
         distances = distances[(distances<self.distance_cutoff_contact) & (distances>0)]
 
@@ -211,14 +219,14 @@ class AWSEM(Frustratometer):
         electrostatics_indicator = np.exp(-distances / self.electrostatics_screening_length) / distances
 
         decoy_energies=np.zeros(n_decoys)
-        decoy_data=[None]*n_decoys
+        #decoy_data=[None]*n_decoys
         #decoy_data_columns=['decoy_i','rand_i_resno','rand_j_resno','ires_type','jres_type','i_resno','j_resno','rij','rho_i','rho_j','water_energy','burial_energy_i','burial_energy_j','electrostatic_energy','tert_frust_decoy_energies']
         for i in range(n_decoys):
             c=np.random.randint(0,len(distances))
             n1=np.random.randint(0,self.N)
             n2=np.random.randint(0,self.N)
-            qi1=np.random.randint(0,self.N)
-            qi2=np.random.randint(0,self.N)
+            qi1=np.random.randint(0,N)
+            qi2=np.random.randint(0,N)
             q1=seq_index[qi1]
             q2=seq_index[qi2]
 
@@ -295,6 +303,6 @@ class AWSEM(Frustratometer):
         # import pandas as pd
         return configurational_energies #, pd.DataFrame(decoy_data, columns=decoy_data_columns)
     
-    def configurational_frustration(self,n_decoys=4000):
-        mean_decoy_energy, std_decoy_energy = self.compute_configurational_decoy_statistics(n_decoys=n_decoys)
-        return -(self.compute_configurational_energies()-mean_decoy_energy)/std_decoy_energy
+    def configurational_frustration(self,aa_freq=None, correction=0, n_decoys=4000):
+        mean_decoy_energy, std_decoy_energy = self.compute_configurational_decoy_statistics(n_decoys=n_decoys,aa_freq=aa_freq)
+        return -(self.compute_configurational_energies()-mean_decoy_energy)/(std_decoy_energy+correction)

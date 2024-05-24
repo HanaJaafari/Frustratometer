@@ -6,7 +6,7 @@ import numpy as np
 # import matplotlib.pyplot as plt
 # import seaborn as sns
 import scipy.spatial.distance as sdist
-
+import typing
 #Import other modules
 from .. import frustration
 
@@ -102,6 +102,8 @@ class Frustratometer:
                 aa_freq = self.aa_freq
             return frustration.compute_single_frustration(decoy_fluctuation, aa_freq, correction)
         elif kind in ['mutational', 'configurational', 'contact']:
+            if kind == 'configurational' and 'configurational_frustration' in dir(self):
+                return self.configurational_frustration(self.aa_freq, correction)
             if aa_freq is None:
                 aa_freq = self.contact_freq
             return frustration.compute_pair_frustration(decoy_fluctuation, aa_freq, correction)
@@ -126,10 +128,11 @@ class Frustratometer:
            Function intended"""
         return frustration.compute_auc(self.roc())
 
-    def vmd(self, sequence: str = None, single:str = 'singleresidue', pair:str = 'mutational', aa_freq:np.array = None, correction:int = 0, max_connections:int = 100):
+    def vmd(self, sequence: str = None, single:typing.Union[str,np.array] = 'singleresidue', pair:typing.Union[str,np.array] = 'mutational', aa_freq:np.array = None, correction:int = 0, max_connections:typing.Union[int,None] = None):
         if sequence is None:
             sequence=self.sequence
-        tcl_script = frustration.write_tcl_script(self.pdb_file, self.chain,
+
+        tcl_script = frustration.write_tcl_script(self.pdb_file, self.chain, self.mask, self.distance_matrix, self.distance_cutoff,
                                       -self.frustration(kind=single, sequence=sequence, aa_freq=aa_freq, correction=correction),
                                       -self.frustration(kind=pair, sequence=sequence, aa_freq=aa_freq, correction=correction),
                                       max_connections=max_connections)
