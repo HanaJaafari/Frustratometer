@@ -571,11 +571,12 @@ def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, si
     if movie_name:
         fo.write('''axes location Off
             color Display Background white
-            display resetview
             display resize 800 800
             display projection Orthographic
             display depthcue off
             display resetview
+            display resize [expr [lindex [display get size] 0]/2*2] [expr [lindex [display get size] 1]/2*2] ;#Resize display to even height and width
+            display update ui
 
             # Set up the movie directory and base file name
             mkdir movie_tmp
