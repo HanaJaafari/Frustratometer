@@ -9,7 +9,13 @@ Frustratometer
 
 A python implementation of the protein frustratometer.
 
-![https://xkcd.com/173/](https://imgs.xkcd.com/comics/movie_seating.png)
+<p align="center">
+    <a href="https://xkcd.com/173/">
+        <img src="https://imgs.xkcd.com/comics/movie_seating.png" alt="XKCD depiction of frustration at the movies" title="At least amino acids don't create directed graphs">
+    </a>
+    <em> XKCD comic showing a clasic example of frustration at the movie theather </em>
+</p>
+
 
 The frustratometer is based on the principle of minimal frustration postulated by Wolynes et al. The main idea is that proteins have evolved under a selective pressure to fold into a native structure, which is energetically minimized, but also to not fold into incorrect conformations, where the energy is maximized. In that principle it is expected that when we measure the energy of a correctly folded protein, most of the interactions between the aminoacids will be minimized, compared to a different aminoacid in the same position or the same aminoacid in a different position. When this energy is minimized we define a particular residue to be minimally frustrated.
 
