@@ -7,7 +7,9 @@ from pathlib import Path
 
 test_path=Path('tests')
 test_data_path=Path('tests/data')
+
 # Assuming you have a function to load your tests configurations
+#tests_config = pd.read_csv(test_path/"test_awsem_config.csv",comment='#')
 tests_config = pd.read_csv(test_path/"test_awsem_config.csv")
 
 def test_prody_expected_error():
@@ -74,6 +76,9 @@ def test_mutational_frustration(test_data):
     start_pdb=1 if test_data['pdb']!="6u5e" else 2
     data['Calculated_frustration'] = model.frustration(kind='mutational')[data['#Res1']-start_pdb, data['Res2']-start_pdb]
     data['Expected_frustration'] = data['FrstIndex']
+    #data.to_csv(f"/home/fc36/dump/{test_data['pdb']}_seqsep_{test_data['seqsep']}_kelec_{test_data['k_electrostatics']}_mutational.csv") 
+    #np.savetxt(f"/home/fc36/dump/{test_data['pdb']}_seqsep_{test_data['seqsep']}_kelec_{test_data['k_electrostatics']}_mutational_test_full.csv", model.frustration(kind='mutational'),delimiter=',')
+    #np.savetxt(f'/home/fc36/dump/{test_data["pdb"]}_seqsep_{test_data["seqsep"]}_kelec_{test_data["k_electrostatics"]}_other_save.csv',model.frustration(kind='mutational')[data['#Res1']-start_pdb, data['Res2']-start_pdb],delimiter=',')
     try:
         assert np.allclose(data['Calculated_frustration'], data['Expected_frustration'], atol=3E-1)
     except AssertionError:
@@ -108,8 +113,9 @@ def test_configurational_frustration(test_data):
     
     start_pdb = 1 if (test_data['pdb'] != "6u5e" or test_data['lammps']) else 2
     data['Calculated_frustration'] = model.configurational_frustration(n_decoys=10000)[data['#Res1'] - start_pdb, data['Res2'] - start_pdb]
+    #data.to_csv(f"/home/fc36/dump/{test_data['pdb']}_seqsep_{test_data['seqsep']}_kelec_{test_data['k_electrostatics']}_configurational.csv")
     data['Expected_frustration'] = data['FrstIndex']
-    
+    #np.savetxt(f"/home/fc36/dump/{test_data['pdb']}_seqsep_{test_data['seqsep']}_kelec_{test_data['k_electrostatics']}_configurational_full.csv",model.configurational_frustration(n_decoys=10000),delimiter=',')
     try:
         assert np.allclose(data['Calculated_frustration'], data['Expected_frustration'], atol=3E-1)
     except AssertionError:
