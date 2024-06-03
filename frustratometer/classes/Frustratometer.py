@@ -103,7 +103,8 @@ class Frustratometer:
             return frustration.compute_single_frustration(decoy_fluctuation, aa_freq, correction)
         elif kind in ['mutational', 'configurational', 'contact']:
             if kind == 'configurational' and 'configurational_frustration' in dir(self):
-                return self.configurational_frustration(self.aa_freq, correction)
+                #TODO: Correct this function for different aa_freq than WT
+                return self.configurational_frustration(None, correction)
             if aa_freq is None:
                 aa_freq = self.contact_freq
             return frustration.compute_pair_frustration(decoy_fluctuation, aa_freq, correction)
