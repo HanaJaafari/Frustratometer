@@ -9,8 +9,8 @@ test_path=Path('tests')
 test_data_path=Path('tests/data')
 
 # Assuming you have a function to load your tests configurations
-#tests_config = pd.read_csv(test_path/"test_awsem_config.csv",comment='#')
-tests_config = pd.read_csv(test_path/"test_awsem_config.csv")
+tests_config = pd.read_csv(test_path/"test_awsem_config.csv",comment='#')
+#tests_config = pd.read_csv(test_path/"test_awsem_config.csv")
 
 def test_prody_expected_error():
     test_data=tests_config.iloc[0]
