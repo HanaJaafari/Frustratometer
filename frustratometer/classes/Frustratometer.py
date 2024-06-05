@@ -129,7 +129,7 @@ class Frustratometer:
            Function intended"""
         return frustration.compute_auc(self.roc())
 
-    def vmd(self, sequence: str = None, single:typing.Union[str,np.array] = 'singleresidue', pair:typing.Union[str,np.array] = 'mutational',
+    def vmd(self, single:typing.Union[str,np.array] = 'singleresidue', pair:typing.Union[str,np.array] = 'mutational',
              aa_freq:np.array = None, correction:int = 0, max_connections:typing.Union[int,None] = None, movie_name=None):
         if sequence is None:
             sequence=self.sequence
