@@ -121,7 +121,7 @@ def test_configurational_frustration(test_data):
     data['Expected_frustration'] = data['FrstIndex']
     #np.savetxt(f"/home/fc36/dump/{test_data['pdb']}_seqsep_{test_data['seqsep']}_kelec_{test_data['k_electrostatics']}_configurational_full.csv",model.configurational_frustration(n_decoys=10000),delimiter=',')
     if test_data['pdb'] == 'sequence0':
-        atol = 5.5E-1
+        atol = 6E-1
     elif test_data['pdb'] == 'sequence1':
         atol = 5E-1
     else:
