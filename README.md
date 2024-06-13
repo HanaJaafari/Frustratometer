@@ -1,7 +1,7 @@
 Frustratometer
 ==============================
 [//]: # (Badges)
-[![GitHub Actions Build Status](https://github.com/HanaJaafari/Frustratometer/workflows/CI/badge.svg)](https://github.com/HanaJaafari/Frustratometer/actions?query=workflow%3ACI)
+[![GitHub Actions Build Status](https://github.com/cabb99/Frustratometer/workflows/CI/badge.svg)](https://github.com/cabb99/Frustratometer/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/HanaJaafari/Frustratometer/graph/badge.svg?token=JKDOXOYPRS)](https://codecov.io/gh/HanaJaafari/Frustratometer)
 [![Documentation Status](https://readthedocs.org/projects/frustratometer/badge/?version=latest)](https://frustratometer.readthedocs.io/en/latest/?badge=latest)
 
@@ -9,19 +9,22 @@ Frustratometer
 
 A python implementation of the protein frustratometer.
 
-![https://xkcd.com/173/](https://imgs.xkcd.com/comics/movie_seating.png)
+<p align="center">
+    <a href="https://xkcd.com/173/">
+        <img src="https://imgs.xkcd.com/comics/movie_seating.png" alt="XKCD depiction of frustration at the movies" title="At least amino acids don't create directed graphs">
+    </a> <br>
+    <em> XKCD comic showing a clasic example of frustration at the movie theather </em>
+</p>
 
-The frustratometer is based on the principle of minimal frustration postulated by Wolynes et al. The main idea is that proteins have evolved under a selective pressure to fold into a native structure, which is energetically minimized, but also to not fold into incorrect conformations, where the energy is maximized. In that principle it is expected that when we measure the energy of a correctly folded protein, most of the interactions between the aminoacids will be minimized, compared to a different aminoacid in the same position or the same aminoacid in a different position. When this energy is minimized we define a particular residue to be minimally frustrated.
 
-Under most circunstances aminoacids are minimally frustrated in the protein, but pockets where aminoacids are of interest for protein function. In short, a frustrated residue or interaction indicates that the particular aminoacid would be minimized under a different configuration, or a different sequence, which reveals possible competing evolutionary pressures on its selection. We have identified that these pockets usually correspond to regions of functional importance, for example, that may form part of a catalitic domain, a hinge domain, or a binding region.
+The frustratometer is based on the principle of minimal frustration postulated by [Wolynes et al.](https://doi.org/10.1073/pnas.84.21.7524) Proteins have evolved under a selective pressure to fold into a single native structure, which is energetically minimized by the evolutionary process, but also to not fold into the many possible incorrect glassy conformations, where the energy is maximized by the evolutionary process. In that principle it is expected that when we measure the energy of a correctly folded protein, most of the interactions between the amino acids will be minimized, compared to both a different amino acid in the same position (mutational) and the same amino acid in a different position (configurational). When this energy is minimized for a particular residue or interaction we define it to be minimally frustrated.
+
+Under most circunstances amino acids are minimally frustrated in the protein, but pockets where amino acids are of interest for protein function can remain frustrated, as they become minimally frustrated when achieving the corresponding function. In short, a frustrated residue or interaction indicates that the particular amino acid would be minimized under a different environment, which reveals possible competing evolutionary pressures on its selection. We have identified that these pockets usually correspond to regions of functional importance, for example, that may form part of a catalitic domain, a hinge domain, or a binding region.
 
 This principle of minimum frustration has been shown using the AWSEM forcefield but can be extended to any other forcefield, including atomistic forcefields, or a pseudo-forcefield like DCA, as implemented here.
 
-In this module we implement a version of the frustratometer based on Direct Coupling analysis.
-
 ## Installation
 
-This module is currently under development.
 To install this modules please clone this repository and install it using the following commands.
 
     git clone HanaJaafari/Frustratometer
@@ -29,8 +32,7 @@ To install this modules please clone this repository and install it using the fo
     conda install -c conda-forge --file requirements.txt
     pip install -e .
 
-A clean python environment is recommended.
-
+There are additional packages that can be installed and are detailed in the [documentation](https://frustratometer.readthedocs.io/en/latest).
 ## Usage
 
 ### Loading Protein Structures
@@ -139,14 +141,13 @@ The Frustratometer AWSEM package offers many functionalities for analyzing prote
 
 The frustratometer has been implemented in other ways by our group:
 
-Web-server
+[frustratometer-server](http://frustratometer.qb.fcen.uba.ar/)
 
-R
+[frustratometeR](https://github.com/proteinphysiologylab/frustratometeR)
 
-Lammps
+[AWSEM-MD](https://github.com/adavtyan/awsemmd)
 
-Atomistic
-
+[Atomistic](https://www.nature.com/articles/s41467-020-19560-9)
 
 ## Copyright
 
@@ -160,7 +161,14 @@ Project skeleton based on the [Computational Molecular Science Python Cookiecutt
 
 ## References
 
-### frustratometeR
-
 Atilio O Rausch, Maria I Freiberger, Cesar O Leonetti, Diego M Luna, Leandro G Radusky, Peter G Wolynes, Diego U Ferreiro, R Gonzalo Parra, FrustratometeR: an R-package to compute local frustration in protein structures, point mutants and MD simulations, Bioinformatics, 2021;, btab176, https://doi.org/10.1093/bioinformatics/btab176
 
+Ferreiro DU, Komives EA, Wolynes PG. Frustration, function and folding. Curr Opin Struct Biol. 2018;48: 68–73. doi:10.1016/j.sbi.2017.09.006. PubMed PMID: 29101782
+
+Parra RG, Schafer NP, Radusky LG, Tsai M-Y, Guzovsky AB, Wolynes PG, et al. Protein Frustratometer 2: a tool to localize energetic frustration in protein  molecules, now with electrostatics. Nucleic Acids Res. 2016;44: W356-60. doi:10.1093/nar/gkw304. PubMed PMID: 27131359
+
+Wolynes PG. Evolution, energy landscapes and the paradoxes of protein folding. Biochimie. 2015;119: 218–230. doi:10.1016/j.biochi.2014.12.007. PubMed PMID: 25530262
+
+Ferreiro DU, Komives E a., Wolynes PG. Frustration in Biomolecules. Q Rev Biophys. 2013;47: 1–97. doi:10.1017/S0033583514000092. PubMed PMID: 25225856
+
+Jenik M, Parra RG, Radusky LG, Turjanski A, Wolynes PG, Ferreiro DU. Protein frustratometer: A tool to localize energetic frustration in protein molecules. Nucleic Acids Res. 2012;40: 348–351. doi:10.1093/nar/gks447. PubMed PMID: 22645321
