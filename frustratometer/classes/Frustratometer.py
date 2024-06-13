@@ -9,6 +9,7 @@ import scipy.spatial.distance as sdist
 import typing
 #Import other modules
 from .. import frustration
+import logging
 
 __all__=['PottsModel']
 ##################
@@ -103,7 +104,8 @@ class Frustratometer:
             return frustration.compute_single_frustration(decoy_fluctuation, aa_freq, correction)
         elif kind in ['mutational', 'configurational', 'contact']:
             if kind == 'configurational' and 'configurational_frustration' in dir(self):
-                return self.configurational_frustration(self.aa_freq, correction)
+                #TODO: Correct this function for different aa_freq than WT
+                return self.configurational_frustration(None, correction)
             if aa_freq is None:
                 aa_freq = self.contact_freq
             return frustration.compute_pair_frustration(decoy_fluctuation, aa_freq, correction)
@@ -132,6 +134,11 @@ class Frustratometer:
              aa_freq:np.array = None, correction:int = 0, max_connections:typing.Union[int,None] = None, movie_name=None):
         if sequence is None:
             sequence=self.sequence
+        elif sequence.strip() != self.sequence.strip(): 
+            logging.warning("The value of the self.sequence property of your Frustratometer object differs\n\
+                    from the sequence that was passed to this vmd function. Proceeding further may not\n\
+                    perform the computation that you intend to perform.")
+        
 
         tcl_script = frustration.write_tcl_script(self.pdb_file, self.chain, self.mask, self.distance_matrix, self.distance_cutoff,
                                       -self.frustration(kind=single, sequence=sequence, aa_freq=aa_freq, correction=correction),
