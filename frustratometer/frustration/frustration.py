@@ -491,41 +491,74 @@ def plot_singleresidue_decoy_energy(decoy_energy, native_energy, method='cluster
     return g
 
 
-def write_tcl_script(pdb_file, chain, single_frustration, pair_frustration, tcl_script='frustration.tcl',
-                     max_connections=100):
+def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, single_frustration, pair_frustration, tcl_script='frustration.tcl',
+                     max_connections=None, movie_name=None):
     fo = open(tcl_script, 'w+')
-    structure = prody.parsePDB(pdb_file)
+    single_frustration = np.nan_to_num(single_frustration,nan=0,posinf=0,neginf=0)
+    pair_frustration = np.nan_to_num(pair_frustration,nan=0,posinf=0,neginf=0)
+    
+    
+    structure = prody.parsePDB(str(pdb_file))
     selection = structure.select('protein', chain=chain)
-    residues = np.unique(selection.getResindices())
+    residues = np.unique(selection.getResnums())
 
     fo.write(f'[atomselect top all] set beta 0\n')
     # Single residue frustration
     for r, f in zip(residues, single_frustration):
         # print(f)
-        fo.write(f'[atomselect top "chain {chain} and residue {r}"] set beta {f}\n')
+        fo.write(f'[atomselect top "chain {chain} and residue {int(r)}"] set beta {f}\n')
 
     # Mutational frustration:
     r1, r2 = np.meshgrid(residues, residues, indexing='ij')
-    sel_frustration = np.array([r1.ravel(), r2.ravel(), pair_frustration.ravel()]).T
-    print(sel_frustration)
-    print(sel_frustration.shape)
-    minimally_frustrated = sel_frustration[sel_frustration[:, -1] < -0.78]
-    s = np.argsort(minimally_frustrated[:, -1])
-    minimally_frustrated = minimally_frustrated[s][:max_connections]
+    sel_frustration = np.array([r1.ravel(), r2.ravel(), pair_frustration.ravel(),distance_matrix.ravel(), mask.ravel()]).T
+    #Filter with mask and distance
+    if distance_cutoff:
+        mask_dist=(sel_frustration[:, -2] <= distance_cutoff)
+    else:
+        mask_dist=np.ones(len(sel_frustration),dtype=bool)
+    sel_frustration = sel_frustration[mask_dist & (sel_frustration[:, -1] > 0)]
+    
+    minimally_frustrated = sel_frustration[sel_frustration[:, 2] < -0.78]
+    sort_index = np.argsort(minimally_frustrated[:, 2])
+    minimally_frustrated = minimally_frustrated[sort_index]
+    if max_connections:
+        minimally_frustrated = minimally_frustrated[:max_connections]
     fo.write('draw color green\n')
-    for r1, r2, f in minimally_frustrated:
-        fo.write(f'lassign [[atomselect top "resid {r1} and name CA and chain {chain}"] get {{x y z}}] pos1\n')
-        fo.write(f'lassign [[atomselect top "resid {r2} and name CA and chain {chain}"] get {{x y z}}] pos2\n')
-        fo.write(f'draw line $pos1 $pos2 style solid width 2\n')
+    
 
-    frustrated = sel_frustration[sel_frustration[:, -1] > 1]
-    s = np.argsort(frustrated[:, -1])[::-1]
-    frustrated = frustrated[s][:max_connections]
-    fo.write('draw color red\n')
-    for r1, r2, f in frustrated:
+    for (r1, r2, f, d ,m) in minimally_frustrated:
+        r1=int(r1)
+        r2=int(r2)
+        pos1 = selection.select(f'resid {r1} and chain {chain} and (name CB or (resname GLY and name CA))').getCoords()[0]
+        pos2 = selection.select(f'resid {r2} and chain {chain} and (name CB or (resname GLY and name CA))').getCoords()[0]
+        distance = np.linalg.norm(pos1 - pos2)
+        if d > 9.5 or d < 3.5:
+            continue
         fo.write(f'lassign [[atomselect top "resid {r1} and name CA and chain {chain}"] get {{x y z}}] pos1\n')
         fo.write(f'lassign [[atomselect top "resid {r2} and name CA and chain {chain}"] get {{x y z}}] pos2\n')
-        fo.write('draw line $pos1 $pos2 style solid width 2\n')
+        if 3.5 <= distance <= 6.5:
+            fo.write(f'draw line $pos1 $pos2 style solid width 2\n')
+        else:
+            fo.write(f'draw line $pos1 $pos2 style dashed width 2\n')
+
+    frustrated = sel_frustration[sel_frustration[:, 2] > 1]
+    sort_index = np.argsort(frustrated[:, 2])[::-1]
+    frustrated = frustrated[sort_index]
+    if max_connections:
+        frustrated = frustrated[:max_connections]
+    fo.write('draw color red\n')
+    for (r1, r2, f ,d, m) in frustrated:
+        r1=int(r1)
+        r2=int(r2)
+        if d > 9.5 or d < 3.5:
+            continue
+        fo.write(f'lassign [[atomselect top "resid {r1} and name CA and chain {chain}"] get {{x y z}}] pos1\n')
+        fo.write(f'lassign [[atomselect top "resid {r2} and name CA and chain {chain}"] get {{x y z}}] pos2\n')
+        if 3.5 <= d <= 6.5:
+            fo.write(f'draw line $pos1 $pos2 style solid width 2\n')
+        else:
+            fo.write(f'draw line $pos1 $pos2 style dashed width 2\n')
+    
     fo.write('''mol delrep top 0
             mol color Beta
             mol representation NewCartoon 0.300000 10.000000 4.100000 0
@@ -534,6 +567,62 @@ def write_tcl_script(pdb_file, chain, single_frustration, pair_frustration, tcl_
             mol addrep top
             color scale method GWR
             ''')
+    
+    if movie_name:
+        fo.write('''axes location Off
+            color Display Background white
+            display resize 800 800
+            display projection Orthographic
+            display depthcue off
+            display resetview
+            display resize [expr [lindex [display get size] 0]/2*2] [expr [lindex [display get size] 1]/2*2] ;#Resize display to even height and width
+            display update ui
+
+            # Set up the movie directory and base file name
+            mkdir movie_tmp
+            set workdir "movie_tmp"
+            ''' + f'set basename "{movie_name}"' + '''
+            set numframes 360
+            set framerate 25
+
+            # Function to rotate the molecule and capture frames
+            proc captureFrames {} {
+                global workdir basename numframes
+                for {set i 0} {$i < $numframes} {incr i} {
+                    # Rotate the molecule around the Y-axis
+                    rotate y by 1
+                    
+                    # Capture the frame
+                    set output [format "%s/$basename.%05d.tga" $workdir $i]
+                    render snapshot $output
+                }
+            }
+
+            # Function to convert frames to MP4
+            proc convertToMP4 {} {
+                global workdir basename numframes framerate
+
+                set mybasefilename [format "%s/%s" $workdir $basename]
+                set outputFile [format "%s.mp4" $basename]
+                
+                # Construct and execute the ffmpeg command
+                
+                set command "ffmpeg -y -framerate $framerate -i $mybasefilename.%05d.tga -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p $outputFile"
+                puts "Executing: $command"
+                exec ffmpeg -y -framerate $framerate -i $mybasefilename.%05d.tga -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p $outputFile >&@ stdout
+            }
+
+            # Main script execution
+            captureFrames
+            convertToMP4
+
+            # Cleanup the TGA files if desired
+            for {set i 0} {$i < $numframes} {incr i} {
+                set output [format "%s/$basename.%05d.tga" $workdir $i]
+                exec rm $output
+            }
+            exit
+        ''')
     fo.close()
     return tcl_script
 
