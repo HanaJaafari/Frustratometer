@@ -4,6 +4,7 @@ import pandas as pd  # Import pandas for data manipulation
 import numba
 from pathlib import Path
 from .inner_product import build_mean_inner_product_matrix
+import math
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
 
@@ -123,11 +124,11 @@ def model_energy(seq_index: np.array,
 def heterogeneity(seq_index):
     N = len(seq_index)
     _, counts = np.unique(seq_index, return_counts=True)
-    denominator = np.prod(np.array([np.math.factorial(count) for count in counts]))
-    het = np.math.factorial(N) / denominator
+    denominator = np.prod(np.array([math.factorial(count) for count in counts]))
+    het = math.factorial(N) / denominator
     return np.log(het)
 
-log_factorial_table=np.log(np.array([np.math.factorial(i) for i in range(40)],dtype=np.float64))
+log_factorial_table=np.log(np.array([math.factorial(i) for i in range(40)],dtype=np.float64))
 
 @numba.njit
 def stirling_log(n):
