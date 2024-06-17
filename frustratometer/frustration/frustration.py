@@ -529,6 +529,8 @@ def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, si
     for (r1, r2, f, d ,m) in minimally_frustrated:
         r1=int(r1)
         r2=int(r2)
+        if abs(r1-r2) == 1: # don't draw interactions between residues adjacent in sequence
+            continue
         pos1 = selection.select(f'resid {r1} and chain {chain} and (name CB or (resname GLY and name CA))').getCoords()[0]
         pos2 = selection.select(f'resid {r2} and chain {chain} and (name CB or (resname GLY and name CA))').getCoords()[0]
         distance = np.linalg.norm(pos1 - pos2)
