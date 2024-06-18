@@ -3,18 +3,22 @@ import frustratometer
 import pandas as pd  # Import pandas for data manipulation
 import numba
 from pathlib import Path
-from .inner_product import build_mean_inner_product_matrix
+from inner_product import build_mean_inner_product_matrix
 import math
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
 
-def index_to_sequence(seq_index):
+def index_to_sequence(seq_index, alphabet):
     """Converts sequence index array back to sequence string."""
-    return ''.join([_AA[index] for index in seq_index])
+    return ''.join([alphabet[index] for index in seq_index])
 
-def sequence_to_index(sequence):
+def sequence_to_index(sequence, alphabet):
     """Converts sequence string to sequence index array."""
-    return np.array([_AA.find(aa) for aa in sequence])
+    return np.array([alphabet.find(aa) for aa in sequence])
+
+@numba.njit
+def random_seed(seed):
+    np.random.seed(seed)
 
 @numba.njit
 def sequence_swap(seq_index, model_h, model_J, mask):
@@ -25,11 +29,12 @@ def sequence_swap(seq_index, model_h, model_J, mask):
     res2 += (res2 >= res1)
     
     het_difference = 0
+    de2_difference = 0
     energy_difference = compute_swap_energy(seq_index, model_h, model_J, mask, res1, res2)
 
     seq_index[res1], seq_index[res2] = seq_index[res2], seq_index[res1]
 
-    return seq_index, het_difference, energy_difference
+    return seq_index, het_difference, de2_difference, energy_difference
 
 @numba.njit
 def compute_swap_energy(seq_index, model_h, model_J, mask, pos1, pos2):
@@ -60,21 +65,22 @@ def compute_swap_energy(seq_index, model_h, model_J, mask, pos1, pos2):
 
 
 @numba.njit
-def sequence_mutation(seq_index, model_h, model_J, mask,valid_indices=np.arange(len(_AA))):
-    seq_index = seq_index.copy()
+def sequence_mutation(seq_index, model_h, model_J, mask, indicators, gamma, valid_indices=np.arange(len(_AA))):
+    seq_index_new = seq_index.copy()
     r = np.random.randint(0, len(valid_indices)*len(seq_index)) # Select a random index
     res = r // len(valid_indices)
     aa_new = valid_indices[r % len(valid_indices)] 
 
     aa_old_count = np.sum(seq_index == seq_index[res])
     aa_new_count = np.sum(seq_index == aa_new)
+
+    seq_index_new[res] = aa_new
     
-    het_difference = np.log(aa_old_count / (aa_new_count+1)) 
+    het_difference = np.log(aa_old_count / (aa_new_count+1))
+    de2_difference = compute_dE2(gamma, seq_index_new, indicators, len_alphabet=len(valid_indices)) - compute_dE2(gamma, seq_index, indicators, len_alphabet=len(valid_indices))
     energy_difference = compute_mutation_energy(seq_index, model_h, model_J, mask, res, aa_new)
 
-    seq_index[res] = aa_new
-    
-    return seq_index, het_difference, energy_difference
+    return seq_index_new, het_difference, de2_difference, energy_difference
 
 @numba.njit
 def compute_mutation_energy(seq_index: np.ndarray, model_h: np.ndarray, model_J: np.ndarray, mask: np.ndarray, pos: int, aa_new: int) -> float:
@@ -152,12 +158,67 @@ def heterogeneity_approximation(seq_index):
     log_denominator = sum([stirling_log(count) for count in counts])
     het = log_n_factorial - log_denominator
     return het
+@numba.njit
+def compute_dE2(gamma,seq_index, indicators, len_alphabet=len(_AA)):
+    """Computes dE2 """
+    A,B = compute_AB(seq_index, indicators, len_alphabet=len_alphabet)
+    return gamma @ B @ gamma
 
 @numba.njit
-def montecarlo_steps(temperature, model_h, model_J, mask, seq_index, Ep=100, n_steps = 1000, kb = 0.008314,valid_indices=np.arange(len(_AA))) -> np.array:
+def compute_AB(seq_index, indicators, len_alphabet=len(_AA)):
+    """Computes A B """
+    
+    aa_count = np.bincount(seq_index, minlength=len_alphabet)
+    freq_i=np.array(aa_count)
+    freq_ij=np.outer(freq_i,freq_i)
+    alpha = np.diag(freq_i)
+    beta = freq_ij.copy()
+    np.fill_diagonal(beta, freq_i*(freq_i-1))
+
+    phi_len=sum([len_alphabet**len(ind.shape) for ind in indicators])
+    phi_mean = np.zeros(phi_len)
+    offset=0
+    for indicator in indicators:
+        if len(indicator.shape) == 1:  # 1D indicator
+            phi_mean[offset:offset+len_alphabet]=np.mean(indicator)*freq_i
+            offset += len_alphabet
+        elif len(indicator.shape) == 2:  # 2D indicator
+            
+            temp_indicator=indicator.copy()
+            mean_diagonal_indicator = np.diag(temp_indicator).mean()
+            np.fill_diagonal(temp_indicator, 0)
+            mean_offdiagonal_indicator = temp_indicator.mean()
+            
+            phi_mean[offset:offset+len_alphabet**2]=alpha.ravel()*mean_diagonal_indicator + beta.ravel()*mean_offdiagonal_indicator
+            offset += len_alphabet**2
+    
+    phi_native=phi(seq_index=seq_index,indicators=indicators,len_alphabet=len_alphabet)
+    A = phi_mean-phi_native
+    B = build_mean_inner_product_matrix(freq_i,indicators) - np.outer(phi_mean,phi_mean)
+    return A,B
+
+@numba.njit
+def phi(seq_index, indicators, len_alphabet=len(_AA)):
+    """ Sums the indicators according to the type determined by the sequence"""
+    phi_len=sum([len_alphabet**len(ind.shape) for ind in indicators])
+    seq_pairs = (np.array(np.meshgrid(seq_index, seq_index)) * np.array([1, len_alphabet])[:, None, None]).sum(axis=0).ravel()
+
+    phi_sum=np.zeros(phi_len)
+    offset=0
+    for indicator in indicators:
+        if len(indicator.shape) == 1:  # 1D indicator
+            np.add.at(phi_sum, seq_index + offset, indicator)
+            offset += len_alphabet
+        elif len(indicator.shape) == 2:  # 2D indicator
+            np.add.at(phi_sum, seq_pairs + offset, indicator.ravel())
+            offset += len_alphabet ** 2
+    return phi_sum
+
+@numba.njit
+def montecarlo_steps(temperature, model_h, model_J, mask, indicators, gamma, seq_index, Ep=10, Ee=10, n_steps = 1000, kb = 0.008314,valid_indices=np.arange(len(_AA))) -> np.array:
     for _ in range(n_steps):
-        new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model_h, model_J, mask) if np.random.random() > 0.5 else sequence_mutation(seq_index, model_h, model_J, mask,valid_indices)
-        exponent=(-energy_difference + Ep * het_difference) / (kb * temperature + 1E-10)
+        new_sequence, het_difference, de2_difference, energy_difference = sequence_swap(seq_index, model_h, model_J, mask) if np.random.random() > 0.5 else sequence_mutation(seq_index, model_h, model_J, mask, indicators, gamma, valid_indices)
+        exponent=(-energy_difference + Ep * het_difference + Ee * de2_difference ) / (kb * temperature + 1E-10)
         acceptance_probability = np.exp(min(0, exponent)) 
         if np.random.random() < acceptance_probability:
             seq_index = new_sequence
@@ -188,32 +249,35 @@ def replica_exchanges(energies, temperatures, kb=0.008314, exchange_id=0):
     return order
 
 @numba.njit(parallel=True)
-def parallel_montecarlo_step(model_h, model_J, mask, seq_indices, temperatures, n_steps_per_cycle, Ep,valid_indices=np.arange(len(_AA))):
+def parallel_montecarlo_step(model_h, model_J, mask, indicators, gamma, seq_indices, temperatures, n_steps_per_cycle, Ep,valid_indices=np.arange(len(_AA))):
     n_replicas = len(temperatures)
     energies = np.zeros(n_replicas)
     heterogeneities = np.zeros(n_replicas)
     total_energies = np.zeros(n_replicas)
+    delta_e2 = np.zeros(n_replicas)
     for i in numba.prange(n_replicas):
         temp_seq_index = seq_indices[i]
-        seq_indices[i] = montecarlo_steps(temperatures[i], model_h, model_J, mask, seq_index=temp_seq_index, Ep=Ep, n_steps=n_steps_per_cycle,valid_indices=valid_indices)
+        seq_indices[i] = montecarlo_steps(temperatures[i], model_h, model_J, mask, indicators, gamma, seq_index=temp_seq_index, Ep=Ep, n_steps=n_steps_per_cycle,valid_indices=valid_indices)
         energy = model_energy(seq_indices[i], model_h, model_J, mask)
         het = heterogeneity_approximation(seq_indices[i])
+        de2 = compute_dE2(gamma,seq_indices[i],indicators,len(valid_indices))
         # Compute energy for the new sequence
         total_energies[i] = energy - Ep * het # Placeholder for actual energy calculation
         energies[i] = energy
         heterogeneities[i] = het
+        delta_e2[i] = de2
 
     
-    return seq_indices, energies, heterogeneities, total_energies
+    return seq_indices, energies, heterogeneities, delta_e2, total_energies
 
 @numba.njit
-def parallel_tempering_numba(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep,valid_indices=np.arange(len(_AA))):
+def parallel_tempering_numba(model_h, model_J, mask, indicators, gamma, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep,valid_indices=np.arange(len(_AA))):
     for s in range(n_steps//n_steps_per_cycle):
-        seq_indices, energy, het, total_energies = parallel_montecarlo_step(model_h, model_J, mask, seq_indices, temperatures, n_steps_per_cycle, Ep,valid_indices=valid_indices)
+        seq_indices, energy, het, de2, total_energies = parallel_montecarlo_step(model_h, model_J, mask, indicators, gamma, seq_indices, temperatures, n_steps_per_cycle, Ep,valid_indices=valid_indices)
 
         # Yield data every 10 exchanges
         if s % 10 == 9:
-            yield s, seq_indices, energy, het, total_energies
+            yield s, seq_indices, energy, het, de2, total_energies
 
         # Perform replica exchanges
         order = replica_exchanges(total_energies, temperatures, exchange_id=s)
@@ -221,20 +285,20 @@ def parallel_tempering_numba(model_h, model_J, mask, seq_indices, temperatures, 
         
 
 
-def parallel_tempering(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep, filename="parallel_tempering_resultsv3.csv",valid_indices=np.arange(len(_AA))):
+def parallel_tempering(model_h, model_J, mask, indicators, gamma, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep, filename="parallel_tempering_resultsv3.csv",valid_indices=np.arange(len(_AA)),alphabet=_AA):
     columns=['Step', 'Temperature', 'Sequence', 'Energy', 'Heterogeneity', 'Total Energy']
     df_headers = pd.DataFrame(columns=columns)
     df_headers.to_csv(filename, index=False)
     print(*columns, sep='\t')
 
     # Run the simulation and append data periodically
-    for s, updated_seq_indices, energy, het, total_energy in parallel_tempering_numba(model_h, model_J, mask, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep,valid_indices=valid_indices):
+    for s, updated_seq_indices, energy, het, de2, total_energy in parallel_tempering_numba(model_h, model_J, mask, indicators, gamma, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep,valid_indices=valid_indices):
         # Prepare data for this chunk
         data_chunk = []
         for i, temp in enumerate(temperatures):
-            sequence_str = index_to_sequence(updated_seq_indices[i])  # Convert sequence index back to string
+            sequence_str = index_to_sequence(updated_seq_indices[i],alphabet=alphabet)  # Convert sequence index back to string
             #total_energy = energy[i] - Ep * het[i]
-            data_chunk.append({'Step': (s+1) * n_steps_per_cycle, 'Temperature': temp, 'Sequence': sequence_str, 'Energy': energy[i], 'Heterogeneity': het[i], 'Total Energy': total_energy[i]})
+            data_chunk.append({'Step': (s+1) * n_steps_per_cycle, 'Temperature': temp, 'Sequence': sequence_str, 'Energy': energy[i], 'Heterogeneity': het[i], 'DE2': de2[i], 'Total Energy': total_energy[i]})
         
         # Convert the chunk to a DataFrame and append it to the CSV
         df_chunk = pd.DataFrame(data_chunk)
@@ -292,95 +356,30 @@ def benchmark_montecarlo_steps(n_repeats=100, n_steps=20000,valid_indices=np.ara
     print(f"Number of sequences explored per hour: {steps_per_hour:.2e}")
     print(f"Average execution time per step: {average_time_per_step_us:.5f} microseconds")
 
-alphabet_awsem = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
-
-def compute_AB(sequence, indicators, alphabet=None):
-    """Computes A B """
-    
-    if alphabet is None:
-        alphabet=alphabet_awsem
-
-    #aa_count=dict(a for a in np.array(np.unique(list(sequence), return_counts=True)).T)
-    aa_count = [sequence.count(letter) for letter in alphabet]
-    freq_i=np.array(aa_count)
-    freq_ij=np.outer(freq_i,freq_i)
-    alpha = np.diag(freq_i)
-    beta = freq_ij.copy()
-    np.fill_diagonal(beta, freq_i*(freq_i-1))
-
-    phi_len=sum([len(alphabet)**len(ind.shape) for ind in indicators])
-    phi_mean = np.zeros(phi_len)
-    offset=0
-    for indicator in indicators:
-        if len(indicator.shape) == 1:  # 1D indicator
-            phi_mean[offset:offset+len(alphabet_awsem)]=np.mean(indicator)*freq_i
-            offset += len(alphabet)
-        elif len(indicator.shape) == 2:  # 2D indicator
-            
-            temp_indicator=indicator.copy()
-            mean_diagonal_indicator = np.diag(temp_indicator).mean()
-            np.fill_diagonal(temp_indicator, 0)
-            mean_offdiagonal_indicator = temp_indicator.mean()
-            
-            phi_mean[offset:offset+len(alphabet)**2]=alpha.ravel()*mean_diagonal_indicator + beta.ravel()*mean_offdiagonal_indicator
-            offset += len(alphabet)**2
-    
-    phi_native=phi(sequence=sequence,indicators=indicators,alphabet=alphabet)
-    A = phi_mean-phi_native
-    B = build_mean_inner_product_matrix(freq_i,indicators) - np.outer(phi_mean,phi_mean)
-    return A,B
-
-def phi(sequence, indicators, alphabet=None):
-    """ Sums the indicators according to the type determined by the sequence"""
-
-    if alphabet is None:
-        alphabet=alphabet_awsem
-    
-    aa_to_index = {aa: index for index, aa in enumerate(alphabet)}
-    seq_index = np.array([aa_to_index[aa] for aa in sequence])
-    phi_len=sum([len(alphabet)**len(ind.shape) for ind in indicators])
-    seq_pairs = (np.array(np.meshgrid(seq_index, seq_index)) * np.array([1, len(alphabet_awsem)])[:, None, None]).sum(axis=0).ravel()
-
-    phi_sum=np.zeros(phi_len)
-    offset=0
-    for indicator in indicators:
-        if len(indicator.shape) == 1:  # 1D indicator
-            np.add.at(phi_sum, seq_index + offset, indicator)
-            offset += len(alphabet)
-        elif len(indicator.shape) == 2:  # 2D indicator
-            np.add.at(phi_sum, seq_pairs + offset, indicator.ravel())
-            offset += len(alphabet) ** 2
-    return phi_sum
 
 if __name__ == '__main__':
-    excluded = '-CP'
-    # lists are mutable so must be converted to tuple for parallelization
-    # when declared in global scope
-    valid_indices = tuple([i for i,aa in enumerate(_AA) if aa not in excluded]) 
-    #len_valid_indices = len(valid_indices)
-
-    benchmark_montecarlo_steps()
-    #annealing(n_steps=1E6,valid_indices=valid_indices)
     import warnings
     import numpy as np
 
-    # Convert overflow warnings to exceptions
-    warnings.filterwarnings('error', 'overflow encountered in power', category=RuntimeWarning)
-
+    AA_DCA = '-ACDEFGHIKLMNPQRSTVWY'
+    reduced_alphabet='ADEFGHIKLMNQRSTVWY'
+    reindex_dca=[AA_DCA.index(aa) for aa in reduced_alphabet]
+    
+    #Reformat the potts models and indicator functions to account for the excluded amino acids
     native_pdb = "tests/data/1r69.pdb"
     structure = frustratometer.Structure.full_pdb(native_pdb, "A")
-    #model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2) # intial local sequence term
-    model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=5) # peter's recommendation
-    #model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=10) # like the usual awsem force field
+    model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2,expose_indicator_functions=True)
+    gamma=np.concatenate([g for g in model.gamma['Burial'][:,model.aa_map_awsem_list][:,reindex_dca]] +\
+                          [model.gamma['Direct'][0, model.aa_map_awsem_x, model.aa_map_awsem_y][reindex_dca][:,reindex_dca].ravel()] +\
+                          [model.gamma['Water'][0, model.aa_map_awsem_x, model.aa_map_awsem_y][reindex_dca][:,reindex_dca].ravel()] +\
+                          [model.gamma['Protein'][0, model.aa_map_awsem_x, model.aa_map_awsem_y][reindex_dca][:,reindex_dca].ravel()])
 
 
-    # make sure w
-    seq_index = sequence_to_index("SISSRVKSKRIQLGLNQAELAQKVGTTQQSIEQLENGKTKRPRFLPELASALGVSVDWLLNGT")
+    potts_h = model.potts_model['h'][:,reindex_dca]
+    potts_J = model.potts_model['J'][:,:,reindex_dca][:,:,:,reindex_dca]
 
-    temperatures=np.logspace(0,6,49)
-    seq_indices=np.random.randint(0, len(valid_indices), size=(len(temperatures),len(model.sequence)))
-    print(len(seq_indices))
-    for i,aa in enumerate(_AA):
-        if aa in excluded:
-            seq_indices[seq_indices>=i] += 1
-    parallel_tempering(model.potts_model['h'], model.potts_model['J'], model.mask, seq_indices, temperatures, n_steps=int(1E10), n_steps_per_cycle=int(1E4), Ep=10,valid_indices=valid_indices)
+    temperatures=np.logspace(0,6,7)
+    seq_indices=np.random.randint(0, len(reduced_alphabet), size=(len(temperatures),len(model.sequence)))
+    valid_indices=np.arange(len(reduced_alphabet))
+
+    parallel_tempering(potts_h, potts_J, model.mask, model.indicators, gamma, seq_indices, temperatures, n_steps=int(1E3), n_steps_per_cycle=int(1E1), Ep=10, alphabet=reduced_alphabet, valid_indices=valid_indices, )

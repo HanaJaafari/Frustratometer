@@ -79,6 +79,7 @@ class AWSEM(Frustratometer):
         else:
             raise ValueError("Gamma parameter must be a path or a Gamma object.")
                 
+        self.gamma=gamma
         self.burial_gamma = gamma['Burial'].T
         self.direct_gamma = gamma['Direct'][0]
         self.protein_gamma = gamma['Protein'][0]
@@ -142,6 +143,8 @@ class AWSEM(Frustratometer):
             self.direct_indicator = direct_indicator
             self.water_indicator = water_indicator
             self.protein_indicator = protein_indicator
+            self.indicators=[self.burial_indicator[:,0],self.burial_indicator[:,1],self.burial_indicator[:,2], 
+                             self.direct_indicator[:,:,0,0], self.water_indicator[:,:,0,0], self.protein_indicator[:,:,0,0]]
 
 
         J_index = np.meshgrid(range(self.N), range(self.N), range(self.q), range(self.q), indexing='ij', sparse=False)
