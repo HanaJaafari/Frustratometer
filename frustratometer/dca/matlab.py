@@ -26,3 +26,5 @@ def compute_plm(protein_name, reweighting_threshold=0.1, nr_of_cores=1):
 
 def load_potts_model(potts_model_file):
     return scipy.io.loadmat(potts_model_file)
+
+__all__ = ['compute_plm', 'load_potts_model']

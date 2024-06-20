@@ -37,8 +37,14 @@ class Map():
         alignments = aligner.align(sequence_a, sequence_b)
         alignment = sorted(alignments)[0]
         print("Score = %.1f:" % alignment.score) # Takes only first possible alignment
-        print(alignment)
-        return cls.from_path(alignment.path)
+        try:
+            #Biopython 1.79
+            path=alignment.path
+        except AttributeError:
+            #Biopython 1.83
+            path=alignment.coordinates.T
+        
+        return cls.from_path(path)
             
     def map(self, sequence=None, reverse=False):
         seq=np.array([a for a in sequence+'-'])
@@ -79,7 +85,5 @@ class Map():
         self.seq1_len = max(value[0]) + 1
         self.seq2_len = max(value[1]) + 1
 
-
-    
     
 

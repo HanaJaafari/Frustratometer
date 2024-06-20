@@ -19,5 +19,6 @@ Todo:
     * Create a function to get single alignments
 
 """
+from .pfam import download_database, get_alignment, download_aligment
 
-from .pfam import *
+__all__ = ['download_database', 'get_alignment', 'download_aligment']

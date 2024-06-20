@@ -1,15 +1,15 @@
-"""Provide the primary functions."""
 import numpy as np
 from ..utils import _path
 from .. import frustration
 from .Frustratometer import Frustratometer
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from pydantic.types import Path
 from typing import List,Optional
 
 __all__ = ['AWSEM']
 
 class AWSEMParameters(BaseModel):
+    model_config = ConfigDict(extra='ignore')
     """Default parameters for AWSEM energy calculations."""
     k_contact: float = Field(4.184, description="Coefficient for contact potential. (kJ/mol)")
     
@@ -54,11 +54,8 @@ class AWSEMParameters(BaseModel):
     k_electrostatics: float = Field(17.3636, description="Coefficient for electrostatic interactions. (kJ/mol)")
     electrostatics_screening_length: float = Field(10, description="Screening length for electrostatic interactions. (Angstrom)")
 
-    class Config:
-        extra = 'forbid'
 
 class AWSEM(Frustratometer):
-
     #Mapping to DCA
     q = 20
     aa_map_awsem_list = [0, 0, 4, 3, 6, 13, 7, 8, 9, 11, 10, 12, 2, 14, 5, 1, 15, 16, 19, 17, 18] #A gap is equivalent to Alanine
@@ -66,6 +63,7 @@ class AWSEM(Frustratometer):
 
     def __init__(self, 
                  pdb_structure,
+                 sequence=None,
                  expose_indicator_functions=False,
                  **parameters):
         
@@ -89,7 +87,10 @@ class AWSEM(Frustratometer):
 
         #Structure details
         self.full_to_aligned_index_dict=pdb_structure.full_to_aligned_index_dict
-        self.sequence=pdb_structure.sequence
+        if sequence is None:
+            self.sequence=pdb_structure.sequence
+        else:
+            self.sequence=sequence
         self.structure=pdb_structure.structure
         self.chain=pdb_structure.chain
         self.pdb_file=pdb_structure.pdb_file
@@ -104,11 +105,11 @@ class AWSEM(Frustratometer):
 
 
         sequence_mask_rho = frustration.compute_mask(self.distance_matrix, 
-                                                     distance_cutoff=None, 
-                                                     sequence_distance_cutoff = p.min_sequence_separation_rho)
+                                                     maximum_contact_distance=None, 
+                                                     minimum_sequence_separation = p.min_sequence_separation_rho)
         sequence_mask_contact = frustration.compute_mask(self.distance_matrix, 
-                                                     distance_cutoff=p.distance_cutoff_contact, 
-                                                     sequence_distance_cutoff = p.min_sequence_separation_contact)
+                                                     maximum_contact_distance=p.distance_cutoff_contact, 
+                                                     minimum_sequence_separation = p.min_sequence_separation_contact)
         
         self._decoy_fluctuation = {}
         self.minimally_frustrated_threshold=.78
@@ -163,7 +164,7 @@ class AWSEM(Frustratometer):
             self.distance_cutoff=None
             
             
-            electrostatics_mask = frustration.compute_mask(self.distance_matrix, distance_cutoff=None, sequence_distance_cutoff=p.min_sequence_separation_electrostatics)
+            electrostatics_mask = frustration.compute_mask(self.distance_matrix, maximum_contact_distance=None, minimum_sequence_separation=p.min_sequence_separation_electrostatics)
             # ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
             charges = np.array([0, 1, 0, -1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
             charges2 = charges[:,np.newaxis]*charges[np.newaxis,:]
@@ -175,7 +176,7 @@ class AWSEM(Frustratometer):
         else:
             self.sequence_cutoff=p.min_sequence_separation_contact
             self.distance_cutoff=p.distance_cutoff_contact
-        self.mask = frustration.compute_mask(self.distance_matrix, distance_cutoff=self.distance_cutoff, sequence_distance_cutoff = self.sequence_cutoff)
+        self.mask = frustration.compute_mask(self.distance_matrix, maximum_contact_distance=self.distance_cutoff, minimum_sequence_separation = self.sequence_cutoff)
 
         self.contact_energy = contact_energy
 
@@ -187,10 +188,18 @@ class AWSEM(Frustratometer):
         self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
         self._native_energy=None
 
-    def compute_configurational_decoy_statistics(self, n_decoys=4000):
+    def compute_configurational_decoy_statistics(self, n_decoys=4000,aa_freq=None):
         # ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
         _AA='ARNDCQEGHILKMFPSTWYV'
-        seq_index = np.array([_AA.find(aa) for aa in self.sequence])
+        if aa_freq is None:
+            seq_index = np.array([_AA.find(aa) for aa in self.sequence])
+            N=self.N
+        else:
+            N=self.N*10
+            total = sum(aa_freq)
+            probabilities = [freq / total for freq in aa_freq.ravel()]
+            seq_index = np.random.choice(a=len(aa_freq), size=N, p=probabilities)
+        
         distances = np.triu(self.distance_matrix)
         distances = distances[(distances<self.distance_cutoff_contact) & (distances>0)]
 
@@ -210,14 +219,14 @@ class AWSEM(Frustratometer):
         electrostatics_indicator = np.exp(-distances / self.electrostatics_screening_length) / distances
 
         decoy_energies=np.zeros(n_decoys)
-        decoy_data=[None]*n_decoys
+        #decoy_data=[None]*n_decoys
         #decoy_data_columns=['decoy_i','rand_i_resno','rand_j_resno','ires_type','jres_type','i_resno','j_resno','rij','rho_i','rho_j','water_energy','burial_energy_i','burial_energy_j','electrostatic_energy','tert_frust_decoy_energies']
         for i in range(n_decoys):
             c=np.random.randint(0,len(distances))
             n1=np.random.randint(0,self.N)
             n2=np.random.randint(0,self.N)
-            qi1=np.random.randint(0,self.N)
-            qi2=np.random.randint(0,self.N)
+            qi1=np.random.randint(0,N)
+            qi2=np.random.randint(0,N)
             q1=seq_index[qi1]
             q2=seq_index[qi2]
 
@@ -250,8 +259,10 @@ class AWSEM(Frustratometer):
         valid_pairs = (self.distance_matrix[tri_upper_indices] < self.distance_cutoff_contact) & \
                       (self.distance_matrix[tri_upper_indices] > 0)
         indices1,indices2 = (tri_upper_indices[0][valid_pairs], tri_upper_indices[1][valid_pairs])
-        
 
+        # for n1,n2,c in zip(indices1,indices2,range(n_contacts)):
+        #     assert self.distance_matrix[n1,n2] == distances[c]
+        
         rho_b = np.expand_dims(self.rho_r, 1) #(n,1)
         rho1 = np.expand_dims(self.rho_r, 0) #(1,n)
         rho2 = np.expand_dims(self.rho_r, 1) #(n,1)
@@ -267,14 +278,15 @@ class AWSEM(Frustratometer):
         charges = np.array([0, 1, 0, -1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
         electrostatics_indicator = np.exp(-distances / self.electrostatics_screening_length) / distances
 
-        #decoy_data_columns=['decoy_i','rand_i_resno','rand_j_resno','ires_type','jres_type','i_resno','j_resno','rij','rho_i','rho_j','water_energy','burial_energy_i','burial_energy_j','electrostatic_energy','tert_frust_decoy_energies']
-        configurational_energies=np.zeros(n_contacts)
-        for i,(n1,n2,c) in enumerate(zip(indices1,indices2,range(n_contacts))):
-            c=np.random.randint(0,n_contacts)
+        # decoy_data_columns=['decoy_i','i_resno','j_resno','ires_type','jres_type','aa1','aa2','rij','rho_i','rho_j','water_energy','burial_energy_i','burial_energy_j','electrostatic_energy','total_energies']
+        # decoy_data=[]
+        configurational_energies=np.zeros((n,n))
+        for c in range(n_contacts):
+            n1=indices1[c]
+            n2=indices2[c]
             q1=seq_index[n1]
             q2=seq_index[n2]
 
-            
             burial_energy1 = (-0.5 * self.k_contact * self.burial_gamma[q1] * burial_indicator[n1]).sum(axis=0)
             burial_energy2 = (-0.5 * self.k_contact * self.burial_gamma[q2] * burial_indicator[n2]).sum(axis=0)
             
@@ -284,9 +296,13 @@ class AWSEM(Frustratometer):
             contact_energy = -self.k_contact * (direct+water_mediated+protein_mediated)
             electrostatics_energy = self.k_electrostatics * electrostatics_indicator[c]*charges[q1]*charges[q2]
 
-            configurational_energies[i]=(burial_energy1+burial_energy2+contact_energy+electrostatics_energy)
-        return configurational_energies
+            energy=(burial_energy1+burial_energy2+contact_energy+electrostatics_energy)
+            configurational_energies[n1,n2]=energy
+            configurational_energies[n2,n1]=energy
+            # decoy_data+=[[c, n1, n2, q1, q2, _AA[q1],_AA[q2], distances[c], self.rho_r[n1], self.rho_r[n2], contact_energy/4.184, burial_energy1/4.184, burial_energy2/4.184, electrostatics_energy/4.184, energy/4.184]]
+        # import pandas as pd
+        return configurational_energies #, pd.DataFrame(decoy_data, columns=decoy_data_columns)
     
-    def configurational_frustration(self):
-        mean_decoy_energy, std_decoy_energy = self.compute_configurational_decoy_statistics()
-        return (self.configurational_energies()-mean_decoy_energy)/std_decoy_energy
+    def configurational_frustration(self,aa_freq=None, correction=0, n_decoys=4000):
+        mean_decoy_energy, std_decoy_energy = self.compute_configurational_decoy_statistics(n_decoys=n_decoys,aa_freq=aa_freq)
+        return -(self.compute_configurational_energies()-mean_decoy_energy)/(std_decoy_energy+correction)

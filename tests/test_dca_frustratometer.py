@@ -1,27 +1,21 @@
 """
-Unit and regression test for the dca_frustratometer package.
+Unit and regression tests for the frustratometer package.
 """
 
 # Import package, test suite, and other packages as needed
-import sys
 import frustratometer
 import numpy as np
 from pathlib import Path
 import tempfile
 import pytest
-import pandas as pd
 from frustratometer.utils import _path
 import Bio.AlignIO
 import subprocess
 
 data_path = frustratometer.utils.create_directory(_path/'..'/'tests'/'data')
-#scratch_path = dca_frustratometer.utils.create_directory(_path/'..'/'tests'/'scratch')
+#scratch_path = frustratometer.utils.create_directory(_path/'..'/'tests'/'scratch')
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
-
-def test_frustratometer_imported():
-    """Sample test, will always pass so long as import statement worked."""
-    assert "frustratometer" in sys.modules
 
 def test_download_pfam_database():
     """Downloads a small database from Pfam and tests that the files are splitted correctly."""
@@ -200,7 +194,7 @@ def test_couplings_mask_with_distance_threshold():
     original_distance_matrix=np.loadtxt(f"{data_path}/6JXX_A_CB_CB_Distance_Map.txt")
     mask = np.ones([77, 77])
     mask *=original_distance_matrix<=16
-    assert (DCA_model.mask==mask.astype(np.bool8)).all()
+    assert (DCA_model.mask==mask.astype(np.bool_)).all()
 
 def test_couplings_mask_with_distance_and_sequence_threshold():
     pdb_path = f'{data_path}/6JXX_A.pdb'
@@ -230,7 +224,7 @@ def test_functional_compute_DCA_native_energy():
     sequence = frustratometer.pdb.get_sequence(pdb_path, chain_id)
     distance_matrix = frustratometer.pdb.get_distance_matrix(pdb_path, chain_id, method='minimum')
     potts_model = frustratometer.dca.matlab.load_potts_model(potts_model_path)
-    mask = frustratometer.frustration.compute_mask(distance_matrix, distance_cutoff=4, sequence_distance_cutoff=0)
+    mask = frustratometer.frustration.compute_mask(distance_matrix, maximum_contact_distance=4, minimum_sequence_separation=0)
     energy = frustratometer.frustration.compute_native_energy(sequence, potts_model, mask)
 
     assert np.round(energy, 4) == expected_energy

@@ -47,3 +47,4 @@ def get_pfamID(pdbID, chain):
         print('PFAM ID is unavailable')
         pfamID = 'null'
     return pfamID
+

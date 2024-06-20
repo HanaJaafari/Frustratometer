@@ -1,8 +1,10 @@
 Frustratometer
 ==============================
 [//]: # (Badges)
-[![GitHub Actions Build Status](https://github.com/HanaJaafari/dca_frustratometer/workflows/CI/badge.svg)](https://github.com/HanaJaafari/dca_frustratometer/actions?query=workflow%3ACI)
+[![GitHub Actions Build Status](https://github.com/HanaJaafari/Frustratometer/workflows/CI/badge.svg)](https://github.com/HanaJaafari/Frustratometer/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/HanaJaafari/Frustratometer/graph/badge.svg?token=JKDOXOYPRS)](https://codecov.io/gh/HanaJaafari/Frustratometer)
+[![Documentation Status](https://readthedocs.org/projects/frustratometer/badge/?version=latest)](https://frustratometer.readthedocs.io/en/latest/?badge=latest)
+
 
 
 A python implementation of the protein frustratometer.
@@ -51,17 +53,17 @@ After loading the structure, create an AWSEM model instance with the desired par
 
 ```python
 ## Single residue frustration with electrostatics
-model_singleresidue = frustratometer.AWSEM(structure) 
+model_singleresidue = frustratometer.AWSEM(structure, min_sequence_separation_contact=2) 
 ## Single residue frustration without electrostatics
-model_singleresidue_noelectrostatics = frustratometer.AWSEM(structure, k_electrostatics=0) 
-## Mutational frustration with electrostatics
-model_mutational = frustratometer.AWSEM(structure, min_sequence_separation_contact=0) 
-## Mutational frustration without electrostatics
-model_mutational_noelectrostatics = frustratometer.AWSEM(structure, , min_sequence_separation_contact=0, k_electrostatics=0)
+model_singleresidue_noelectrostatics = frustratometer.AWSEM(structure, min_sequence_separation_contact=2, k_electrostatics=0) 
+## Mutational/Configurational frustration with electrostatics
+model_mutational = frustratometer.AWSEM(structure) 
+## Mutational/Configurational frustration without electrostatics
+model_mutational_noelectrostatics = frustratometer.AWSEM(structure, k_electrostatics=0)
 ## Mutational frustration with sequence separation of 12
-model_mutational_seqsep12 = frustratometer.AWSEM(structure, min_sequence_separation_contact=0,min_sequence_separation_rho=13)
+model_mutational_seqsep12 = frustratometer.AWSEM(structure, min_sequence_separation_rho=13)
 ## Typical openAWSEM
-model_openAWSEM = frustratometer.AWSEM(min_sequence_separation_contact = 10, distance_cutoff_contact = None)
+model_openAWSEM = frustratometer.AWSEM(structure, min_sequence_separation_contact = 10, distance_cutoff_contact = None)
 ```
 
 ### Calculating Residue Densities
@@ -148,11 +150,12 @@ Atomistic
 
 ## Copyright
 
-Copyright (c) 2022, Carlos Bueno, Hana Jaafari
+Copyright (c) 2022-2024, Carlos Bueno, Hana Jaafari
 
 
 ## Acknowledgements
  
+This work was supported by National Science Foundation (NSF) Center for Theoretical Biological Physics (NSF PHY-2019745) and NSF grants PHY-1522550.
 Project skeleton based on the [Computational Molecular Science Python Cookiecutter] (https://github.com/molssi/cookiecutter-cms) version 1.6.
 
 ## References

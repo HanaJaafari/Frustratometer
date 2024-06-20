@@ -42,3 +42,4 @@ def get_pfam_map(pdbID, chain):
         print('data not found')
         pfamID = 'null'
     return int(start), int(end)
+
