@@ -135,7 +135,7 @@ class Frustratometer:
                                       max_connections=max_connections)
         frustration.call_vmd(self.pdb_file, tcl_script)
 
-    def view_frustration(self, sequence:str = None, single:str = 'singleresidue', pair:str = 'mutational', aa_freq:np.array = None, correction:int = 0):
+    def view_pair_frustration(self, sequence:str = None, pair:str = 'mutational', aa_freq:np.array = None, correction:int = 0):
         import py3Dmol
 
         if sequence is None:
@@ -170,39 +170,37 @@ class Frustratometer:
 
         return view
 
-    # def view_single_frustration(self,  aa_freq:np.array = None, correction:int = 0, max_connections:int = 100, only_frustrated_contacts:bool=False):
-    #     import py3Dmol
-    #     pdb_filename = self.pdb_file
-    #     shift=self.init_index_shift+1
-    #     single_frustration=self.frustration(kind="singleresidue")
-    #     # residues=np.arange(len(self.sequence))
-    #     r1, r2 = np.meshgrid(np.array(list(self.full_to_aligned_index_dict.keys())), np.array(list(self.full_to_aligned_index_dict.keys())), indexing='ij')
-    #     mod_r1, mod_r2 = np.meshgrid(list(self.full_to_aligned_index_dict.values()), list(self.full_to_aligned_index_dict.values()), 
-    #                     indexing='ij', sparse=True)
+    def view_single_frustration(self,  aa_freq:np.array = None, correction:int = 0, max_connections:int = 100, only_frustrated_contacts:bool=False):
+        import py3Dmol
+        pdb_filename = self.pdb_file
+        shift=self.init_index_shift+1
+        single_frustration=self.frustration(kind="singleresidue")
+        residues=np.arange(len(self.sequence))
 
-    #     modified_pair_frustration=pair_frustration[mod_r1,mod_r2]
-    #     sel_frustration = np.array([(r1.ravel()), (r2.ravel()), modified_pair_frustration.ravel()]).T
-    #     minimally_frustrated = sel_frustration[sel_frustration[:, -1] > self.minimally_frustrated_threshold]
-    #     frustrated = sel_frustration[sel_frustration[:, -1] < -1]
+        sel_frustration = np.array([residues,single_frustration]).T
+        minimally_frustrated = sel_frustration[sel_frustration[:, -1] > self.minimally_frustrated_threshold]
+        frustrated = sel_frustration[sel_frustration[:, -1] < -1]
         
-    #     view = py3Dmol.view(js='https://3dmol.org/build/3Dmol.js')
-    #     view.addModel(open(pdb_filename,'r').read(),'pdb')
+        view = py3Dmol.view(js='https://3dmol.org/build/3Dmol.js')
+        view.addModel(open(pdb_filename,'r').read(),'pdb')
 
-    #     view.setBackgroundColor('white')
-    #     view.setStyle({'cartoon':{'color':'white'}})
+        view.setBackgroundColor('white')
+        view.setStyle({'cartoon':{'color':'white'}})
         
-    #     for i,j,f in frustrated:
-    #         view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':self.chain,'resi':[str(j+shift)]},
-    #                     'color':'red', 'dashed':False,'linewidth':3})
+        for i,f in frustrated:
+            view.setStyle({'model': -1, 'resi': i+1}, {"cartoon": {'color': 'red'}})
+            # view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':self.chain,'resi':[str(j+shift)]},
+            #             'color':'red', 'dashed':False,'linewidth':3})
 
-    #     if only_frustrated_contacts==False:
-    #         for i,j,f in minimally_frustrated:
-    #             view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':self.chain,'resi':[str(j+shift)]},
-    #                         'color':'green', 'dashed':False,'linewidth':3})
+        if only_frustrated_contacts==False:
+            for i,f in minimally_frustrated:
+                view.setStyle({'model': -1, 'resi': i+1}, {"cartoon": {'color': 'green'}})
+                # view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':self.chain,'resi':[str(j+shift)]},
+                #             'color':'green', 'dashed':False,'linewidth':3})
 
-    #     view.zoomTo(viewer=(0,0))
+        view.zoomTo(viewer=(0,0))
 
-    #     return view
+        return view
 
     def generate_frustration_pair_distribution(self,sequence: str =None, kind:str ="singleresidue"):
         if sequence==None:
