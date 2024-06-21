@@ -2,7 +2,8 @@ from numba import jit
 from numba import prange
 import numpy as np
 
-@jit(nopython=True)
+
+@jit(nopython=True, signature_or_function='(float64[:,::1], float64[:,::1])')
 def compute_region_means_2_by_2(indicator_0, indicator_1):
     n = indicator_0.shape[0]
     region_sum = np.zeros(15, dtype=np.float64) 
@@ -53,7 +54,7 @@ def compute_region_means_2_by_2(indicator_0, indicator_1):
             'ijkj':region_mean[ijkj], 'ijkk':region_mean[ijkk], 'iiil':region_mean[iiil], 'iiki':region_mean[iiki], 'iikk':region_mean[iikk], 
             'ijii':region_mean[ijii], 'ijij':region_mean[ijij], 'ijji':region_mean[ijji], 'ijjj':region_mean[ijjj], 'iiii':region_mean[iiii]}
 
-@jit(nopython=True, parallel=True)
+@jit(nopython=True, parallel=True, signature_or_function='(float64[:,::1], float64[:,::1])')
 def compute_region_means_2_by_2_parallel(indicator_0, indicator_1):
     n = indicator_0.shape[0]
     region_sum = np.zeros(15, dtype=np.float64) 
@@ -159,7 +160,7 @@ def compute_region_means_2_by_2_numpy(indicator_0, indicator_1):
 
     return region_mean
 
-@jit(nopython=True)
+@jit(nopython=True, signature_or_function='(float64[::1], float64[:,::1])')
 def compute_region_means_1_by_2(indicator_0, indicator_1):
     n = indicator_1.shape[0]
     region_sum = np.zeros(5, dtype=np.float64) 
@@ -216,7 +217,7 @@ def compute_region_means_1_by_2_numpy(indicator_0, indicator_1):
 
     return region_mean
 
-@jit(nopython=True)
+@jit(nopython=True, signature_or_function='(float64[::1], float64[::1])')
 def compute_region_means_1_by_1(indicator_0, indicator_1):
     n = indicator_0.shape[0]
     region_sum = np.zeros(2, dtype=np.float64) 
@@ -585,87 +586,6 @@ def mean_inner_product(repetitions,indicator_0,indicator_1, parallel=True, use_n
     else:
         raise NotImplementedError('This method has not be implemented for indicator dimensions {d0} and {d1}')
     return result 
-
-@jit(nopython=True)
-def build_mean_inner_product_matrix(repetitions,indicators):
-    num_matrices = len(indicators)
-    n_elements=len(repetitions)
-    
-    # Compute the size of each block and the total size
-    block_sizes = [n_elements**len(ind.shape) for ind in indicators]
-    total_size = sum(block_sizes)
-    
-    # Create the resulting matrix filled with zeros
-    R = np.zeros((total_size, total_size))
-        
-    # Compute the starting indices for each matrix
-    #start_indices = np.cumsum([0] + block_sizes[:-1])
-    start_indices=np.zeros(len(block_sizes))
-    start=0
-    for i in range(1,len(block_sizes)):
-        start=start+block_sizes[i-1]
-        start_indices[i] = start
-    
-    for i in range(num_matrices):
-        for j in range(i, num_matrices):  # Use symmetry, compute only half
-            d0 = len(indicators[i].shape)
-            d1 = len(indicators[j].shape)
-            if d0==d1==1:
-                result_block = mean_inner_product_1_by_1(repetitions,indicators[i], indicators[j])
-            elif d0==1 and d1==2:
-                result_block = mean_inner_product_1_by_2(repetitions,indicators[i],indicators[j])
-            elif d1==1 and d0==2:
-                result_block = mean_inner_product_1_by_2(repetitions,indicators[j],indicators[i]).T
-            elif d0==d1==2:
-                result_block = mean_inner_product_2_by_2(repetitions,indicators[i],indicators[j])
-            #result_block = mean_inner_product(np.array(repetitions),np.array(indicators[i]), np.array(indicators[j]))
-            si, sj = start_indices[i], start_indices[j]
-            ei, ej = si + result_block.shape[0], sj + result_block.shape[1]
-            R[si:ei, sj:ej] = result_block
-            if i != j:
-                R[sj:ej, si:ei] = result_block.T  # Leverage symmetry
-            
-    return R
-
-def build_mean_inner_product_matrix(repetitions,indicators):
-    num_matrices = len(indicators)
-    n_elements=len(repetitions)
-    
-    # Compute the size of each block and the total size
-    block_sizes = [n_elements**len(ind.shape) for ind in indicators]
-    total_size = sum(block_sizes)
-    
-    # Create the resulting matrix filled with zeros
-    R = np.zeros((total_size, total_size))
-        
-    # Compute the starting indices for each matrix
-    start_indices = np.cumsum([0] + block_sizes[:-1])
-    # start_indices=np.zeros(len(block_sizes))
-    # start=0
-    # for i in range(1,len(block_sizes)):
-    #     start=start+block_sizes[i-1]
-    #     start_indices[i] = start
-    
-    for i in range(num_matrices):
-        for j in range(i, num_matrices):  # Use symmetry, compute only half
-            d0 = len(indicators[i].shape)
-            d1 = len(indicators[j].shape)
-            if d0==d1==1:
-                result_block = mean_inner_product_1_by_1(repetitions,indicators[i], indicators[j])
-            elif d0==1 and d1==2:
-                result_block = mean_inner_product_1_by_2(repetitions,indicators[i],indicators[j])
-            elif d1==1 and d0==2:
-                result_block = mean_inner_product_1_by_2(repetitions,indicators[j],indicators[i]).T
-            elif d0==d1==2:
-                result_block = mean_inner_product_2_by_2(repetitions,indicators[i],indicators[j])
-            #result_block = mean_inner_product(np.array(repetitions),np.array(indicators[i]), np.array(indicators[j]))
-            si, sj = start_indices[i], start_indices[j]
-            ei, ej = si + result_block.shape[0], sj + result_block.shape[1]
-            R[si:ei, sj:ej] = result_block
-            if i != j:
-                R[sj:ej, si:ei] = result_block.T  # Leverage symmetry
-            
-    return R
 
 @jit(nopython=True)
 def build_mean_inner_product_matrix(repetitions,indicators1d,indicators2d):
@@ -1080,4 +1000,50 @@ if __name__=='__main__':# Call the test function
     #test_mean_inner_product_1_by_2()
     #test_mean_inner_product_2_by_2()
     test_mean_inner_product()
+
     
+    #Profiling
+
+    # Look up the signature of the first thing that's been compiled.
+    signature = build_mean_inner_product_matrix.signatures[0]
+    # Find the "overload" for it, this is what Numba uses internally to represent
+    # the compiled function.
+    overload = build_mean_inner_product_matrix.overloads[signature]
+
+    # This is the pipeline we want to look at, @njit = nopython pipeline.
+    pipeline = 'nopython'
+
+    # Print the information, it's in the overload.metadata dictionary.
+    width = 20
+    print("\n\nTimings:\n")
+    for name, time in overload.metadata['pipeline_times'][pipeline].items():
+        fmt = (f'{name: <{40}}:'
+            f'{time.init:<{width}.6f}'
+            f'{time.run:<{width}.6f}'
+            f'{time.finalize:<{width}.6f}')
+        print(fmt)
+    
+    numba_functions = [
+        compute_region_means_2_by_2_parallel,
+        compute_region_means_1_by_2,
+        compute_region_means_1_by_1,
+        create_region_masks_2_by_2,
+        mean_inner_product_2_by_2,
+        create_region_masks_1_by_2,
+        mean_inner_product_1_by_2,
+        create_region_masks_1_by_1,
+        mean_inner_product_1_by_1,
+        build_mean_inner_product_matrix
+    ]
+
+    #Typing
+    for func in numba_functions:
+        # Print the function name
+        print(f"\nFunction: {func.__name__}")
+
+        # Print inferred types
+        #print("Inferred types:")
+        #func.inspect_types()
+
+        # Print compiled signatures
+        print("Compiled signatures:", func.signatures)
