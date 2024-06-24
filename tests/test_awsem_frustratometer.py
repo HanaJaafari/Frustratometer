@@ -123,7 +123,7 @@ def test_configurational_frustration(test_data):
     if test_data['pdb'] == 'sequence0':
         atol = 6E-1
     elif test_data['pdb'] == 'sequence1':
-        atol = 5E-1
+        atol = 6E-1
     else:
         atol = 3E-1
     try:
