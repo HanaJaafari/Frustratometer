@@ -89,7 +89,7 @@ def test_mean_inner_product():
 
         elements = np.unique(seq)
         aa_repetitions = np.array([(seq == k).sum() for k in elements])
-        values_numba=build_mean_inner_product_matrix(aa_repetitions,[indicator1D_0, indicator1D_1, indicator2D_0, indicator2D_1])
+        values_numba=build_mean_inner_product_matrix(aa_repetitions,[indicator1D_0, indicator1D_1], [indicator2D_0, indicator2D_1])
 
         assert values_numba.shape == values_numpy_permutation.shape, f"Shapes differ combinatorial_numpy_inner_product shape.shape {values_numpy_permutation.shape} build_mean_inner_product_matrix.shape{values_numba.shape}"
         
