@@ -312,13 +312,46 @@ def compute_sequences_energy(seqs: list,
 def compute_singleresidue_decoy_energy_fluctuation(seq: str,
                                                    potts_model: dict,
                                                    mask: np.array) -> np.array:
-    r"""
-    $ \Delta H_i = \Delta h_i + \sum_k\Delta j_{ik} $
 
-    :param seq:
-    :param potts_model:
-    :param mask:
-    :return:
+    """
+    Computes a (Lx21) matrix for a sequence of length L. Row i contains all possible changes in energy upon mutating residue i.
+    
+    .. math::
+        \\Delta H_i = \\Delta h_i + \\sum_k \\Delta j_{ik}
+        
+    Parameters
+    ----------
+    seq : str
+        The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+    potts_model : dict
+        A dictionary containing the Potts model parameters 'h' (fields) and 'J' (couplings). The fields are a 2D array of shape (L, 20), where L is the length of the sequence and 20 is the number of amino acids. The couplings are a 4D array of shape (L, L, 20, 20). The fields and couplings are assumed to be in units of energy.
+    mask : np.array
+        A 2D Boolean array that determines which residue pairs should be considered in the energy computation. The mask should have dimensions (L, L), where L is the length of the sequence.
+
+    Returns
+    -------
+    decoy_energy: np.array
+        (Lx21) matrix describing the energetic changes upon mutating a single residue.
+
+    Examples
+    --------
+    >>> seq = "ACDEFGHIKLMNPQRSTVWY"
+    >>> potts_model = {
+        'h': np.random.rand(20, 20),  # Random fields
+        'J': np.random.rand(20, 20, 20, 20)  # Random couplings
+    }
+    >>> mask = np.ones((len(seq), len(seq)), dtype=bool) # Include all pairs
+    >>> decoy_energy = compute_singleresidue_decoy_energy_fluctuation(seq, potts_model, mask)
+    >>> print(f"Matrix of Residue Decoy Energy Fluctuations: "); print(decoy_energy)
+    >>> print(f"Matrix Size: "); print(shape(decoy_energy))
+
+    Notes
+    -----
+    The couplings energy is computed as the half-sum of the couplings for all pairs of residues
+    where the mask is True. The division by 2 for the couplings accounts for double-counting in symmetric
+    matrices.
+
+    .. todo:: Optimize the computation.
     """
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
@@ -344,15 +377,45 @@ def compute_singleresidue_decoy_energy_fluctuation(seq: str,
 def compute_mutational_decoy_energy_fluctuation(seq: str,
                                                 potts_model: dict,
                                                 mask: np.array, ) -> np.array:
-    r"""
-    $$ \Delta DCA_{ij} = H_i - H_{i'} + H_{j}-H_{j'}
-    + J_{ij} -J_{ij'} + J_{i'j'} - J_{i'j}
-    + \sum_k {J_{ik} - J_{i'k} + J_{jk} -J_{j'k}}
-    $$
-    :param seq:
-    :param potts_model:
-    :param mask:
-    :return:
+    """
+    Computes a (LxLx21x21) matrix for a sequence of length L. Matrix[i,j] describes all possible changes in energy upon mutating residue i and j simultaneously.
+    
+    .. math::
+        \Delta H_{ij} = H_i - H_{i'} + H_{j}-H_{j'} + J_{ij} -J_{ij'} + J_{i'j'} - J_{i'j} + \\sum_k {J_{ik} - J_{i'k} + J_{jk} -J_{j'k}}
+        
+    Parameters
+    ----------
+    seq : str
+        The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+    potts_model : dict
+        A dictionary containing the Potts model parameters 'h' (fields) and 'J' (couplings). The fields are a 2D array of shape (L, 20), where L is the length of the sequence and 20 is the number of amino acids. The couplings are a 4D array of shape (L, L, 20, 20). The fields and couplings are assumed to be in units of energy.
+    mask : np.array
+        A 2D Boolean array that determines which residue pairs should be considered in the energy computation. The mask should have dimensions (L, L), where L is the length of the sequence.
+
+    Returns
+    -------
+    decoy_energy2: np.array
+        (LxLx21x21) matrix describing the energetic changes upon mutating two residues simultaneously.
+
+    Examples
+    --------
+    >>> seq = "ACDEFGHIKLMNPQRSTVWY"
+    >>> potts_model = {
+        'h': np.random.rand(20, 20),  # Random fields
+        'J': np.random.rand(20, 20, 20, 20)  # Random couplings
+    }
+    >>> mask = np.ones((len(seq), len(seq)), dtype=bool) # Include all pairs
+    >>> decoy_energy2 = compute_mutational_decoy_energy_fluctuation(seq, potts_model, mask)
+    >>> print(f"Matrix of Contact Mutational Decoy Energy Fluctuations: "); print(decoy_energy2)
+    >>> print(f"Matrix Size: "); print(shape(decoy_energy2))
+
+    Notes
+    -----
+    The couplings energy is computed as the half-sum of the couplings for all pairs of residues
+    where the mask is True. The division by 2 for the couplings accounts for double-counting in symmetric
+    matrices.
+
+    .. todo:: Optimize the computation.
     """
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
@@ -393,15 +456,46 @@ def compute_mutational_decoy_energy_fluctuation(seq: str,
 def compute_configurational_decoy_energy_fluctuation(seq: str,
                                                      potts_model: dict,
                                                      mask: np.array, ) -> np.array:
-    r"""
-    $$ \Delta DCA_{ij} = H_i - H_{i'} + H_{j}-H_{j'}
-    + J_{ij} -J_{ij'} + J_{i'j'} - J_{i'j}
-    + \sum_k {J_{ik} - J_{i'k} + J_{jk} -J_{j'k}}
-    $$
-    :param seq:
-    :param potts_model:
-    :param mask:
-    :return:
+    """
+    Computes a (LxLx21x21) matrix for a sequence of length L. Matrix[i,j] describes all possible changes in energy upon mutating and altering the 
+    local densities of residue i and j simultaneously.
+    
+    .. math::
+        \Delta H_{ij} = H_i - H_{i'} + H_{j}-H_{j'} + J_{ij} -J_{ij'} + J_{i'j'} - J_{i'j} + \\sum_k {J_{ik} - J_{i'k} + J_{jk} -J_{j'k}}
+        
+    Parameters
+    ----------
+    seq : str
+        The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+    potts_model : dict
+        A dictionary containing the Potts model parameters 'h' (fields) and 'J' (couplings). The fields are a 2D array of shape (L, 20), where L is the length of the sequence and 20 is the number of amino acids. The couplings are a 4D array of shape (L, L, 20, 20). The fields and couplings are assumed to be in units of energy.
+    mask : np.array
+        A 2D Boolean array that determines which residue pairs should be considered in the energy computation. The mask should have dimensions (L, L), where L is the length of the sequence.
+
+    Returns
+    -------
+    decoy_energy2: np.array
+        (LxLx21x21) matrix describing the energetic changes upon mutating and altering the local densities of two residues simultaneously.
+
+    Examples
+    --------
+    >>> seq = "ACDEFGHIKLMNPQRSTVWY"
+    >>> potts_model = {
+        'h': np.random.rand(20, 20),  # Random fields
+        'J': np.random.rand(20, 20, 20, 20)  # Random couplings
+    }
+    >>> mask = np.ones((len(seq), len(seq)), dtype=bool) # Include all pairs
+    >>> decoy_energy2 = compute_configurational_decoy_energy_fluctuation(seq, potts_model, mask)
+    >>> print(f"Matrix of Contact Configurational Decoy Energy Fluctuations: "); print(decoy_energy2)
+    >>> print(f"Matrix Size: "); print(shape(decoy_energy2))
+
+    Notes
+    -----
+    The couplings energy is computed as the half-sum of the couplings for all pairs of residues
+    where the mask is True. The division by 2 for the couplings accounts for double-counting in symmetric
+    matrices.
+
+    .. todo:: Optimize the computation.
     """
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
@@ -485,16 +579,46 @@ def compute_decoy_energy(seq: str, potts_model: dict, mask: np.array, kind='sing
         return native_energy + compute_contact_decoy_energy_fluctuation(seq, potts_model, mask)
 
 
-def compute_aa_freq(sequence, include_gaps=True):
-    seq_index = np.array([_AA.find(aa) for aa in sequence])
+def compute_aa_freq(seq, include_gaps=True):
+    """
+    Calculates amino acid frequencies in given sequence
+
+    Parameters
+    ----------
+    seq :  str
+        The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'.
+    include_gaps: bool
+        If True, frequencies of gaps ('-') in the sequence are set to 0.
+        Default is True.
+        
+
+    Returns
+    -------
+    aa_freq: np.array
+        Array of frequencies of all 21 possible amino acids within sequence
+    """
+    seq_index = np.array([_AA.find(aa) for aa in seq])
     aa_freq = np.array([(seq_index == i).sum() for i in range(21)])
     if not include_gaps:
         aa_freq[0] = 0
     return aa_freq
 
 
-def compute_contact_freq(sequence):
-    seq_index = np.array([_AA.find(aa) for aa in sequence])
+def compute_contact_freq(seq):
+    """
+    Calculates contact frequencies in given sequence
+
+    Parameters
+    ----------
+    seq :  str
+        The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'.
+        
+    Returns
+    -------
+    contact_freq: np.array
+        21x21 array of frequencies of all possible contacts within sequence.
+    """
+    seq_index = np.array([_AA.find(aa) for aa in seq])
     aa_freq = np.array([(seq_index == i).sum() for i in range(21)], dtype=np.float64)
     aa_freq /= aa_freq.sum()
     contact_freq = (aa_freq[:, np.newaxis] * aa_freq[np.newaxis, :])
@@ -504,18 +628,50 @@ def compute_contact_freq(sequence):
 def compute_single_frustration(decoy_fluctuation,
                                aa_freq=None,
                                correction=0):
+    """
+    Calculates single residue frustration indices
+
+    Parameters
+    ----------
+    decoy_fluctuation: np.array
+        (Lx21) matrix for a sequence of length L, describing the energetic changes upon mutating a single residue. 
+    aa_freq: np.array
+        Array of frequencies of all 21 possible amino acids within sequence
+        
+    Returns
+    -------
+    frustration: np.array
+        Array of length L featuring single residue frustration indices.
+    """
     if aa_freq is None:
         aa_freq = np.ones(21)
     mean_energy = (aa_freq * decoy_fluctuation).sum(axis=1) / aa_freq.sum()
     std_energy = np.sqrt(
         ((aa_freq * (decoy_fluctuation - mean_energy[:, np.newaxis]) ** 2) / aa_freq.sum()).sum(axis=1))
     frustration = -mean_energy / (std_energy + correction)
-    return -frustration
+    frustration *= -1
+    return frustration
 
 
 def compute_pair_frustration(decoy_fluctuation,
                              contact_freq: typing.Union[None, np.array],
                              correction=0) -> np.array:
+    """
+    Calculates pair residue frustration indices
+
+    Parameters
+    ----------
+    decoy_fluctuation: np.array
+        (LxLx21x21) matrix for a sequence of length L, describing the energetic changes upon mutating two residues simultaneously. 
+    contact_freq: np.array
+        21x21 array of frequencies of all possible contacts within sequence.
+        
+    Returns
+    -------
+    contact_frustration: np.array
+        LxL array featuring pair frustration indices (mutational or configurational frustration, depending on 
+        decoy_fluctuation matrix provided)
+    """
     if contact_freq is None:
         contact_freq = np.ones([21, 21])
     decoy_energy = decoy_fluctuation
@@ -526,14 +682,16 @@ def compute_pair_frustration(decoy_fluctuation,
     mean_energy = average.reshape(seq_len, seq_len)
     std_energy = np.sqrt(variance).reshape(seq_len, seq_len)
     contact_frustration = -mean_energy / (std_energy + correction)
-    return -contact_frustration
+    contact_frustration *= -1
+    return contact_frustration
 
 
 def compute_scores(potts_model: dict) -> np.array:
     """
     Computes contact scores based on the Frobenius norm
-
-    CN[i,j] = F[i,j] - F[i,:] * F[:,j] / F[:,:]
+    
+    .. math::
+        CN[i,j] = \\frac{F[i,j] - F[i,:] * F[:,j}{F[:,:]}
 
     Parameters
     ----------
@@ -542,8 +700,8 @@ def compute_scores(potts_model: dict) -> np.array:
 
     Returns
     -------
-    scores : np.array
-        Score matrix (N x N)
+    corr_norm : np.array
+        Contact score matrix (N x N)
     """
     j = potts_model['J']
     n, _, __, q = j.shape
@@ -557,6 +715,26 @@ def compute_scores(potts_model: dict) -> np.array:
 
 
 def compute_roc(scores, distance_matrix, cutoff):
+
+    """
+    Computes Receiver Operating Characteristic (ROC) curve of 
+    predicted and true contacts (identified from the distance matrix).
+
+    Parameters
+    ----------
+    scores :  np.array
+        Contact score matrix (N x N)
+    distance_matrix : np.array
+        LxL array for sequence of length L, describing distances between contacts
+    cutoff : float
+        Distance cutoff for contacts
+
+    Returns
+    -------
+    roc_score : np.array
+        Array containing lists of false and true positive rates 
+    """
+
     scores = sdist.squareform(scores)
     distance = sdist.squareform(distance_matrix)
     results = np.array([np.array(scores), np.array(distance)])
@@ -568,16 +746,38 @@ def compute_roc(scores, distance_matrix, cutoff):
     not_contacts = ~contacts
     tpr = np.concatenate([[0], contacts.cumsum() / contacts.sum()])
     fpr = np.concatenate([[0], not_contacts.cumsum() / not_contacts.sum()])
-    return np.array([fpr, tpr])
+    roc_score=np.array([fpr, tpr])
+    return roc_score
 
 
-def compute_auc(roc):
+def compute_auc(roc_score):
+    """
+    Computes Area Under Curve (AUC) of calculated ROC distribution
+
+    Parameters
+    ----------
+    roc_score : np.array
+        Array containing lists of false and true positive rates 
+
+    Returns
+    -------
+    auc : float
+        AUC value
+    """
     fpr, tpr = roc
     auc = np.sum(tpr[:-1] * (fpr[1:] - fpr[:-1]))
     return auc
 
 
-def plot_roc(roc):
+def plot_roc(roc_score):
+    """
+    Plot ROC distribution
+
+    Parameters
+    ----------
+    roc_score : np.array
+        Array containing lists of false and true positive rates 
+    """
     import matplotlib.pyplot as plt
     plt.plot(roc[0], roc[1])
     plt.xlabel('False positive rate (1-specificity)')
@@ -589,6 +789,18 @@ def plot_roc(roc):
 
 
 def plot_singleresidue_decoy_energy(decoy_energy, native_energy, method='clustermap'):
+    """
+    Plot comparison of single residue decoy energies, relative to the native energy
+
+    Parameters
+    ----------
+    decoy_energy : np.array
+        Lx21 array of decoy energies
+    native_energy : float
+        Native energy value
+    method : str
+        Options: "clustermap", "heatmap"
+    """
     import seaborn as sns
     if method=='clustermap':
         f=sns.clustermap
