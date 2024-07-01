@@ -133,6 +133,37 @@ def compute_native_energy(seq: str,
 def compute_fields_energy(seq: str,
                           potts_model: dict,
                           ignore_fields_of_gaps: bool = False) -> float:
+    """
+    Computes the fields energy of a protein sequence based on a given Potts model.
+    
+    .. math::
+        E = \\sum_i h_i
+        
+    Parameters
+    ----------
+    seq : str
+        The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+    potts_model : dict
+        A dictionary containing the Potts model parameters 'h' (fields) and 'J' (couplings). The fields are a 2D array of shape (L, 20), where L is the length of the sequence and 20 is the number of amino acids. The couplings are a 4D array of shape (L, L, 20, 20). The fields and couplings are assumed to be in units of energy.
+    ignore_fields_of_gaps : bool, optional
+        If True, fields corresponding to gaps ('-') in the sequence are set to 0 in the energy calculation.
+        Default is False.
+
+    Returns
+    -------
+    fields_energy : float
+        The computed fields energy of the protein sequence based on the Potts model
+
+    Examples
+    --------
+    >>> seq = "ACDEFGHIKLMNPQRSTVWY"
+    >>> potts_model = {
+        'h': np.random.rand(20, 20),  # Random fields
+        'J': np.random.rand(20, 20, 20, 20)  # Random couplings
+    }
+    >>> fields_energy = compute_fields_energy(seq, potts_model)
+    >>> print(f"Computed fields energy: {fields_energy:.2f}")
+    """
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
 
@@ -142,13 +173,55 @@ def compute_fields_energy(seq: str,
         gap_indices=[int(i) for i,j in enumerate(seq) if j=="-"]
         if len(gap_indices)>0:
             h[gap_indices]=False
-
-    return h.sum()
+    fields_energy=h.sum()
+    return fields_energy
 
 def compute_couplings_energy(seq: str,
                       potts_model: dict,
                       mask: np.array,
                       ignore_couplings_of_gaps: bool = False) -> float:
+    """
+    Computes the couplings energy of a protein sequence based on a given Potts model and an interaction mask.
+    
+    .. math::
+        E = \\frac{1}{2} \\sum_{i,j} J_{ij} \\Theta_{ij}
+        
+    Parameters
+    ----------
+    seq : str
+        The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+    potts_model : dict
+        A dictionary containing the Potts model parameters 'h' (fields) and 'J' (couplings). The fields are a 2D array of shape (L, 20), where L is the length of the sequence and 20 is the number of amino acids. The couplings are a 4D array of shape (L, L, 20, 20). The fields and couplings are assumed to be in units of energy.
+    mask : np.array
+        A 2D Boolean array that determines which residue pairs should be considered in the energy computation. The mask should have dimensions (L, L), where L is the length of the sequence.
+    ignore_couplings_of_gaps : bool, optional
+        If True, couplings involving gaps ('-') in the sequence are set to 0 in the energy calculation.
+        Default is False.
+
+    Returns
+    -------
+    couplings_energy : float
+        The computed couplings energy of the protein sequence based on the Potts model and the interaction mask.
+
+    Examples
+    --------
+    >>> seq = "ACDEFGHIKLMNPQRSTVWY"
+    >>> potts_model = {
+        'h': np.random.rand(20, 20),  # Random fields
+        'J': np.random.rand(20, 20, 20, 20)  # Random couplings
+    }
+    >>> mask = np.ones((len(seq), len(seq)), dtype=bool) # Include all pairs
+    >>> couplings_energy = compute_couplings_energy(seq, potts_model, mask)
+    >>> print(f"Computed couplings energy: {couplings_energy:.2f}")
+
+    Notes
+    -----
+    The couplings energy is computed as the half-sum of the couplings for all pairs of residues
+    where the mask is True. The division by 2 for the couplings accounts for double-counting in symmetric
+    matrices.
+
+    .. todo:: Optimize the computation.
+    """
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
     pos1, pos2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), indexing='ij', sparse=True)
@@ -161,13 +234,58 @@ def compute_couplings_energy(seq: str,
         if len(gap_indices)>0:
             j_prime[:,gap_indices]=False
             j_prime[gap_indices,:]=False
-    energy = j_prime.sum() / 2
-    return energy
+    couplings_energy = j_prime.sum() / 2
+    return couplings_energy
 
 def compute_sequences_energy(seqs: list,
                              potts_model: dict,
                              mask: np.array,
                              split_couplings_and_fields = False) -> np.array:
+    """
+    Computes the energy of multiple protein sequences based on a given Potts model and an interaction mask.
+    
+    .. math::
+        E = \\sum_i h_i + \\frac{1}{2} \\sum_{i,j} J_{ij} \\Theta_{ij}
+        
+    Parameters
+    ----------
+    seqs : list
+        List of amino acid sequences in string format, separated by commas. The sequences are assumed to be in one-letter code. Gaps are represented as '-'. The length of each sequence (L) should all match the dimensions of the Potts model.
+    potts_model : dict
+        A dictionary containing the Potts model parameters 'h' (fields) and 'J' (couplings). The fields are a 2D array of shape (L, 20), where L is the length of the sequences and 20 is the number of amino acids. The couplings are a 4D array of shape (L, L, 20, 20). The fields and couplings are assumed to be in units of energy.
+    mask : np.array
+        A 2D Boolean array that determines which residue pairs should be considered in the energy computation. The mask should have dimensions (L, L), where L is the length of the sequences.
+    split_couplings_and_fields : bool, optional
+        If True, two lists of the sequences' couplings and fields energies are returned.
+        Default is False.
+
+    Returns
+    -------
+    energy (if split_couplings_and_fields==False): float
+        The computed energies of the protein sequences based on the Potts model and the interaction mask.
+    fields_couplings_energy (if split_couplings_and_fields==True): np.array
+        Array containing computed fields and couplings energies of the protein sequences based on the Potts model and the interaction mask. 
+
+    Examples
+    --------
+    >>> seq_list = ["ACDEFGHIKLMNPQRSTVWY","AKLWYMNPQRSTCDEFGHIV"]
+    >>> potts_model = {
+        'h': np.random.rand(20, 20),  # Random fields
+        'J': np.random.rand(20, 20, 20, 20)  # Random couplings
+    }
+    >>> mask = np.ones((len(seq_list[0]), len(seq_list[0])), dtype=bool) # Include all pairs
+    >>> energies = compute_sequences_energy(seq_list, potts_model, mask)
+    >>> print(f"Sequence 1 energy: {energies[0]:.2f}")
+    >>> print(f"Sequence 2 energy: {energies[1]:.2f}")
+
+    Notes
+    -----
+    The couplings energy is computed as the half-sum of the couplings for all pairs of residues
+    where the mask is True. The division by 2 for the couplings accounts for double-counting in symmetric
+    matrices.
+
+    .. todo:: Optimize the computation.
+    """
 
     seq_index = np.array([[_AA.find(aa) for aa in seq] for seq in seqs])
     N_seqs, seq_len = seq_index.shape
@@ -184,7 +302,8 @@ def compute_sequences_energy(seqs: list,
     j_prime = j * mask
 
     if split_couplings_and_fields:
-        return np.array([h.sum(axis=-1),j_prime.sum(axis=-1).sum(axis=-1) / 2])
+        fields_couplings_energy=np.array([h.sum(axis=-1),j_prime.sum(axis=-1).sum(axis=-1) / 2])
+        return fields_couplings_energy
     else:
         energy = h.sum(axis=-1) + j_prime.sum(axis=-1).sum(axis=-1) / 2
         return energy

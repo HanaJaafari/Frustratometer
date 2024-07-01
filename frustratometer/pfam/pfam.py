@@ -15,15 +15,15 @@ def download_database(path,
 
     Parameters
     ----------
-    url :  str
+    path :  str
         Adress of pfam database
     name: str
         Name of the new database folder
 
     Returns
     -------
-    alignment_path: Path
-        Path of the alignments
+    alignments_path: str
+        Path of the local database of alignments
     """
 
     
@@ -70,6 +70,21 @@ def download_database(path,
 
 # Get a single alignment
 def get_alignment(pfamid, database_path):
+    """
+    Retrieves a pfam family alignment from local database
+
+    Parameters
+    ----------
+    pfamid : str,
+        ID of PFAM family. ex: PF00001
+    database_path: str
+        Address of local database
+    Returns
+    -------
+    alignment_file : Path
+        location of alignment
+    
+    """
     path = Path(database_path)
     assert path.exists(), "The path doesn't exist"
     assert path.is_dir(), "The path is not a directory" 
@@ -84,21 +99,21 @@ def get_alignment(pfamid, database_path):
 def download_aligment(pfamid,
               output_file,
               alignment_type='full'):
-    """'
+    """
     Retrieves a pfam family alignment from interpro
 
     Parameters
     ----------
     pfamid : str,
         ID of PFAM family. ex: PF00001
+    output_file: Path
+        location of the output file. Default: Temporary file
     alignment_type: str,
         alignment type to retrieve. Options: full, seed, uniprot
-    output_file: str
-        location of the output file. Default: Temporary file
 
     Returns
     -------
-    output : Path
+    output_file : Path
         location of alignment
     
     """
