@@ -69,7 +69,7 @@ The frustratometer package also allows the quick calculation of the energies of 
 
     # Calculate single residue decoy energy fluctuations
     decoy_fluctuation = model_singleresidue.decoy_fluctuation(kind='singleresidue')
-    print(mutational_frustration)
+    print(decoy_fluctuation)
 
 Mutational Frustration
 ~~~~~~~~~~~~~~~~~~~~~~
