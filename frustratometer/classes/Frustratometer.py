@@ -206,7 +206,7 @@ class Frustratometer:
 
         return view
 
-    def generate_frustration_pair_distribution(self,sequence: str =None, kind:str ="singleresidue"):
+    def generate_frustration_pair_distribution(self,sequence: str =None, kind:str ="singleresidue",bins=30,maximum_shell_radius=20):
         if sequence==None:
             sequence=self.sequence
         frustration_values=self.frustration(sequence=sequence,kind=kind)
@@ -217,47 +217,44 @@ class Frustratometer:
             original_residue_ca_coordinates=residue_ca_coordinates
             mapped_residues=list(self.structure.full_to_aligned_index_dict.values())
             residue_ca_coordinates=original_residue_ca_coordinates[mapped_residues,:]
-            print(len(residue_ca_coordinates))
 
         if kind=="singleresidue":
             sel_frustration = np.column_stack((residue_ca_coordinates,np.expand_dims(frustration_values, axis=1)))
-
+            
         elif kind in ["configurational","mutational"]:
-            #Avoid double counting of frustration values
-            frustration_values=np.triu(frustration_values)
-            frustration_values[np.tril_indices(frustration_values.shape[0])] = np.nan
-
             i,j=np.meshgrid(range(0,len(self.sequence)),range(0,len(self.sequence)))
             midpoint_coordinates=(residue_ca_coordinates[i.flatten(),:]+ residue_ca_coordinates[j.flatten(),:])/2
             sel_frustration = np.column_stack((midpoint_coordinates, frustration_values.ravel()))
-            sel_frustration=sel_frustration[~np.isnan(sel_frustration[:,-1])]
 
-        bins=20
-        maximum_shell_radius=20
-        maximum_shell_volume=4/3 * np.pi * (maximum_shell_radius**3)
-        r=np.arange(0,maximum_shell_radius,1)
+        r=np.linspace(1,maximum_shell_radius,bins)
         r_m=(r[1:]+r[:-1])/2
-        shell_vol = 4/3 * np.pi * (r[1:]**3-r[:-1]**3)
 
-        minimally_frustrated_contacts=(sdist.pdist(sel_frustration[sel_frustration[:, -1] >self.minimally_frustrated_threshold][:,:-1]))
+        maximum_shell_volume=4/3 * np.pi * (maximum_shell_radius**3)
+        shell_vol = 4 * np.pi * (r[1:]-r[:-1]) * (r[1:]**2)
+        ###
+        #Calculate contact number densities
+        minimally_frustrated_count=len(sel_frustration[sel_frustration[:, -1] > self.minimally_frustrated_threshold])
+        frustrated_count=len(sel_frustration[sel_frustration[:, -1] < -1])
+        neutral_count=len(sel_frustration[(sel_frustration[:, -1] > -1) & (sel_frustration[:, -1] < self.minimally_frustrated_threshold)])
+
+        minimally_frustrated_density=(minimally_frustrated_count*(minimally_frustrated_count-1))/(2*maximum_shell_volume)
+        frustrated_density=(frustrated_count*(frustrated_count-1))/(2*maximum_shell_volume)
+        neutral_density=(neutral_count*(neutral_count-1))/(2*maximum_shell_volume)
+        ###
+        #Calculate relative distances of contacts
+        minimally_frustrated_contacts=(sdist.pdist(sel_frustration[sel_frustration[:, -1] > self.minimally_frustrated_threshold][:,:-1]))
         frustrated_contacts=(sdist.pdist(sel_frustration[sel_frustration[:, -1] <-1][:,:-1]))
         neutral_contacts=(sdist.pdist(sel_frustration[(sel_frustration[:, -1] > -1) & (sel_frustration[:, -1] < self.minimally_frustrated_threshold)][:,:-1]))
-        # total_contacts_count=len(sel_frustration)
-
+        ###
+        #Calculate contact histograms
         minimally_frustrated_hist,_ = np.histogram(minimally_frustrated_contacts,bins=r)
-        minimally_frustrated_gr=np.divide(minimally_frustrated_hist,shell_vol)
-        # minimally_frustrated_gr*=minimally_frustrated_gr*maximum_shell_volume
-        minimally_frustrated_gr=np.divide(minimally_frustrated_gr,(len(minimally_frustrated_contacts)))
+        minimally_frustrated_gr=np.divide(minimally_frustrated_hist,(shell_vol*minimally_frustrated_density))
 
         frustrated_hist,_= np.histogram(frustrated_contacts,bins=r)
-        frustrated_gr=np.divide(frustrated_hist,shell_vol)
-        # frustrated_gr*=frustrated_gr*maximum_shell_volume
-        frustrated_gr=np.divide(frustrated_gr,(len(frustrated_contacts)))
+        frustrated_gr=np.divide(frustrated_hist,(shell_vol*frustrated_density))
 
         neutral_hist,_=np.histogram(neutral_contacts,bins=r)
-        neutral_gr=np.divide(neutral_hist,shell_vol)
-        # neutral_gr*=neutral_gr*maximum_shell_volume
-        neutral_gr=np.divide(neutral_gr,(len(neutral_contacts)))
+        neutral_gr=np.divide(neutral_hist,(shell_vol*neutral_density))
 
         return minimally_frustrated_gr,frustrated_gr,neutral_gr,r_m
 
