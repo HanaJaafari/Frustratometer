@@ -41,29 +41,124 @@ class Frustratometer:
     #     self._native_energy = None
     #     self._decoy_fluctuation = {}
 
-    def native_energy(self,sequence:str = None,ignore_couplings_of_gaps:bool=False,ignore_fields_of_gaps:bool = False):
+    def native_energy(self,sequence:str = None,ignore_couplings_of_gaps:bool=False,ignore_fields_of_gaps:bool = False) -> float:
+        """
+        Calculates the native energy of the protein sequence.
+
+        Parameters
+        ----------
+        sequence : str
+            The amino acid sequence of the protein. If no sequence is provided as input, the original protein sequence of the protein structure object is used for the energy calculation.
+        ignore_couplings_of_gaps: bool
+            If set to True, the couplings terms of any gaps in the protein sequence are ignored in energy calculations.
+        ignore_fields_of_gaps: bool
+            If set to True, the fields terms of any gaps in the protein sequence are ignored in energy calculations.
+        Returns
+        -------
+        energy_value : float
+            Native energy of sequence
+        """
         if sequence is None:
             sequence=self.sequence
         else:
             return frustration.compute_native_energy(sequence, self.potts_model, self.mask,ignore_couplings_of_gaps,ignore_fields_of_gaps)
         if not self._native_energy:
             self._native_energy=frustration.compute_native_energy(sequence, self.potts_model, self.mask,ignore_couplings_of_gaps,ignore_fields_of_gaps)
-        return self._native_energy
+        energy_value=self._native_energy
+        return energy_value
 
     def sequences_energies(self, sequences:np.array, split_couplings_and_fields:bool = False):
-        return frustration.compute_sequences_energy(sequences, self.potts_model, self.mask, split_couplings_and_fields)
+        """
+        Computes the energy of multiple protein sequences.
+        .. math::
+            E = \\sum_i h_i + \\frac{1}{2} \\sum_{i,j} J_{ij} \\Theta_{ij}
 
-    def fields_energy(self, sequence:str = None, ignore_fields_of_gaps:bool = False):
-        if sequence is None:
-            sequence=self.sequence
-        return frustration.compute_fields_energy(sequence, self.potts_model,ignore_fields_of_gaps)
+        Parameters
+        ----------
+        sequences : list
+            List of amino acid sequences in string format, separated by commas. The sequences are assumed to be in one-letter code. Gaps are represented as '-'. The length of each sequence (L) should all match the dimensions of the Potts model.
+        split_couplings_and_fields : bool
+            If True, two lists of the sequences' couplings and fields energies are returned.
+            Default is False.
 
-    def couplings_energy(self, sequence:str = None,ignore_couplings_of_gaps:bool = False):
-        if sequence is None:
-            sequence=self.sequence
-        return frustration.compute_couplings_energy(sequence, self.potts_model, self.mask,ignore_couplings_of_gaps)
+        Returns
+        -------
+        output (if split_couplings_and_fields==False): float
+            The computed energies of the protein sequences
+        output (if split_couplings_and_fields==True): np.array
+            Array containing computed fields and couplings energies of the protein sequences. 
+        """
+        output=frustration.compute_sequences_energy(sequences, self.potts_model, self.mask, split_couplings_and_fields)
+        return output
+
+    def fields_energy(self, sequence:str = None, ignore_fields_of_gaps:bool = False) -> float:
+        """
+        Computes the fields energy of a protein sequence.
         
-    def decoy_fluctuation(self, sequence:str = None,kind:str = 'singleresidue',mask:np.array = None):
+        .. math::
+            E = \\sum_i h_i
+            
+        Parameters
+        ----------
+        sequence : str
+            The amino acid sequence of the protein. If no sequence is provided as input, the original protein sequence of the protein structure object is used for the energy calculation.
+        ignore_fields_of_gaps : bool
+            If True, fields corresponding to gaps ('-') in the sequence are set to 0 in the energy calculation.
+            Default is False.
+
+        Returns
+        -------
+        fields_energy : float
+            The computed fields energy of the protein sequence.
+        """
+        if sequence is None:
+            sequence=self.sequence
+        fields_energy=frustration.compute_fields_energy(sequence, self.potts_model,ignore_fields_of_gaps)
+        return fields_energy
+
+    def couplings_energy(self, sequence:str = None,ignore_couplings_of_gaps:bool = False) -> float:
+        """
+        Computes the couplings energy of a protein sequence based on a given Potts model and an interaction mask.
+        
+        .. math::
+            E = \\frac{1}{2} \\sum_{i,j} J_{ij} \\Theta_{ij}
+            
+        Parameters
+        ----------
+        sequence : str
+            The amino acid sequence of the protein. If no sequence is provided as input, the original protein sequence of the protein structure object is used for the energy calculation.
+        ignore_couplings_of_gaps : bool
+            If True, couplings involving gaps ('-') in the sequence are set to 0 in the energy calculation.
+            Default is False.
+
+        Returns
+        -------
+        couplings_energy : float
+            The computed couplings energy of the protein sequence.
+        """
+        if sequence is None:
+            sequence=self.sequence
+        couplings_energy=frustration.compute_couplings_energy(sequence, self.potts_model, self.mask,ignore_couplings_of_gaps)
+        return couplings_energy
+        
+    def decoy_fluctuation(self, sequence:str = None,kind:str = 'singleresidue',mask:np.array = None) -> np.array:
+        """
+        Computes a matrix for a sequence of length L that describes all possible changes in energy upon mutating a single or pair of residues (depending on "kind" entry used) simultaneously.
+            
+        Parameters
+        ----------
+        sequence : str
+            The amino acid sequence of the protein. If no sequence is provided as input, the original protein sequence of the protein structure object is used for the energy calculation.
+        kind : str
+            Kind of decoys generated. Options: "singleresidue," "mutational," "configurational," and "contact." 
+        mask : np.array
+            A 2D Boolean array that determines which residue pairs should be considered in the energy computation. The mask should have dimensions (L, L), where L is the length of the sequence.
+
+        Returns
+        -------
+        fluctuation : np.array
+            The computed couplings energy of the protein sequence.
+        """
         if sequence is None:
             sequence=self.sequence
             if kind in self._decoy_fluctuation:
@@ -81,12 +176,27 @@ class Frustratometer:
         else:
             raise Exception("Wrong kind of decoy generation selected")
         self._decoy_fluctuation[kind] = fluctuation
-        return self._decoy_fluctuation[kind]
+        return fluctuation
 
-    def decoy_energy(self, kind:str = 'singleresidue',sequence: str =None):
+    def decoy_energy(self, kind:str = 'singleresidue',sequence: str =None) ->np.array:
+        """
+        Computes all possible decoy energies.
+        
+        Parameters
+        ----------
+        sequence : str
+            The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+        kind : str
+            Kind of decoys generated. Options: "singleresidue," "mutational," "configurational," and "contact." 
+        Returns
+        -------
+        decoy_energy: np.array
+            Matrix describing all possible decoy energies.
+        """
         if sequence is None:
             sequence=self.sequence
-        return self.native_energy(sequence=sequence) + self.decoy_fluctuation(kind=kind,sequence=sequence)
+        decoy_energy=self.native_energy(sequence=sequence) + self.decoy_fluctuation(kind=kind,sequence=sequence)
+        return decoy_energy
 
     def scores(self):
         return frustration.compute_scores(self.potts_model)

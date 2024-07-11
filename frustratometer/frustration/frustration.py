@@ -558,26 +558,57 @@ def compute_contact_decoy_energy_fluctuation(seq: str,
     return decoy_energy
 
 
-def compute_decoy_energy(seq: str, potts_model: dict, mask: np.array, kind='singleresidue'):
+def compute_decoy_energy(seq: str, potts_model: dict, mask: np.array, kind='singleresidue') -> np.array:
     """
-    Calculates the decoy energy (Obsolete)
-    :param seq:
-    :param potts_model:
-    :param mask:
-    :param kind:
-    :return:
+    Computes all possible decoy energies.
+    
+    Parameters
+    ----------
+    seq : str
+        The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+    potts_model : dict
+        A dictionary containing the Potts model parameters 'h' (fields) and 'J' (couplings). The fields are a 2D array of shape (L, 20), where L is the length of the sequence and 20 is the number of amino acids. The couplings are a 4D array of shape (L, L, 20, 20). The fields and couplings are assumed to be in units of energy.
+    mask : np.array
+        A 2D Boolean array that determines which residue pairs should be considered in the energy computation. The mask should have dimensions (L, L), where L is the length of the sequence.
+    kind : str
+        Kind of decoys generated. Options: "singleresidue," "mutational," "configurational," and "contact." 
+    Returns
+    -------
+    decoy_energy: np.array
+        Matrix describing all possible decoy energies.
+
+    Examples
+    --------
+    >>> seq = "ACDEFGHIKLMNPQRSTVWY"
+    >>> potts_model = {
+        'h': np.random.rand(20, 20),  # Random fields
+        'J': np.random.rand(20, 20, 20, 20)  # Random couplings
+    }
+    >>> mask = np.ones((len(seq), len(seq)), dtype=bool) # Include all pairs
+    >>> kind = "singleresidue"
+    >>> decoy_energy = compute_decoy_energy(seq, potts_model, mask, kind)
+    >>> print(f"Matrix of Single Residue Decoy Energo: "); print(decoy_energy2)
+    >>> print(f"Matrix Size: "); print(shape(decoy_energy2))
+
+    Notes
+    -----
+    The couplings energy is computed as the half-sum of the couplings for all pairs of residues
+    where the mask is True. The division by 2 for the couplings accounts for double-counting in symmetric
+    matrices.
+
+    .. todo:: Optimize the computation.
     """
 
     native_energy = compute_native_energy(seq, potts_model, mask)
     if kind == 'singleresidue':
-        return native_energy + compute_singleresidue_decoy_energy_fluctuation(seq, potts_model, mask)
+        decoy_energy=native_energy + compute_singleresidue_decoy_energy_fluctuation(seq, potts_model, mask)
     elif kind == 'mutational':
-        return native_energy + compute_mutational_decoy_energy_fluctuation(seq, potts_model, mask)
+        decoy_energy=native_energy + compute_mutational_decoy_energy_fluctuation(seq, potts_model, mask)
     elif kind == 'configurational':
-        return native_energy + compute_configurational_decoy_energy_fluctuation(seq, potts_model, mask)
+        decoy_energy=native_energy + compute_configurational_decoy_energy_fluctuation(seq, potts_model, mask)
     elif kind == 'contact':
-        return native_energy + compute_contact_decoy_energy_fluctuation(seq, potts_model, mask)
-
+        decoy_energy=native_energy + compute_contact_decoy_energy_fluctuation(seq, potts_model, mask)
+    return decoy_energy
 
 def compute_aa_freq(seq, include_gaps=True):
     """
