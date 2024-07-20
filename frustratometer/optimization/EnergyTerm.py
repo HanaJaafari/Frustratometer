@@ -2,8 +2,6 @@ import numpy as np
 import numba
 import abc
 
-
-
 class EnergyTerm(abc.ABC):
     """ Abstract class for Energy terms for sequence optimization.
         The class provides method templates for calculating the energy of a sequence, 
