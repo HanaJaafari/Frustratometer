@@ -1,13 +1,14 @@
 from numba import jit
 from numba import prange
+from numba import int64, float64, boolean, void
 import numpy as np
 
-
+# Defines the order of regions
 ij, ii = range(2)
 ijk, iik, iji, ijj, iii = range(5)
 ijkl, iikl, ijil, ijjl, ijki, ijkj, ijkk, iiil, iiki, iikk, ijii, ijij, ijji, ijjj, iiii = range(15)
 
-@jit(nopython=True)
+@jit(float64[:](float64[:, :], float64[:, :]),nopython=True)
 def compute_region_means_2_by_2(indicator_0, indicator_1):
     n = indicator_0.shape[0]
     region_sum = np.zeros(15, dtype=np.float64) 
@@ -50,13 +51,16 @@ def compute_region_means_2_by_2(indicator_0, indicator_1):
     region_count[ijjj] = n*(n-1)
     region_count[iiii] = n
 
-    region_mean = [r/c if c>0 else 0 for r,c in zip(region_sum,region_count)]
+    region_mean = np.zeros(15, dtype=np.float64)
+    for i in range(1,15):
+        if region_count[i] > 0:
+            region_mean[i] = region_sum[i] / region_count[i]
     if n>3:
         region_mean[ijkl]=indicator_0.mean()*indicator_1.mean()*(n/(n-3))*(n/(n - 2))*(n/(n - 1))-region_sum.sum()/(n*(n-1)*(n-2)*(n-3))
     
     return region_mean
 
-@jit(nopython=True, parallel=True)
+@jit(float64[:](float64[:, :], float64[:, :]),nopython=True, parallel=True)
 def compute_region_means_2_by_2_parallel(indicator_0, indicator_1):
     n = indicator_0.shape[0]
     region_sum = np.zeros(15, dtype=np.float64) 
@@ -108,7 +112,10 @@ def compute_region_means_2_by_2_parallel(indicator_0, indicator_1):
     region_count[ijjj] = n*(n-1)
     region_count[iiii] = n
 
-    region_mean = [r/c if c>0 else 0 for r,c in zip(region_sum,region_count)]
+    region_mean = np.zeros(15, dtype=np.float64)
+    for i in range(1,15):
+        if region_count[i] > 0:
+            region_mean[i] = region_sum[i] / region_count[i]
     if n>3:
         region_mean[ijkl]=indicator_0.mean()*indicator_1.mean()*(n/(n-3))*(n/(n - 2))*(n/(n - 1))-region_sum.sum()/(n*(n-1)*(n-2)*(n-3))
     
@@ -170,7 +177,7 @@ def compute_region_means_2_by_2_numpy(indicator_0, indicator_1):
 
     return region_means
 
-@jit(nopython=True)
+@jit(float64[:](float64[:], float64[:, :]),nopython=True)
 def compute_region_means_1_by_2(indicator_0, indicator_1):
     n = indicator_1.shape[0]
     region_sum = np.zeros(5, dtype=np.float64) 
@@ -190,10 +197,12 @@ def compute_region_means_1_by_2(indicator_0, indicator_1):
     region_count[ijj] = n*(n-1)
     region_count[iii] = n
     
-    region_mean = [r/c if c>0 else 0 for r,c in zip(region_sum,region_count)]
+    region_mean = np.zeros(5, dtype=np.float64)
+    for i in range(1,5):
+        if region_count[i] > 0:
+            region_mean[i] = region_sum[i] / region_count[i]
     if n>2:
         region_mean[ijk]=indicator_0.mean()*indicator_1.mean()*(n/(n - 2))*(n/(n - 1))-region_sum.sum()/(n*(n-1)*(n-2))
-    
     return region_mean
 
 def compute_region_means_1_by_2_numpy(indicator_0, indicator_1):
@@ -233,7 +242,7 @@ def compute_region_means_1_by_2_numpy(indicator_0, indicator_1):
 
     return region_means
 
-@jit(nopython=True)
+@jit(float64[:](float64[:], float64[:]), nopython=True)
 def compute_region_means_1_by_1(indicator_0, indicator_1):
     n = indicator_0.shape[0]
     region_sum = np.zeros(2, dtype=np.float64) 
@@ -242,7 +251,9 @@ def compute_region_means_1_by_1(indicator_0, indicator_1):
     for i in range(n):
         region_sum[ii] += indicator_0[i] * indicator_1[i]
     region_count[ii]=n
-    region_mean = [r/c if c>0 else 0 for r,c in zip(region_sum,region_count)]
+    region_mean = np.zeros(2, dtype=np.float64)
+    if region_count[ii] > 0:
+            region_mean[ii] = region_sum[ii] / region_count[ii]
     if n>1:
         region_mean[ij]=indicator_0.mean()*indicator_1.mean()*(n/(n - 1))-region_sum.sum()/(n*(n-1))
     return region_mean
@@ -326,7 +337,7 @@ def compute_single_region_means(indicators):
                 region_means[(f'{key}_{i}_{j}')]=result[key]
     return region_means
 
-@jit(nopython=True)
+@jit(boolean[:,:,:,:,:](int64),nopython=True)
 def create_region_masks_2_by_2(n_elements):
     ijkl, iikl, ijil, ijjl, ijki, ijkj, ijkk, iiil, iiki, iikk, ijii, ijij, ijji, ijjj, iiii = range(15)
     masks = np.zeros((15, n_elements, n_elements, n_elements, n_elements), dtype=np.bool_)
@@ -352,7 +363,7 @@ def create_region_masks_2_by_2(n_elements):
                     masks[iiii][i, j, k, l] = (i == j) and (i == k) and (i == l)
     return masks
 
-@jit(nopython=True)
+@jit(float64[:,:](int64[:], float64[:, :], float64[:, :]),nopython=True)
 def mean_inner_product_2_by_2(repetitions,indicator_0,indicator_1):
     ijkl, iikl, ijil, ijjl, ijki, ijkj, ijkk, iiil, iiki, iikk, ijii, ijij, ijji, ijjj, iiii = range(15)
     region_mean= compute_region_means_2_by_2_parallel(indicator_0,indicator_1)
@@ -476,7 +487,7 @@ def mean_inner_product_2_by_2(repetitions,indicator_0,indicator_1):
     # Flatten the mean_inner array and expand each equation
     return mean_inner_product.reshape(n_elements**2, n_elements**2)
 
-@jit(nopython=True)
+@jit(boolean[:,:,:,:](int64),nopython=True)
 def create_region_masks_1_by_2(n_elements):
     ijk, iik, iji, ijj, iii = range(5)
     masks = np.zeros((5, n_elements, n_elements, n_elements), dtype=np.bool_)
@@ -492,7 +503,7 @@ def create_region_masks_1_by_2(n_elements):
 
     return masks
 
-@jit(nopython=True)
+@jit(float64[:,:](int64[:], float64[:], float64[:, :]), nopython=True)
 def mean_inner_product_1_by_2(repetitions,indicator_0,indicator_1):
     ijk, iik, iji, ijj, iii = range(5)
     region_mean= compute_region_means_1_by_2(indicator_0,indicator_1)
@@ -542,7 +553,7 @@ def mean_inner_product_1_by_2(repetitions,indicator_0,indicator_1):
     # Flatten the mean_inner array and expand each equation
     return mean_inner_product.reshape(n_elements, n_elements**2)
 
-@jit(nopython=True)
+@jit(boolean[:,:,:](int64),nopython=True)
 def create_region_masks_1_by_1(n_elements):
     ij, ii = range(2)
     masks = np.zeros((2, n_elements, n_elements), dtype=np.bool_)
@@ -554,7 +565,7 @@ def create_region_masks_1_by_1(n_elements):
 
     return masks
 
-@jit(nopython=True)
+@jit(float64[:,:](int64[:], float64[:], float64[:]),nopython=True)
 def mean_inner_product_1_by_1(repetitions,indicator_0,indicator_1):
     ij, ii = range(2)
     region_mean= compute_region_means_1_by_1(indicator_0,indicator_1)
@@ -614,16 +625,18 @@ def mean_inner_product(repetitions,indicator_0,indicator_1, parallel=True, use_n
         raise NotImplementedError('This method has not be implemented for indicator dimensions {d0} and {d1}')
     return result 
 
-@jit(nopython=True)
+@jit(float64[:,:](int64[:], float64[:, :], float64[:, :, :]),nopython=True,parallel=True, cache=True)
 def build_mean_inner_product_matrix(repetitions,indicators1d,indicators2d):
     num_matrices1d = len(indicators1d)
     num_matrices2d = len(indicators2d)
-    num_matrices = num_matrices1d + num_matrices2d
     n_elements=len(repetitions)
+    num_matrices = num_matrices1d + num_matrices2d
     
     # Compute the size of each block and the total size
-    block_sizes = [n_elements for ind in indicators1d] + [n_elements**2 for ind in indicators2d]
-    total_size = sum(block_sizes)
+    block_sizes = np.empty(num_matrices, dtype=np.int64)
+    block_sizes[:num_matrices1d] = n_elements
+    block_sizes[num_matrices1d:] = n_elements**2
+    total_size = np.sum(block_sizes)
     
     # Create the resulting matrix filled with zeros
     R = np.zeros((total_size, total_size))
@@ -636,22 +649,26 @@ def build_mean_inner_product_matrix(repetitions,indicators1d,indicators2d):
         start=start+block_sizes[i-1]
         start_indices[i] = start
     
-    for i in range(num_matrices):
-        for j in range(i, num_matrices):  # Use symmetry, compute only half
-            if i<num_matrices1d and j<num_matrices1d:
-                result_block = mean_inner_product_1_by_1(repetitions,indicators1d[i], indicators1d[j])
-            elif i<num_matrices1d and j>=num_matrices1d:
-                result_block = mean_inner_product_1_by_2(repetitions,indicators1d[i],indicators2d[j-num_matrices1d])
-            elif j<num_matrices1d and i>=num_matrices1d:
-                result_block = mean_inner_product_1_by_2(repetitions,indicators1d[j],indicators2d[i-num_matrices1d]).T
-            elif i>=num_matrices1d and j>=num_matrices1d:
-                result_block = mean_inner_product_2_by_2(repetitions,indicators2d[i-num_matrices1d],indicators2d[j-num_matrices1d])
-           
-            si, sj = start_indices[i], start_indices[j]
-            ei, ej = si + result_block.shape[0], sj + result_block.shape[1]
-            R[si:ei, sj:ej] = result_block
-            if i != j:
-                R[sj:ej, si:ei] = result_block.T  # Leverage symmetry
+    for ij in prange(num_matrices**2):
+        i=ij//num_matrices
+        j=ij%num_matrices
+        if i<j:
+            continue
+        si, sj = start_indices[i], start_indices[j]
+        if i<num_matrices1d and j<num_matrices1d:
+            ei, ej = si + n_elements, sj + n_elements
+            R[si:ei, sj:ej] = mean_inner_product_1_by_1(repetitions,indicators1d[i], indicators1d[j])
+        elif i<num_matrices1d and j>=num_matrices1d:
+            ei, ej = si + n_elements, sj + n_elements**2
+            R[si:ei, sj:ej] = mean_inner_product_1_by_2(repetitions,indicators1d[i],indicators2d[j-num_matrices1d])
+        elif i>=num_matrices1d and j<num_matrices1d:
+            ei, ej = si + n_elements**2, sj + n_elements
+            R[si:ei, sj:ej] = mean_inner_product_1_by_2(repetitions,indicators1d[j],indicators2d[i-num_matrices1d]).T
+        elif i>=num_matrices1d and j>=num_matrices1d:
+            ei, ej = si + n_elements**2, sj + n_elements**2
+            R[si:ei, sj:ej] = mean_inner_product_2_by_2(repetitions,indicators2d[i-num_matrices1d],indicators2d[j-num_matrices1d])
+        if i != j:
+            R[sj:ej, si:ei] = R[si:ei, sj:ej].T
             
     return R
 
@@ -1024,6 +1041,66 @@ def test_mean_inner_product():
             print("Difference:")
             print(values_numba - values_numpy_permutation)
             raise AssertionError("Results differ!")
+        
+
+def profile_compilation(n_runs=100,n_elements=20, print_timing=False):
+    import time
+    matrix1d=np.random.rand(n_elements)
+    matrix2d=np.random.rand(n_elements,n_elements)
+    repetitions=np.random.randint(0,1000,size=n_elements)
+    
+    functions_to_benchmark = [
+        (compute_region_means_1_by_1, (matrix1d, matrix1d)),
+        (compute_region_means_1_by_2, (matrix1d, matrix2d)),
+        (compute_region_means_2_by_2, (matrix2d, matrix2d)),
+        (compute_region_means_2_by_2_parallel, (matrix2d, matrix2d)),
+        (create_region_masks_1_by_1, (n_elements,)),
+        (create_region_masks_1_by_2, (n_elements,)),
+        (create_region_masks_2_by_2, (n_elements,)),
+        (mean_inner_product_1_by_1, (repetitions, matrix1d, matrix1d)),
+        (mean_inner_product_1_by_2, (repetitions, matrix1d, matrix2d)),
+        (mean_inner_product_2_by_2, (repetitions,matrix2d, matrix2d)),
+        (build_mean_inner_product_matrix, (repetitions, np.array([matrix1d,matrix1d,matrix1d]), np.array([matrix2d,matrix2d,matrix2d])))
+    ]
+
+    print("Benchmarking functions:")
+    for func, args in functions_to_benchmark:
+        # Warm-up run
+        func(*args)
+        
+        # Timed runs
+        start_time = time.time()
+        for _ in range(n_runs):
+            func(*args)
+        end_time = time.time()
+        
+        avg_time = (end_time - start_time) / n_runs
+
+        print()
+        print(f"{func.__name__}: {avg_time:.6f} seconds")
+        print("Compiled signatures:", func.signatures)
+
+        signature = func.signatures[0]
+        overload = func.overloads[signature]
+
+        # This is the pipeline we want to look at, @njit = nopython pipeline.
+        pipeline = 'nopython'
+
+        if print_timing:
+            # Print the information, it's in the overload.metadata dictionary.
+            width = 20
+            print("\n\nTimings:\n")
+            for name, t in overload.metadata['pipeline_times'][pipeline].items():
+                fmt = (f'{name: <{40}}:'
+                    f'{t.init:<{width}.6f}'
+                    f'{t.run:<{width}.6f}'
+                    f'{t.finalize:<{width}.6f}')
+                print(fmt)
+        else:
+            total_time = sum([t.init + t.run + t.finalize for t in overload.metadata['pipeline_times'][pipeline].values()])
+            print(f"Total compilation time: {total_time:.6f} seconds")
+
+
 
 if __name__=='__main__':# Call the test function
     # print("Testing compute_region_means_1_by_1")
@@ -1039,60 +1116,61 @@ if __name__=='__main__':# Call the test function
     # print("Testing mean_inner_product_1_by_2")
     # test_mean_inner_product_1_by_2()
     # print("Testing mean_inner_product_2_by_2")
-    # test_mean_inner_product_2_by_2()
-    print("Testing mean_inner_product")
+    #test_mean_inner_product_2_by_2()
+    #print("Testing mean_inner_product")
     test_mean_inner_product()
+    profile_compilation()
 
     
-    #Profiling
+    # #Profiling
 
-    # Look up the signature of the first thing that's been compiled.
-    signature = build_mean_inner_product_matrix.signatures[0]
-    # Find the "overload" for it, this is what Numba uses internally to represent
-    # the compiled function.
-    overload = build_mean_inner_product_matrix.overloads[signature]
+    # # Look up the signature of the first thing that's been compiled.
+    # signature = build_mean_inner_product_matrix.signatures[0]
+    # # Find the "overload" for it, this is what Numba uses internally to represent
+    # # the compiled function.
+    # overload = build_mean_inner_product_matrix.overloads[signature]
 
-    # This is the pipeline we want to look at, @njit = nopython pipeline.
-    pipeline = 'nopython'
+    # # This is the pipeline we want to look at, @njit = nopython pipeline.
+    # pipeline = 'nopython'
 
-    # Print the information, it's in the overload.metadata dictionary.
-    width = 20
-    print("\n\nTimings:\n")
-    for name, time in overload.metadata['pipeline_times'][pipeline].items():
-        fmt = (f'{name: <{40}}:'
-            f'{time.init:<{width}.6f}'
-            f'{time.run:<{width}.6f}'
-            f'{time.finalize:<{width}.6f}')
-        print(fmt)
+    # # Print the information, it's in the overload.metadata dictionary.
+    # width = 20
+    # print("\n\nTimings:\n")
+    # for name, time in overload.metadata['pipeline_times'][pipeline].items():
+    #     fmt = (f'{name: <{40}}:'
+    #         f'{time.init:<{width}.6f}'
+    #         f'{time.run:<{width}.6f}'
+    #         f'{time.finalize:<{width}.6f}')
+    #     print(fmt)
     
-    numba_functions = [
-        compute_region_means_2_by_2_parallel,
-        compute_region_means_1_by_2,
-        compute_region_means_1_by_1,
-        create_region_masks_2_by_2,
-        mean_inner_product_2_by_2,
-        create_region_masks_1_by_2,
-        mean_inner_product_1_by_2,
-        create_region_masks_1_by_1,
-        mean_inner_product_1_by_1,
-        build_mean_inner_product_matrix
-    ]
+    # numba_functions = [
+    #     compute_region_means_2_by_2_parallel,
+    #     compute_region_means_1_by_2,
+    #     compute_region_means_1_by_1,
+    #     create_region_masks_2_by_2,
+    #     mean_inner_product_2_by_2,
+    #     create_region_masks_1_by_2,
+    #     mean_inner_product_1_by_2,
+    #     create_region_masks_1_by_1,
+    #     mean_inner_product_1_by_1,
+    #     build_mean_inner_product_matrix
+    # ]
 
-    #Typing
-    for func in numba_functions:
-        # Print the function name
-        print(f"\nFunction: {func.__name__}")
+    # #Typing
+    # for func in numba_functions:
+    #     # Print the function name
+    #     print(f"\nFunction: {func.__name__}")
 
-        # Print inferred types
-        #print("Inferred types:")
-        #func.inspect_types()
+    #     # Print inferred types
+    #     #print("Inferred types:")
+    #     #func.inspect_types()
 
-        # Print compiled signatures
-        print("Compiled signatures:", func.signatures)
+    #     # Print compiled signatures
+    #     print("Compiled signatures:", func.signatures)
 
-    # Time the functions
-    import time
-    import numpy as np
+    # # Time the functions
+    # import time
+    # import numpy as np
 
     
     
