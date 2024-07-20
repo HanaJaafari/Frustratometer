@@ -363,10 +363,9 @@ def create_region_masks_2_by_2(n_elements):
                     masks[iiii][i, j, k, l] = (i == j) and (i == k) and (i == l)
     return masks
 
-@jit(float64[:,:](int64[:], float64[:, :], float64[:, :]),nopython=True)
-def mean_inner_product_2_by_2(repetitions,indicator_0,indicator_1):
+@jit(float64[:,:](int64[:], float64[:], boolean[:, :, :, :, :]),nopython=True)
+def mean_inner_product_2_by_2(repetitions,region_mean, masks):
     ijkl, iikl, ijil, ijjl, ijki, ijkj, ijkk, iiil, iiki, iikk, ijii, ijij, ijji, ijjj, iiii = range(15)
-    region_mean= compute_region_means_2_by_2_parallel(indicator_0,indicator_1)
     n_elements= len(repetitions)
 
     # Create the mean_inner_product array
@@ -380,9 +379,6 @@ def mean_inner_product_2_by_2(repetitions,indicator_0,indicator_1):
     n_l = n_i.copy().transpose(1, 2, 3, 0).flatten()
     n_i=n_i.flatten()
 
-    masks = create_region_masks_2_by_2(n_elements)
-   
-    
     m = masks[iiii].flatten()
     mean_inner_product[m] = (
         n_i[m] * region_mean[iiii] +
@@ -503,10 +499,9 @@ def create_region_masks_1_by_2(n_elements):
 
     return masks
 
-@jit(float64[:,:](int64[:], float64[:], float64[:, :]), nopython=True)
-def mean_inner_product_1_by_2(repetitions,indicator_0,indicator_1):
+@jit(float64[:,:](int64[:], float64[:], boolean[:, :, :, :]), nopython=True)
+def mean_inner_product_1_by_2(repetitions,region_mean, masks):
     ijk, iik, iji, ijj, iii = range(5)
-    region_mean= compute_region_means_1_by_2(indicator_0,indicator_1)
     n_elements= len(repetitions)
 
     # Create the mean_inner_product array
@@ -517,9 +512,6 @@ def mean_inner_product_1_by_2(repetitions,indicator_0,indicator_1):
     n_j = n_i.copy().transpose(2, 0, 1).flatten()
     n_k = n_i.copy().transpose(1, 2, 0).flatten()
     n_i=n_i.flatten()
-
-    # Define masks for elements
-    masks = create_region_masks_1_by_2(n_elements)
 
     m = masks[iii].flatten()
     mean_inner_product[m] = (
@@ -565,10 +557,10 @@ def create_region_masks_1_by_1(n_elements):
 
     return masks
 
-@jit(float64[:,:](int64[:], float64[:], float64[:]),nopython=True)
-def mean_inner_product_1_by_1(repetitions,indicator_0,indicator_1):
+@jit(float64[:,:](int64[:], float64[:], boolean[:,:,:]),nopython=True)
+def mean_inner_product_1_by_1(repetitions,region_mean, masks):
     ij, ii = range(2)
-    region_mean= compute_region_means_1_by_1(indicator_0,indicator_1)
+    
     n_elements= len(repetitions)
 
     # Create the mean_inner_product array
@@ -579,9 +571,6 @@ def mean_inner_product_1_by_1(repetitions,indicator_0,indicator_1):
     n_j = n_i.copy().transpose(1, 0).flatten()
     n_i=n_i.flatten()
 
-    # Define masks for elements
-    masks = create_region_masks_1_by_1(n_elements)
-    
     m = masks[ii].flatten()
     mean_inner_product[m] = (
         n_i[m] * region_mean[ii] +
@@ -625,8 +614,8 @@ def mean_inner_product(repetitions,indicator_0,indicator_1, parallel=True, use_n
         raise NotImplementedError('This method has not be implemented for indicator dimensions {d0} and {d1}')
     return result 
 
-@jit(float64[:,:](int64[:], float64[:, :], float64[:, :, :]),nopython=True,parallel=True, cache=True)
-def build_mean_inner_product_matrix(repetitions,indicators1d,indicators2d):
+@jit(float64[:,:](int64[:], float64[:, :], float64[:, :, :]), nopython=True, parallel=True, cache=True)
+def build_mean_inner_product_matrix(repetitions, indicators1d, indicators2d):
     num_matrices1d = len(indicators1d)
     num_matrices2d = len(indicators2d)
     n_elements=len(repetitions)
@@ -648,31 +637,38 @@ def build_mean_inner_product_matrix(repetitions,indicators1d,indicators2d):
     for i in range(1,len(block_sizes)):
         start=start+block_sizes[i-1]
         start_indices[i] = start
+
+    # Create masks for each region
+    masks_11 = create_region_masks_1_by_1(n_elements)
+    masks_12 = create_region_masks_1_by_2(n_elements)
+    masks_22 = create_region_masks_2_by_2(n_elements)
     
     for ij in prange(num_matrices**2):
         i=ij//num_matrices
         j=ij%num_matrices
-        if i<j:
+        if i>j:
             continue
         si, sj = start_indices[i], start_indices[j]
         if i<num_matrices1d and j<num_matrices1d:
             ei, ej = si + n_elements, sj + n_elements
-            R[si:ei, sj:ej] = mean_inner_product_1_by_1(repetitions,indicators1d[i], indicators1d[j])
+            region_mean_11 = compute_region_means_1_by_1(indicators1d[i], indicators1d[j])
+            R[si:ei, sj:ej] = mean_inner_product_1_by_1(repetitions, region_mean_11, masks_11)
         elif i<num_matrices1d and j>=num_matrices1d:
             ei, ej = si + n_elements, sj + n_elements**2
-            R[si:ei, sj:ej] = mean_inner_product_1_by_2(repetitions,indicators1d[i],indicators2d[j-num_matrices1d])
-        elif i>=num_matrices1d and j<num_matrices1d:
-            ei, ej = si + n_elements**2, sj + n_elements
-            R[si:ei, sj:ej] = mean_inner_product_1_by_2(repetitions,indicators1d[j],indicators2d[i-num_matrices1d]).T
+            region_mean_12 = compute_region_means_1_by_2(indicators1d[i],indicators2d[j-num_matrices1d])
+            R[si:ei, sj:ej] = mean_inner_product_1_by_2(repetitions,region_mean_12, masks_12)
+
         elif i>=num_matrices1d and j>=num_matrices1d:
             ei, ej = si + n_elements**2, sj + n_elements**2
-            R[si:ei, sj:ej] = mean_inner_product_2_by_2(repetitions,indicators2d[i-num_matrices1d],indicators2d[j-num_matrices1d])
+            region_mean_22 = compute_region_means_2_by_2(indicators2d[i-num_matrices1d],indicators2d[j-num_matrices1d])
+            R[si:ei, sj:ej] = mean_inner_product_2_by_2(repetitions,region_mean_22, masks_22)
+        
         if i != j:
             R[sj:ej, si:ei] = R[si:ei, sj:ej].T
             
     return R
 
-def combinatorial_numpy_inner_product(native_sequence, indicator_0,indicator_1):
+def combinatorial_numpy_inner_product(native_sequence, indicator_0, indicator_1):
     elements = np.unique(native_sequence)
     len_elements = len(elements)
     len_sequence = len(native_sequence)
@@ -1048,6 +1044,9 @@ def profile_compilation(n_runs=100,n_elements=20, print_timing=False):
     matrix1d=np.random.rand(n_elements)
     matrix2d=np.random.rand(n_elements,n_elements)
     repetitions=np.random.randint(0,1000,size=n_elements)
+
+    
+    create_region_masks_1_by_1(n_elements)
     
     functions_to_benchmark = [
         (compute_region_means_1_by_1, (matrix1d, matrix1d)),
@@ -1057,9 +1056,9 @@ def profile_compilation(n_runs=100,n_elements=20, print_timing=False):
         (create_region_masks_1_by_1, (n_elements,)),
         (create_region_masks_1_by_2, (n_elements,)),
         (create_region_masks_2_by_2, (n_elements,)),
-        (mean_inner_product_1_by_1, (repetitions, matrix1d, matrix1d)),
-        (mean_inner_product_1_by_2, (repetitions, matrix1d, matrix2d)),
-        (mean_inner_product_2_by_2, (repetitions,matrix2d, matrix2d)),
+        (mean_inner_product_1_by_1, (repetitions, compute_region_means_1_by_1(matrix1d, matrix1d), create_region_masks_1_by_1(n_elements))),
+        (mean_inner_product_1_by_2, (repetitions, compute_region_means_1_by_2(matrix1d, matrix2d), create_region_masks_1_by_2(n_elements))),
+        (mean_inner_product_2_by_2, (repetitions, compute_region_means_2_by_2(matrix2d, matrix2d), create_region_masks_2_by_2(n_elements))),
         (build_mean_inner_product_matrix, (repetitions, np.array([matrix1d,matrix1d,matrix1d]), np.array([matrix2d,matrix2d,matrix2d])))
     ]
 
