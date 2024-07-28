@@ -519,6 +519,7 @@ def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, si
     sel_frustration = sel_frustration[mask_dist & (sel_frustration[:, -1] > 0)]
     
     minimally_frustrated = sel_frustration[sel_frustration[:, 2] < -0.78]
+    #minimally_frustrated = sel_frustration[sel_frustration[:, 2] < -1.78]
     sort_index = np.argsort(minimally_frustrated[:, 2])
     minimally_frustrated = minimally_frustrated[sort_index]
     if max_connections:
@@ -544,6 +545,7 @@ def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, si
             fo.write(f'draw line $pos1 $pos2 style dashed width 2\n')
 
     frustrated = sel_frustration[sel_frustration[:, 2] > 1]
+    #frustrated = sel_frustration[sel_frustration[:, 2] > 0]
     sort_index = np.argsort(frustrated[:, 2])[::-1]
     frustrated = frustrated[sort_index]
     if max_connections:
