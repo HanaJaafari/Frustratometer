@@ -1,5 +1,6 @@
 import numpy as np
 import numba
+import numba.core.registry
 import abc
 
 class EnergyTerm(abc.ABC):
@@ -17,13 +18,13 @@ class EnergyTerm(abc.ABC):
     def __init__(self, use_numba=True):
         self.use_numba = use_numba
 
-    def energy(self, seq_index:np.array):
+    def energy(self, seq_index:np.ndarray):
         return self.energy_function(seq_index)
     
-    def denergy_mutation(self, seq_index:np.array, pos:int, aa:int):
+    def denergy_mutation(self, seq_index:np.ndarray, pos:int, aa:int):
         return self.denergy_mutation_function(seq_index, pos, aa)
     
-    def denergy_swap(self, seq_index:np.array, pos1:int, pos2:int):
+    def denergy_swap(self, seq_index:np.ndarray, pos1:int, pos2:int):
         return self.denergy_swap_function(seq_index, pos1, pos2)
     
     @property
@@ -76,15 +77,15 @@ class EnergyTerm(abc.ABC):
         self._denergy_swap_function = func
     
     @staticmethod
-    def compute_energy(seq_index:np.array):
+    def compute_energy(seq_index:np.ndarray):
         return 0.
     
     @staticmethod
-    def compute_denergy_mutation(seq_index:np.array, pos:int, aa):
+    def compute_denergy_mutation(seq_index:np.ndarray, pos:int, aa):
         return 0.
     
     @staticmethod
-    def compute_denergy_swap(seq_index:np.array, pos1:int, pos2:int):
+    def compute_denergy_swap(seq_index:np.ndarray, pos1:int, pos2:int):
         return 0.
 
     def __add__(self, other):
@@ -130,7 +131,7 @@ class EnergyTerm(abc.ABC):
             new_energy_term.energy_function = new_energy_term.numbify(lambda seq_index: e1(seq_index) * e2(seq_index), cache=True)
             
             m1=self.denergy_mutation_function; m2=other.denergy_mutation_function
-            new_energy_term.denergy_mutation_function = new_energy_term.numnumbifybyfy(lambda seq_index,pos,aa: m1(seq_index,pos,aa) * m2(seq_index,pos,aa), cache=True)
+            new_energy_term.denergy_mutation_function = new_energy_term.numbify(lambda seq_index,pos,aa: m1(seq_index,pos,aa) * m2(seq_index,pos,aa), cache=True)
             
             s1=self.denergy_swap_function; s2=other.denergy_swap_function
             new_energy_term.denergy_swap_function = new_energy_term.numbify(lambda seq_index,pos1,pos2: s1(seq_index,pos1,pos2) * s2(seq_index,pos1,pos2), cache=True)
