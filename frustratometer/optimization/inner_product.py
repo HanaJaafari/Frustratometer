@@ -189,93 +189,77 @@ def mean_inner_product_2_by_2(repetitions,region_mean):
                     continue
                 for l in range(n_elements):
                     if i == l or j == l or k == l or n[l] == 0:
-                        continue
-                    id = i * n_elements**3 + j * n_elements**2 + k * n_elements + l
-                    mean_inner_product[id] = (
+                        continue 
+                    mean_inner_product[i * n_elements**3 + j * n_elements**2 + k * n_elements + l] = (
                         n[i] * n[j] * n[k] * n[l] * region_mean[ijkl]
                     )
-                id = i * n_elements**3 + j * n_elements**2 + i * n_elements + k
-                mean_inner_product[id] = (
+                mean_inner_product[i * n_elements**3 + j * n_elements**2 + i * n_elements + k] = (
                     n[i] * n[j] * n[k] * region_mean[ijil] +
                     n[i] * n[j] * n[k] * (n[i] - 1) * region_mean[ijkl]
                 )
-                id = i * n_elements**3 + j * n_elements**2 + j * n_elements + k
-                mean_inner_product[id] = (
+                mean_inner_product[i * n_elements**3 + j * n_elements**2 + j * n_elements + k] = (
                     n[i] * n[j] * n[k] * region_mean[ijjl] +
                     n[i] * n[j] * n[k] * (n[j] - 1) * region_mean[ijkl]
                 )
-                id = i * n_elements**3 + j * n_elements**2 + k * n_elements + i
-                mean_inner_product[id] = (
+                mean_inner_product[i * n_elements**3 + j * n_elements**2 + k * n_elements + i] = (
                     n[i] * n[j] * n[k] * region_mean[ijki] +
                     n[i] * n[j] * n[k] * (n[i] - 1) * region_mean[ijkl]
                 )
-                id = i * n_elements**3 + j * n_elements**2 + k * n_elements + j
-                mean_inner_product[id] = (
+                mean_inner_product[i * n_elements**3 + j * n_elements**2 + k * n_elements + j] = (
                     n[i] * n[j] * n[k] * region_mean[ijkj] +
                     n[i] * n[j] * n[k] * (n[j] - 1) * region_mean[ijkl]
                 )
-                id = i * n_elements**3 + j * n_elements**2 + k * n_elements + k
-                mean_inner_product[id] = (
+                mean_inner_product[i * n_elements**3 + j * n_elements**2 + k * n_elements + k] = (
                     n[i] * n[j] * n[k] * region_mean[ijkk] +
                     n[i] * n[j] * n[k] * (n[k] - 1) * region_mean[ijkl]
                 )
-                id = i * n_elements**3 + i * n_elements**2 + j * n_elements + k
-                mean_inner_product[id] = (
+                mean_inner_product[i * n_elements**3 + i * n_elements**2 + j * n_elements + k] = (
                     n[i] * n[j] * n[k] * region_mean[iikl] +
                     n[i] * n[j] * n[k] * (n[i] - 1) * region_mean[ijkl]
                 )
-            id=i*n_elements**3+i*n_elements**2+j*n_elements+j
-            mean_inner_product[id] = (
+            mean_inner_product[i*n_elements**3+i*n_elements**2+j*n_elements+j] = (
                 n[i] * n[j] * region_mean[iikk] +
                 n[i] * n[j] * (n[i] - 1) * region_mean[ijkk] +
                 n[i] * n[j] * (n[j] - 1) * region_mean[iikl] +
                 n[i] * n[j] * (n[i] - 1) * (n[j] - 1) * region_mean[ijkl]
             )
-            id=i*n_elements**3+j*n_elements**2+i*n_elements+j
-            mean_inner_product[id] = (
+            mean_inner_product[i*n_elements**3+j*n_elements**2+i*n_elements+j] = (
                 n[i] * n[j] * region_mean[ijij] +
                 n[i] * n[j] * (n[i] - 1) * region_mean[ijkj] +
                 n[i] * n[j] * (n[j] - 1) * region_mean[ijil] +
                 n[i] * n[j] * (n[i] - 1) * (n[j] - 1) * region_mean[ijkl]
             )
-            id=i*n_elements**3+j*n_elements**2+j*n_elements+i
-            mean_inner_product[id] = (
+            mean_inner_product[i*n_elements**3+j*n_elements**2+j*n_elements+i] = (
                 n[i] * n[j] * region_mean[ijji] +
                 n[i] * n[j] * (n[i] - 1) * region_mean[ijki] +
                 n[i] * n[j] * (n[j] - 1) * region_mean[ijjl] +
                 n[i] * n[j] * (n[i] - 1) * (n[j] - 1) * region_mean[ijkl]
             )
-            id=i*n_elements**3+i*n_elements**2+i*n_elements+j
-            mean_inner_product[id] = (
+            mean_inner_product[i*n_elements**3+i*n_elements**2+i*n_elements+j] = (
                 n[i] * n[j] * region_mean[iiil] +
                 n[i] * n[j] * (n[i] - 1) * (region_mean[ijjl] + region_mean[ijil] + region_mean[iikl]) +
                 n[i] * n[j] * (n[i] - 1) * (n[i] - 2) * region_mean[ijkl]
             )
-            id=i*n_elements**3+i*n_elements**2+j*n_elements+i
-            mean_inner_product[id] = (
+            mean_inner_product[i*n_elements**3+i*n_elements**2+j*n_elements+i] = (
                 n[i] * n[j] * region_mean[iiki] +
                 n[i] * n[j] * (n[i] - 1) * (region_mean[ijki] + region_mean[ijkj] + region_mean[iikl]) +
                 n[i] * n[j] * (n[i] - 1) * (n[i] - 2) * region_mean[ijkl]
             )
-            id=i*n_elements**3+j*n_elements**2+j*n_elements+j
-            mean_inner_product[id] = (
+            mean_inner_product[i*n_elements**3+j*n_elements**2+j*n_elements+j] = (
                 n[i] * n[j] * region_mean[ijjj] +
                 n[i] * n[j] * (n[j] - 1) * (region_mean[ijjl] + region_mean[ijkj] + region_mean[ijkk]) +
                 n[i] * n[j] * (n[j] - 1) * (n[j] - 2) * region_mean[ijkl]
             )
-            id=i*n_elements**3+j*n_elements**2+i*n_elements+i
-            mean_inner_product[id] = (
+            mean_inner_product[i*n_elements**3+j*n_elements**2+i*n_elements+i] = (
                 n[i] * n[j] * region_mean[ijii] +
                 n[i] * n[j] * (n[i] - 1) * (region_mean[ijki] + region_mean[ijil] + region_mean[ijkk]) +
                 n[i] * n[j] * (n[i] - 1) * (n[i] - 2) * region_mean[ijkl]
             )
-        id = i*n_elements**3+i*n_elements**2+i*n_elements+i
-        mean_inner_product[id] = (
+        mean_inner_product[i*n_elements**3+i*n_elements**2+i*n_elements+i] = (
             n[i] * region_mean[iiii] +
             n[i] * (n[i] - 1) * (region_mean[iikk] + region_mean[ijij] + region_mean[ijji] +
             region_mean[iiil] + region_mean[iiki] + region_mean[ijjj] + region_mean[ijii]) +
-            n[i] * (n[i] - 1) * (n[i] - 2) * (region_mean[ijil] + region_mean[ijjl] +
-            region_mean[ijki] + region_mean[ijkj] + region_mean[iikl] + region_mean[ijkk]) +
+            n[i] * (n[i] - 1) * (n[i] - 2) * (region_mean[ijil] + region_mean[ijjl] + region_mean[ijki] + region_mean[ijkj] + region_mean[iikl] + region_mean[ijkk]) +
             n[i] * (n[i] - 1) * (n[i] - 2) * (n[i] - 3) * region_mean[ijkl]
         )
 
@@ -408,126 +392,106 @@ def compute_all_region_means(indicators1d, indicators2d):
 # # Diferential functions #
 # #########################
 
-# #TODO: Implement the function
-# @jit(float64[:,:](int64,int64,int64[:], float64[:], boolean[:, :, :, :, :]),nopython=True)
-# def diff_mean_inner_product_2_by_2(r0, r1, repetitions,region_mean, masks):
-#     ijkl, iikl, ijil, ijjl, ijki, ijkj, ijkk, iiil, iiki, iikk, ijii, ijij, ijji, ijjj, iiii = range(15)
-#     n_elements= len(repetitions)
+@jit(float64[:,:](int64,int64,int64[:],float64[:]),nopython=True)
+def diff_mean_inner_product_2_by_2(r0,r1, repetitions,region_mean):
+    ijkl, iikl, ijil, ijjl, ijki, ijkj, ijkk, iiil, iiki, iikk, ijii, ijij, ijji, ijjj, iiii = range(15)
+    n_elements= len(repetitions)
+    m=repetitions
+    n=m.copy()
+    n[r0]-=1
+    n[r1]+=1
 
-#     # Create the mean_inner_product array
-#     mean_inner_product = np.zeros((n_elements, n_elements, n_elements, n_elements)).flatten()
-    
-#     # Create arrays of indices for elements
-#     #n_i, n_j, n_k, n_l = np.meshgrid(*[repetitions]*4, indexing='ij', sparse=False)
-#     n_i = np.repeat(repetitions, n_elements**3).reshape(n_elements, n_elements, n_elements, n_elements)
-#     n_j = n_i.copy().transpose(3, 0, 1, 2).flatten()
-#     n_k = n_i.copy().transpose(2, 3, 0, 1).flatten()
-#     n_l = n_i.copy().transpose(1, 2, 3, 0).flatten()
-#     n_i=n_i.flatten()
+    # Create the mean_inner_product array
+    mean_inner_product = np.zeros(n_elements**4)
+    for i in range(n_elements):
+        for j in range(n_elements):
+            if i == j:
+                continue
+            for k in range(n_elements):
+                if i == k or j==k:
+                    continue
+                for l in range(n_elements):
+                    if i == l or j == l or k == l:
+                        continue 
+                    mean_inner_product[i * n_elements**3 + j * n_elements**2 + k * n_elements + l] = (
+                        (n[i] * n[j] * n[k] * n[l] - m[i] * m[j] * m[k] * m[l]) * region_mean[ijkl]
+                    )
+                mean_inner_product[i * n_elements**3 + j * n_elements**2 + i * n_elements + k] = (
+                    (n[i] * n[j] * n[k] - m[i] * m[j] * m[k]) * region_mean[ijil] +
+                    (n[i] * n[j] * n[k] * (n[i] - 1) - m[i] * m[j] * m[k] * (m[i] - 1)) * region_mean[ijkl]
+                )
+                mean_inner_product[i * n_elements**3 + j * n_elements**2 + j * n_elements + k] = (
+                    (n[i] * n[j] * n[k] - m[i] * m[j] * m[k]) * region_mean[ijjl] +
+                    (n[i] * n[j] * n[k] * (n[j] - 1) - m[i] * m[j] * m[k] * (m[j] - 1)) * region_mean[ijkl]
+                )
+                mean_inner_product[i * n_elements**3 + j * n_elements**2 + k * n_elements + i] = (
+                    (n[i] * n[j] * n[k] - m[i] * m[j] * m[k]) * region_mean[ijki] +
+                    (n[i] * n[j] * n[k] * (n[i] - 1) - m[i] * m[j] * m[k] * (m[i] - 1)) * region_mean[ijkl]
+                )
+                mean_inner_product[i * n_elements**3 + j * n_elements**2 + k * n_elements + j] = (
+                    (n[i] * n[j] * n[k] - m[i] * m[j] * m[k]) * region_mean[ijkj] +
+                    (n[i] * n[j] * n[k] * (n[j] - 1) - m[i] * m[j] * m[k] * (m[j] - 1)) * region_mean[ijkl]
+                )
+                mean_inner_product[i * n_elements**3 + j * n_elements**2 + k * n_elements + k] = (
+                    (n[i] * n[j] * n[k] - m[i] * m[j] * m[k]) * region_mean[ijkk] +
+                    (n[i] * n[j] * n[k] * (n[k] - 1) - m[i] * m[j] * m[k] * (m[k] - 1)) * region_mean[ijkl]
+                )
+                mean_inner_product[i * n_elements**3 + i * n_elements**2 + j * n_elements + k] = (
+                    (n[i] * n[j] * n[k] - m[i] * m[j] * m[k]) * region_mean[iikl] +
+                    (n[i] * n[j] * n[k] * (n[i] - 1) - m[i] * m[j] * m[k] * (m[i] - 1)) * region_mean[ijkl]
+                )
+            mean_inner_product[i * n_elements**3 + i * n_elements**2 + j * n_elements + j] = (
+                (n[i] * n[j] - m[i] * m[j]) * region_mean[iikk] +
+                (n[i] * n[j] * (n[i] - 1) - m[i] * m[j] * (m[i] - 1)) * region_mean[ijkk] +
+                (n[i] * n[j] * (n[j] - 1) - m[i] * m[j] * (m[j] - 1)) * region_mean[iikl] +
+                (n[i] * n[j] * (n[i] - 1) * (n[j] - 1) - m[i] * m[j] * (m[i] - 1) * (m[j] - 1)) * region_mean[ijkl]
+            )
 
-#     m = masks[iiii].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * region_mean[iiii] +
-#         n_i[m] * (n_i[m]-1) * (region_mean[iikk] + region_mean[ijij] + region_mean[ijji] + region_mean[iiil] + region_mean[iiki] + region_mean[ijjj] + region_mean[ijii]) +
-#         n_i[m] * (n_i[m]-1) * (n_i[m]-2) * (region_mean[ijil] + region_mean[ijjl] + region_mean[ijki] + region_mean[ijkj] + region_mean[iikl] + region_mean[ijkk]) +
-#         n_i[m] * (n_i[m]-1) * (n_i[m]-2) * (n_i[m]-3) * region_mean[ijkl]
-#     )
-    
-#     m = masks[iikk].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_k[m] * region_mean[iikk] +
-#         n_i[m] * n_k[m] * (n_i[m]-1) * region_mean[ijkk] +
-#         n_i[m] * n_k[m] * (n_k[m]-1) * region_mean[iikl] +
-#         n_i[m] * n_k[m] * (n_i[m]-1) * (n_k[m]-1) * region_mean[ijkl]
-#     )
-    
-#     m = masks[ijij].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_j[m] * region_mean[ijij] +
-#         n_i[m] * n_j[m] * (n_i[m]-1) * region_mean[ijkj] +
-#         n_i[m] * n_j[m] * (n_j[m]-1) * region_mean[ijil] +
-#         n_i[m] * n_j[m] * (n_i[m]-1) * (n_j[m]-1) * region_mean[ijkl]
-#     )
+            mean_inner_product[i * n_elements**3 + j * n_elements**2 + i * n_elements + j] = (
+                (n[i] * n[j] - m[i] * m[j]) * region_mean[ijij] +
+                (n[i] * n[j] * (n[i] - 1) - m[i] * m[j] * (m[i] - 1)) * region_mean[ijkj] +
+                (n[i] * n[j] * (n[j] - 1) - m[i] * m[j] * (m[j] - 1)) * region_mean[ijil] +
+                (n[i] * n[j] * (n[i] - 1) * (n[j] - 1) - m[i] * m[j] * (m[i] - 1) * (m[j] - 1)) * region_mean[ijkl]
+            )
 
-#     m = masks[ijji].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_j[m] * region_mean[ijji] +
-#         n_i[m] * n_j[m] * (n_i[m]-1) * region_mean[ijki] +
-#         n_i[m] * n_j[m] * (n_j[m]-1) * region_mean[ijjl] +
-#         n_i[m] * n_j[m] * (n_i[m]-1) * (n_j[m]-1) * region_mean[ijkl]
-#     )
-    
-#     m = masks[iiil].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_l[m] * region_mean[iiil] +
-#         n_i[m] * n_l[m] * (n_i[m]-1) * (region_mean[ijjl] + region_mean[ijil] + region_mean[iikl]) +
-#         n_i[m] * n_l[m] * (n_i[m]-1) * (n_i[m]-2) * region_mean[ijkl]
-#     )
-    
-#     m = masks[iiki].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_k[m] * region_mean[iiki] +
-#         n_i[m] * n_k[m] * (n_i[m]-1) * (region_mean[ijki] + region_mean[ijkj] + region_mean[iikl]) +
-#         n_i[m] * n_k[m] * (n_i[m]-1) * (n_i[m]-2) * region_mean[ijkl]
-#     )
+            mean_inner_product[i * n_elements**3 + j * n_elements**2 + j * n_elements + i] = (
+                (n[i] * n[j] - m[i] * m[j]) * region_mean[ijji] +
+                (n[i] * n[j] * (n[i] - 1) - m[i] * m[j] * (m[i] - 1)) * region_mean[ijki] +
+                (n[i] * n[j] * (n[j] - 1) - m[i] * m[j] * (m[j] - 1)) * region_mean[ijjl] +
+                (n[i] * n[j] * (n[i] - 1) * (n[j] - 1) - m[i] * m[j] * (m[i] - 1) * (m[j] - 1)) * region_mean[ijkl]
+            )
 
-#     m = masks[ijjj].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_j[m] * region_mean[ijjj] +
-#         n_i[m] * n_j[m] * (n_j[m]-1) * (region_mean[ijjl] + region_mean[ijkj] + region_mean[ijkk]) +
-#         n_i[m] * n_j[m] * (n_j[m]-1) * (n_j[m]-2) * region_mean[ijkl]
-#     )
+            mean_inner_product[i * n_elements**3 + i * n_elements**2 + i * n_elements + j] = (
+                (n[i] * n[j] - m[i] * m[j]) * region_mean[iiil] +
+                (n[i] * n[j] * (n[i] - 1) - m[i] * m[j] * (m[i] - 1)) * (region_mean[ijjl] + region_mean[ijil] + region_mean[iikl]) +
+                (n[i] * n[j] * (n[i] - 1) * (n[i] - 2) - m[i] * m[j] * (m[i] - 1) * (m[i] - 2)) * region_mean[ijkl]
+            )
 
-#     m = masks[ijii].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_j[m] * region_mean[ijii] +
-#         n_i[m] * n_j[m] * (n_i[m]-1) * (region_mean[ijki] + region_mean[ijil] + region_mean[ijkk]) +
-#         n_i[m] * n_j[m] * (n_i[m]-1) * (n_i[m]-2) * region_mean[ijkl]
-#     )
-    
-#     m = masks[ijil].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_j[m] * n_l[m] * region_mean[ijil] +
-#         n_i[m] * n_j[m] * n_l[m] * (n_i[m]-1) * region_mean[ijkl]
-#     )
+            mean_inner_product[i * n_elements**3 + i * n_elements**2 + j * n_elements + i] = (
+                (n[i] * n[j] - m[i] * m[j]) * region_mean[iiki] +
+                (n[i] * n[j] * (n[i] - 1) - m[i] * m[j] * (m[i] - 1)) * (region_mean[ijki] + region_mean[ijkj] + region_mean[iikl]) +
+                (n[i] * n[j] * (n[i] - 1) * (n[i] - 2) - m[i] * m[j] * (m[i] - 1) * (m[i] - 2)) * region_mean[ijkl]
+            )
 
-#     m = masks[ijjl].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_j[m] * n_l[m] * region_mean[ijjl] +
-#         n_i[m] * n_j[m] * n_l[m] * (n_j[m]-1) * region_mean[ijkl]
-#     )
+            mean_inner_product[i * n_elements**3 + j * n_elements**2 + j * n_elements + j] = (
+                (n[i] * n[j] - m[i] * m[j]) * region_mean[ijjj] +
+                (n[i] * n[j] * (n[j] - 1) - m[i] * m[j] * (m[j] - 1)) * (region_mean[ijjl] + region_mean[ijkj] + region_mean[ijkk]) +
+                (n[i] * n[j] * (n[j] - 1) * (n[j] - 2) - m[i] * m[j] * (m[j] - 1) * (m[j] - 2)) * region_mean[ijkl]
+            )
 
-#     m = masks[ijki].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_j[m] * n_k[m] * region_mean[ijki] +
-#         n_i[m] * n_j[m] * n_k[m] * (n_i[m]-1) * region_mean[ijkl]
-#     )
+            mean_inner_product[i * n_elements**3 + j * n_elements**2 + i * n_elements + i] = (
+                (n[i] * n[j] - m[i] * m[j]) * region_mean[ijii] +
+                (n[i] * n[j] * (n[i] - 1) - m[i] * m[j] * (m[i] - 1)) * (region_mean[ijki] + region_mean[ijil] + region_mean[ijkk]) +
+                (n[i] * n[j] * (n[i] - 1) * (n[i] - 2) - m[i] * m[j] * (m[i] - 1) * (m[i] - 2)) * region_mean[ijkl]
+            )
+        mean_inner_product[i*n_elements**3+i*n_elements**2+i*n_elements+i] = (
+            (n[i] - m[i]) * region_mean[iiii] +
+            (n[i] * (n[i] - 1) - m[i] * (m[i] - 1)) * (region_mean[iikk] + region_mean[ijij] + region_mean[ijji] + region_mean[iiil] + region_mean[iiki] + region_mean[ijjj] + region_mean[ijii]) +
+            (n[i] * (n[i] - 1) * (n[i] - 2) - m[i] * (m[i] - 1) * (m[i] - 2)) * (region_mean[ijil] + region_mean[ijjl] + region_mean[ijki] + region_mean[ijkj] + region_mean[iikl] + region_mean[ijkk]) +
+            (n[i] * (n[i] - 1) * (n[i] - 2) * (n[i] - 3) - m[i] * (m[i] - 1) * (m[i] - 2) * (m[i] - 3)) * region_mean[ijkl]
+        )
 
-#     m = masks[ijkj].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_j[m] * n_k[m] * region_mean[ijkj] +
-#         n_i[m] * n_j[m] * n_k[m] * (n_j[m]-1) * region_mean[ijkl]
-#     )
-
-#     m = masks[ijkk].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_j[m] * n_k[m] * region_mean[ijkk] +
-#         n_i[m] * n_j[m] * n_k[m] * (n_k[m]-1) * region_mean[ijkl]
-#     )
-    
-#     m = masks[iikl].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_k[m] * n_l[m] * region_mean[iikl] +
-#         n_i[m] * n_k[m] * n_l[m] * (n_i[m]-1) * region_mean[ijkl]
-#     )
-    
-#     m = masks[ijkl].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_j[m] * n_k[m] * n_l[m] * region_mean[ijkl]
-#     )
-    
-#     # Flatten the mean_inner array and expand each equation
-#     return mean_inner_product.reshape(n_elements**2, n_elements**2)
+    return mean_inner_product.reshape(n_elements**2, n_elements**2)
 
 # #TODO: Implement the function
 # @jit(float64[:,:](int64,int64,int64[:], float64[:], boolean[:, :, :, :]), nopython=True)
@@ -1314,6 +1278,45 @@ def test_diff_inner_product(n_elements=20):
         print("Difference:")
         print(diff_direct - diff_indirect)
         raise AssertionError("Results differ!")
+    
+def test_diff_mean_inner_product_2_by_2(n_elements = 10):
+    failed=False
+    for i in range(10):
+        matrix2d = np.random.rand(n_elements, n_elements)
+        repetitions = np.random.randint(0, 1000, size=n_elements)
+        r0, r1 = np.random.choice(n_elements, 2, replace=False)
+        
+        region_mean = compute_region_means_2_by_2(matrix2d, matrix2d)
+        
+        # Original function with adjusted repetitions
+        m = repetitions.copy()
+        n = m.copy()
+        n[r0] -= 1
+        n[r1] += 1
+        result_adjusted = diff_mean_inner_product_2_by_2(r0, r1, repetitions, region_mean)
+        
+        # Recompute the functions for new and original repetitions directly
+        result_new_reps = mean_inner_product_2_by_2(n, region_mean)
+        result_original_reps = mean_inner_product_2_by_2(repetitions, region_mean)
+
+        # Check if the results are equivalent
+        if np.allclose(result_adjusted, result_new_reps - result_original_reps):
+            continue
+        else:
+            failed=True
+            # Optionally, show where they differ
+            result_diff=result_adjusted.reshape(n_elements,n_elements,n_elements,n_elements)
+            result_main=(result_new_reps - result_original_reps).reshape(n_elements,n_elements,n_elements,n_elements)
+            for i in range(n_elements):
+                for j in range(n_elements):
+                    for k in range(n_elements):
+                        for l in range(n_elements):
+                            if not np.allclose(result_diff[i,j,k,l],result_main[i,j,k,l]):
+                                print(f"i={i},j={j},k={k},l={l},result_diff={result_diff[i,j,k,l]},result_main={result_main[i,j,k,l]}")
+                                break
+
+    if failed:
+        raise AssertionError("Results differ!")
 
 
 def profile_compilation(n_runs=100,n_elements=20, print_timing=False):
@@ -1337,7 +1340,7 @@ def profile_compilation(n_runs=100,n_elements=20, print_timing=False):
         (compute_all_region_means, (np.array([matrix1d,matrix1d,matrix1d]), np.array([matrix2d,matrix2d,matrix2d]))),
         # (diff_mean_inner_product_1_by_1, (r0, r1, repetitions, compute_region_means_1_by_1(matrix1d, matrix1d), create_region_masks_1_by_1(n_elements))),
         # (diff_mean_inner_product_1_by_2, (r0, r1, repetitions, compute_region_means_1_by_2(matrix1d, matrix2d), create_region_masks_1_by_2(n_elements))),
-        # (diff_mean_inner_product_2_by_2, (r0, r1, repetitions, compute_region_means_2_by_2(matrix2d, matrix2d), create_region_masks_2_by_2(n_elements))),
+        (diff_mean_inner_product_2_by_2, (r0, r1, repetitions, compute_region_means_2_by_2(matrix2d, matrix2d))),
         # (diff_mean_inner_product_matrix, (r0, r1, repetitions, 3, 3, 
         #                                         create_region_masks_1_by_1(n_elements), create_region_masks_1_by_2(n_elements), create_region_masks_2_by_2(n_elements),
         #                                         compute_all_region_means(np.array([matrix1d,matrix1d,matrix1d]), np.array([matrix2d,matrix2d,matrix2d])))),
@@ -1389,6 +1392,7 @@ def profile_compilation(n_runs=100,n_elements=20, print_timing=False):
 
 
 
+
 if __name__=='__main__':# Call the test function
     # print("Testing compute_region_means_1_by_1")
     # test_compute_region_means_1_by_1()
@@ -1405,6 +1409,7 @@ if __name__=='__main__':# Call the test function
     # print("Testing mean_inner_product_2_by_2")
     #test_mean_inner_product_2_by_2()
     #print("Testing mean_inner_product")
+    test_diff_mean_inner_product_2_by_2()
     functions = profile_compilation()
     test_mean_inner_product()
     #test_diff_inner_product()
