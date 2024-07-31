@@ -197,8 +197,6 @@ class AWSEM_dE2(EnergyTerm):
     def initialize_functions(self):
         indicators1D=np.array(self.indicators[0:3])
         indicators2D=np.array(self.indicators[3:6])
-        print([a.shape for a in indicators1D])
-        print([a.shape for a in indicators2D])
         len_alphabet=self.alphabet_size
         gamma=self.gamma
         
@@ -211,7 +209,6 @@ class AWSEM_dE2(EnergyTerm):
             
         def compute_energy(seq_index):
             aa_count = np.bincount(seq_index, minlength=len_alphabet)
-            print(aa_count.shape)
             freq_i=aa_count
             freq_ij=np.outer(freq_i,freq_i)
             alpha = np.diag(freq_i)
@@ -440,15 +437,15 @@ if __name__ == '__main__':
     
     seq_indices = np.random.randint(0, len(reduced_alphabet), size=(1,len(structure.sequence)))
     #Tests
-    # for exact,use_numba in [(True,False),(False,False),(True,True),(False,True)]:
-    #     het=Heterogeneity(exact=exact,use_numba=use_numba)
-    #     for i in range(1):
-    #         het.test(seq_indices[i])
+    for exact,use_numba in [(True,False),(False,False),(True,True),(False,True)]:
+        het=Heterogeneity(exact=exact,use_numba=use_numba)
+        for i in range(1):
+            het.test(seq_indices[i])
     
-    # for use_numba in [False, True]:
-    #     awsem_energy = AWSEM_dE(use_numba=use_numba, model=model, alphabet=reduced_alphabet)
-    #     for i in range(1):
-    #         awsem_energy.test(seq_indices[i])
+    for use_numba in [False, True]:
+        awsem_energy = AWSEM_dE(use_numba=use_numba, model=model, alphabet=reduced_alphabet)
+        for i in range(1):
+            awsem_energy.test(seq_indices[i])
 
     for use_numba in [False, True]:
         awsem_de2 = AWSEM_dE2(use_numba=use_numba, model=model, alphabet=reduced_alphabet, gamma=gamma)
