@@ -392,8 +392,8 @@ def compute_all_region_means(indicators1d, indicators2d):
 # # Diferential functions #
 # #########################
 
-@jit(float64[:,:](int64,int64,int64[:],float64[:]),nopython=True)
-def diff_mean_inner_product_2_by_2(r0,r1, repetitions,region_mean):
+@jit(float64[:,:](int64, int64, int64[:], float64[:]),nopython=True)
+def diff_mean_inner_product_2_by_2(r0, r1, repetitions, region_mean):
     ijkl, iikl, ijil, ijjl, ijki, ijkj, ijkk, iiil, iiki, iikk, ijii, ijij, ijji, ijjj, iiii = range(15)
     n_elements= len(repetitions)
     m=repetitions
@@ -493,176 +493,114 @@ def diff_mean_inner_product_2_by_2(r0,r1, repetitions,region_mean):
 
     return mean_inner_product.reshape(n_elements**2, n_elements**2)
 
-# #TODO: Implement the function
-# @jit(float64[:,:](int64,int64,int64[:], float64[:], boolean[:, :, :, :]), nopython=True)
-# def diff_mean_inner_product_1_by_2(r0, r1, repetitions,region_mean, masks):
-#     ijk, iik, iji, ijj, iii = range(5)
-#     n_elements= len(repetitions)
+@jit(float64[:,:](int64, int64, int64[:], float64[:]), nopython=True)
+def diff_mean_inner_product_1_by_2(r0, r1, repetitions, region_mean):
+    ijk, iik, iji, ijj, iii = range(5)
+    n_elements= len(repetitions)
+    m=repetitions
+    n=m.copy()
+    n[r0]-=1
+    n[r1]+=1
 
-#     # Create the mean_inner_product array
-#     mean_inner_product = np.zeros((n_elements, n_elements, n_elements)).flatten()
+    # Create the mean_inner_product array
+    mean_inner_product = np.zeros(n_elements**3)
     
-#     # Create arrays of indices for elements
-#     n_i = np.repeat(repetitions, n_elements**2).reshape(n_elements, n_elements, n_elements)
-#     n_j = n_i.copy().transpose(2, 0, 1).flatten()
-#     n_k = n_i.copy().transpose(1, 2, 0).flatten()
-#     n_i=n_i.flatten()
+    for i in range(n_elements):
+        for j in range(n_elements):
+            for k in range(n_elements):
+                id=i*n_elements**2+j*n_elements+k
+                if (i == j) and (i == k): #iii
+                    mean_inner_product[id]=( (n[i]-m[i])*region_mean[iii] +
+                                             (n[i]*(n[i]-1) - m[i]*(m[i]-1))*(region_mean[iik] + region_mean[iji] + region_mean[ijj]) +
+                                             (n[i]*(n[i]-1)*(n[i]-2) - m[i]*(m[i]-1)*(m[i]-2))*region_mean[ijk])
+                elif (j == k) and (i != j): #iij
+                    mean_inner_product[id]=((n[i]*n[j]-m[i]*m[j])*region_mean[ijj] +
+                                             (n[i]*n[j]*(n[j]-1)-m[i]*m[j]*(m[j]-1))*region_mean[ijk])
+                elif (i == k) and (i != j): #iji
+                    mean_inner_product[id]=((n[i]*n[j]-m[i]*m[j])*region_mean[iji] +
+                                             (n[i]*n[j]*(n[i]-1)-m[i]*m[j]*(m[i]-1))*region_mean[ijk])
+                elif (i == j) and (i != k): #iik
+                    mean_inner_product[id]=((n[i]*n[k]-m[i]*m[k])*region_mean[iik] +
+                                             (n[i]*n[k]*(n[i]-1)-m[i]*m[k]*(m[i]-1))*region_mean[ijk])
+                else: #ijk
+                    mean_inner_product[id]=((n[i]*n[j]*n[k]-m[i]*m[j]*m[k])*region_mean[ijk])
+                
+    # Flatten the mean_inner array and expand each equation
+    return mean_inner_product.reshape(n_elements, n_elements**2)
 
-#     m = masks[iii].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * region_mean[iii] +
-#         n_i[m] * (n_i[m]-1) * (region_mean[iik] + region_mean[iji] + region_mean[ijj]) +
-#         n_i[m] * (n_i[m]-1) * (n_i[m]-2) * (region_mean[ijk]) 
-#     )
+@jit(float64[:,:](int64, int64, int64[:], float64[:]),nopython=True)
+def diff_mean_inner_product_1_by_1(r0, r1, repetitions,region_mean):
+    ij, ii = range(2)
     
-#     m = masks[ijj].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_j[m] * region_mean[ijj] +
-#         n_i[m] * n_j[m] * (n_j[m]-1) * region_mean[ijk]
-#     )
+    n_elements= len(repetitions)
+    m=repetitions
+    n=m.copy()
+    n[r0]-=1
+    n[r1]+=1
     
-#     m = masks[iji].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_j[m] * region_mean[iji] +
-#         n_i[m] * n_j[m] * (n_i[m]-1) * region_mean[ijk]
-#     )
-
-#     m = masks[iik].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_k[m] * region_mean[iik] +
-#         n_i[m] * n_k[m] * (n_i[m]-1) * region_mean[ijk]
-#     )
+    mean_inner_product = np.zeros(n_elements**2)
     
-#     m = masks[ijk].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_j[m] * n_k[m] * region_mean[ijk]
-#     )
-#     # Flatten the mean_inner array and expand each equation
-#     return mean_inner_product.reshape(n_elements, n_elements**2)
+    for i in range(n_elements):
+        for j in range(n_elements):
+            id=i*n_elements+j
+            if i==j: #ii
+                mean_inner_product[id]=((n[i]-m[i])*region_mean[ii]+
+                                        (n[i]*(n[i]-1)-m[i]*(m[i]-1))*region_mean[ij])
+            else: #ij
+                mean_inner_product[id]=(n[i]*n[j]-m[i]*m[j])*region_mean[ij]
+ 
+    return mean_inner_product.reshape(n_elements, n_elements)
 
-# #TODO: Test the function
-# @jit(float64[:,:](int64,int64,int64[:], float64[:], boolean[:,:,:]),nopython=True)
-# def diff_mean_inner_product_1_by_1(r0, r1, repetitions,region_mean, masks):
-#     ij, ii = range(2)
+@jit(float64[:,:](int64,int64,int64[:], float64[:, :], float64[:, :, :], float64[:,:,:]), nopython=True, parallel=True)
+def diff_mean_inner_product_matrix(r0,r1, repetitions, indicators1d, indicators2d, region_means):
+    num_matrices1d = len(indicators1d)
+    num_matrices2d = len(indicators2d)
+    n_elements = len(repetitions)
+    num_matrices = num_matrices1d + num_matrices2d
     
-#     n_elements= len(repetitions)
-
-#     # Create the mean_inner_product array
-#     mean_inner_product = np.zeros((n_elements, n_elements)).flatten()
-#     mean_inner_product_new = np.zeros((n_elements, n_elements)).flatten()
+    # Compute the size of each block and the total size
+    block_sizes = np.empty(num_matrices, dtype=np.int64)
+    block_sizes[:num_matrices1d] = n_elements
+    block_sizes[num_matrices1d:] = n_elements**2
+    total_size = np.sum(block_sizes)
     
-#     # Create arrays of indices for elements
-#     n_i = np.repeat(repetitions, n_elements).reshape(n_elements, n_elements)
-#     n_j = n_i.copy().transpose(1, 0).flatten()
-#     n_i = n_i.flatten()
-
-#     repetitions_new=repetitions.copy()
-#     repetitions_new[r0]=repetitions_new[r0]-1
-#     repetitions_new[r1]=repetitions_new[r1]+1
-#     n_i_new = np.repeat(repetitions_new, n_elements).reshape(n_elements, n_elements)
-#     n_j_new = n_i_new.copy().transpose(1, 0).flatten()
-#     n_i_new = n_i_new.flatten()
-
-#     for i in range(n_elements):
-#         if i !=r0 and i!=r1:
-#             masks[ii,i]=False
-#             for j in range(n_elements):
-#                 if j!=r0 and j!=r1:
-#                     masks[ij,i,j]=False
-    
-#     m = masks[ii].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * region_mean[ii] +
-#         n_i[m] * (n_i[m]-1) * region_mean[ij]
-#     )
-    
-#     m = masks[ij].flatten()
-#     mean_inner_product[m] = (
-#         n_i[m] * n_j[m] * region_mean[ij]
-#     )
-
-#     m = masks[ii].flatten()
-#     mean_inner_product_new[m] = (
-#         n_i_new[m] * region_mean[ii] +
-#         n_i_new[m] * (n_i_new[m]-1) * region_mean[ij]
-#     )
-
-#     m = masks[ij].flatten()
-#     mean_inner_product_new[m] = (
-#         n_i_new[m] * n_j_new[m] * region_mean[ij]
-#     )
-     
-#     return (mean_inner_product_new-mean_inner_product).reshape(n_elements, n_elements)
-
-# #TODO: Fix this function, The assumptions seem wrong for r0=4 and r1=7
-# # ipdb> diff_indirect[4,4]
-# # -3.0992316096271395
-# # ipdb> diff_direct[4,4]
-# # -3.180033373923255
-# # ipdb> mean_inner_product_1_by_1(repetitions_new,region_means[i,j], masks_11) - mean_inner_product_1_by_1(repetitions,region_means[i,j], masks_11)
-# # *** NameError: name 'i' is not defined
-# # ipdb> (mean_inner_product_1_by_1(repetitions_new,region_means[0,0], mask_11) - mean_inner_product_1_by_1(repetitions,region_means[0,0], mask_11))[4,4]
-# # -3.0992316096271395
-# @jit(float64[:,:](int64,int64,int64[:], int64, int64, boolean[:,:,:],boolean[:,:,:,:],boolean[:,:,:,:,:],float64[:,:,:]), nopython=True, parallel=True, cache=True)
-# def diff_mean_inner_product_matrix(r0, r1, repetitions, num_matrices1d, num_matrices2d, masks_11, masks_12, masks_22, region_means):
-
-#     print(r0, r1)
-#     print(repetitions)
-#     print(num_matrices1d, num_matrices2d)
-#     print(region_means)
-#     n_elements=len(repetitions)
-#     num_matrices = num_matrices1d + num_matrices2d
-    
-#     # Compute the size of each block and the total size
-#     block_sizes = np.empty(num_matrices, dtype=np.int64)
-#     block_sizes[:num_matrices1d] = n_elements
-#     block_sizes[num_matrices1d:] = n_elements**2
-#     total_size = np.sum(block_sizes)
-    
-#     # Create the resulting matrix filled with zeros
-#     R = np.zeros((total_size, total_size))
+    # Create the resulting matrix filled with zeros
+    R = np.zeros((total_size, total_size))
         
-#     # Compute the starting indices for each matrix
-#     #start_indices = np.cumsum([0] + block_sizes[:-1])
-#     start_indices=np.zeros(len(block_sizes),dtype=np.int64)
-#     start=0
-#     for i in range(1,len(block_sizes)):
-#         start=start+block_sizes[i-1]
-#         start_indices[i] = start
+    # Compute the starting indices for each matrix
+    #start_indices = np.cumsum([0] + block_sizes[:-1])
+    start_indices=np.zeros(len(block_sizes),dtype=np.int64)
+    start=0
+    for i in range(1,len(block_sizes)):
+        start=start+block_sizes[i-1]
+        start_indices[i] = start
 
-#     repetitions_new=repetitions.copy()
-#     repetitions_new[r0]=repetitions_new[r0]-1
-#     repetitions_new[r1]=repetitions_new[r1]+1
-#     print(repetitions)
-#     print(repetitions_new)
+    # Create masks for each region
+    
+    for ij in prange(num_matrices**2):
+        i=ij//num_matrices
+        j=ij%num_matrices
+        if i>j:
+            continue
+        si, sj = start_indices[i], start_indices[j]
+        if i<num_matrices1d and j<num_matrices1d:
+            ei, ej = si + n_elements, sj + n_elements
+            #region_mean_11 = compute_region_means_1_by_1(indicators1d[i], indicators1d[j])
+            R[si:ei, sj:ej] = diff_mean_inner_product_1_by_1(r0,r1,repetitions, region_means[i,j])
+        elif i<num_matrices1d and j>=num_matrices1d:
+            ei, ej = si + n_elements, sj + n_elements**2
+            #region_mean_12 = compute_region_means_1_by_2(indicators1d[i],indicators2d[j-num_matrices1d])
+            R[si:ei, sj:ej] = diff_mean_inner_product_1_by_2(r0,r1,repetitions, region_means[i,j])
 
-#     for ij in prange(num_matrices**2):
-#         i=ij//num_matrices
-#         j=ij%num_matrices
-#         if i>j:
-#             continue
-#         si, sj = start_indices[i], start_indices[j]
-#         if i<num_matrices1d and j<num_matrices1d:
-#             ei, ej = si + n_elements, sj + n_elements
-#             #R[si:ei, sj:ej] = diff_mean_inner_product_1_by_1(r0, r1, repetitions, region_means[i,j], masks_11)
-#             R[si:ei, sj:ej] = mean_inner_product_1_by_1(repetitions_new,region_means[i,j], masks_11) - mean_inner_product_1_by_1(repetitions,region_means[i,j], masks_11)
-
-#         elif i<num_matrices1d and j>=num_matrices1d:
-#             ei, ej = si + n_elements, sj + n_elements**2
-#             #R[si:ei, sj:ej] = mean_inner_product_1_by_2(r0, r1, repetitions,region_means[i,j], masks_12)
-#             R[si:ei, sj:ej] = mean_inner_product_1_by_2(repetitions_new,region_means[i,j], masks_12) - mean_inner_product_1_by_2(repetitions,region_means[i,j], masks_12)
-
-#         elif i>=num_matrices1d and j>=num_matrices1d:
-#             ei, ej = si + n_elements**2, sj + n_elements**2
-#             #R[si:ei, sj:ej] = diff_mean_inner_product_2_by_2(r0, r1, repetitions,region_means[i,j], masks_22)
-#             R[si:ei, sj:ej] = mean_inner_product_2_by_2(repetitions_new,region_means[i,j], masks_22) - mean_inner_product_2_by_2(repetitions,region_means[i,j], masks_22)
+        elif i>=num_matrices1d and j>=num_matrices1d:
+            ei, ej = si + n_elements**2, sj + n_elements**2
+            #region_mean_22 = compute_region_means_2_by_2(indicators2d[i-num_matrices1d],indicators2d[j-num_matrices1d])
+            R[si:ei, sj:ej] = diff_mean_inner_product_2_by_2(r0,r1,repetitions, region_means[i,j])
         
-#         if i != j:
-#             R[sj:ej, si:ei] = R[si:ei, sj:ej].T
-#         print(i,j,R[si:ei, sj:ej].sum())
+        if i != j:
+            R[sj:ej, si:ei] = R[si:ei, sj:ej].T
             
-#     return R
-
+    return R
 
 ###################
 # Numpy functions #
@@ -1260,15 +1198,18 @@ def test_diff_inner_product(n_elements=20):
     if repetitions_new[r0]>0:
         repetitions_new[r0]-=1
         repetitions_new[r1]+=1
+
+    region_means = compute_all_region_means(np.array([indicator1D_0,indicator1D_1,indicator1D_2]), 
+                                            np.array([indicator2D_0,indicator2D_1,indicator2D_2]))
+
+    diff_direct=(build_mean_inner_product_matrix(repetitions_new,np.array([indicator1D_0, indicator1D_1, indicator1D_2]),np.array([indicator2D_0, indicator2D_1,indicator2D_2]),region_means) -
+                 build_mean_inner_product_matrix(repetitions,np.array([indicator1D_0, indicator1D_1, indicator1D_2]),np.array([indicator2D_0, indicator2D_1,indicator2D_2]),region_means))
     
-    diff_direct=build_mean_inner_product_matrix(repetitions_new,np.array([indicator1D_0, indicator1D_1, indicator1D_2]),np.array([indicator2D_0, indicator2D_1,indicator2D_2]))-\
-                build_mean_inner_product_matrix(repetitions,np.array([indicator1D_0, indicator1D_1, indicator1D_2]),np.array([indicator2D_0, indicator2D_1,indicator2D_2]))
-    
-    mask_11 = create_region_masks_1_by_1(n_elements)
-    mask_12 = create_region_masks_1_by_2(n_elements)
-    mask_22 = create_region_masks_2_by_2(n_elements)
-    region_means = compute_all_region_means(np.array([indicator1D_0,indicator1D_1,indicator1D_2]), np.array([indicator2D_0,indicator2D_1,indicator2D_2]))
-    diff_indirect = diff_mean_inner_product_matrix(r0,r1,repetitions,3,3,mask_11,mask_12,mask_22,region_means)
+
+    diff_indirect = diff_mean_inner_product_matrix(r0,r1,repetitions,
+                                                   np.array([indicator1D_0,indicator1D_1,indicator1D_2]), 
+                                                   np.array([indicator2D_0,indicator2D_1,indicator2D_2])
+                                                   ,region_means)
 
     if np.allclose(diff_direct, diff_indirect):
         print("Results are the same!")
@@ -1282,11 +1223,12 @@ def test_diff_inner_product(n_elements=20):
 def test_diff_mean_inner_product_2_by_2(n_elements = 10):
     failed=False
     for i in range(10):
-        matrix2d = np.random.rand(n_elements, n_elements)
+        matrix2d_0 = np.random.rand(n_elements, n_elements)
+        matrix2d_1 = np.random.rand(n_elements, n_elements)
         repetitions = np.random.randint(0, 1000, size=n_elements)
         r0, r1 = np.random.choice(n_elements, 2, replace=False)
         
-        region_mean = compute_region_means_2_by_2(matrix2d, matrix2d)
+        region_mean = compute_region_means_2_by_2(matrix2d_0, matrix2d_1)
         
         # Original function with adjusted repetitions
         m = repetitions.copy()
@@ -1318,6 +1260,82 @@ def test_diff_mean_inner_product_2_by_2(n_elements = 10):
     if failed:
         raise AssertionError("Results differ!")
 
+def test_diff_mean_inner_product_1_by_2(n_elements = 10):
+    failed=False
+    for i in range(10):
+        matrix1d_0 = np.random.rand(n_elements)
+        matrix2d_1 = np.random.rand(n_elements, n_elements)
+        repetitions = np.random.randint(0, 1000, size=n_elements)
+        r0, r1 = np.random.choice(n_elements, 2, replace=False)
+        
+        region_mean = compute_region_means_1_by_2(matrix1d_0, matrix2d_1)
+        
+        # Original function with adjusted repetitions
+        m = repetitions.copy()
+        n = m.copy()
+        n[r0] -= 1
+        n[r1] += 1
+        result_adjusted = diff_mean_inner_product_1_by_2(r0, r1, repetitions, region_mean)
+        
+        # Recompute the functions for new and original repetitions directly
+        result_new_reps = mean_inner_product_1_by_2(n, region_mean)
+        result_original_reps = mean_inner_product_1_by_2(repetitions, region_mean)
+
+        # Check if the results are equivalent
+        if np.allclose(result_adjusted, result_new_reps - result_original_reps):
+            continue
+        else:
+            failed=True
+            # Optionally, show where they differ
+            result_diff=result_adjusted.reshape(n_elements,n_elements,n_elements)
+            result_main=(result_new_reps - result_original_reps).reshape(n_elements,n_elements,n_elements)
+            for i in range(n_elements):
+                for j in range(n_elements):
+                    for k in range(n_elements):
+                        if not np.allclose(result_diff[i,j,k],result_main[i,j,k]):
+                            print(f"i={i},j={j},k={k},result_diff={result_diff[i,j,k]},result_main={result_main[i,j,k]}")
+                            break
+
+    if failed:
+        raise AssertionError("Results differ!")
+    
+def test_diff_mean_inner_product_1_by_1(n_elements = 10):
+    failed=False
+    for i in range(10):
+        matrix1d_0 = np.random.rand(n_elements)
+        matrix1d_1 = np.random.rand(n_elements)
+        repetitions = np.random.randint(0, 1000, size=n_elements)
+        r0, r1 = np.random.choice(n_elements, 2, replace=False)
+        
+        region_mean = compute_region_means_1_by_1(matrix1d_0, matrix1d_1)
+        
+        # Original function with adjusted repetitions
+        m = repetitions.copy()
+        n = m.copy()
+        n[r0] -= 1
+        n[r1] += 1
+        result_adjusted = diff_mean_inner_product_1_by_1(r0, r1, repetitions, region_mean)
+        
+        # Recompute the functions for new and original repetitions directly
+        result_new_reps = mean_inner_product_1_by_1(n, region_mean)
+        result_original_reps = mean_inner_product_1_by_1(repetitions, region_mean)
+
+        # Check if the results are equivalent
+        if np.allclose(result_adjusted, result_new_reps - result_original_reps):
+            continue
+        else:
+            failed=True
+            # Optionally, show where they differ
+            result_diff=result_adjusted.reshape(n_elements,n_elements)
+            result_main=(result_new_reps - result_original_reps).reshape(n_elements,n_elements)
+            for i in range(n_elements):
+                for j in range(n_elements):
+                    if not np.allclose(result_diff[i,j],result_main[i,j]):
+                        print(f"i={i},j={j},result_diff={result_diff[i,j]},result_main={result_main[i,j]}")
+                        break
+
+    if failed:
+        raise AssertionError("Results differ!")
 
 def profile_compilation(n_runs=100,n_elements=20, print_timing=False):
     import time
@@ -1338,12 +1356,11 @@ def profile_compilation(n_runs=100,n_elements=20, print_timing=False):
         (build_mean_inner_product_matrix, (repetitions, np.array([matrix1d,matrix1d,matrix1d]), np.array([matrix2d,matrix2d,matrix2d]),
                                            compute_all_region_means(np.array([matrix1d,matrix1d,matrix1d]), np.array([matrix2d,matrix2d,matrix2d])))),
         (compute_all_region_means, (np.array([matrix1d,matrix1d,matrix1d]), np.array([matrix2d,matrix2d,matrix2d]))),
-        # (diff_mean_inner_product_1_by_1, (r0, r1, repetitions, compute_region_means_1_by_1(matrix1d, matrix1d), create_region_masks_1_by_1(n_elements))),
-        # (diff_mean_inner_product_1_by_2, (r0, r1, repetitions, compute_region_means_1_by_2(matrix1d, matrix2d), create_region_masks_1_by_2(n_elements))),
+        (diff_mean_inner_product_1_by_1, (r0, r1, repetitions, compute_region_means_1_by_1(matrix1d, matrix1d))),
+        (diff_mean_inner_product_1_by_2, (r0, r1, repetitions, compute_region_means_1_by_2(matrix1d, matrix2d))),
         (diff_mean_inner_product_2_by_2, (r0, r1, repetitions, compute_region_means_2_by_2(matrix2d, matrix2d))),
-        # (diff_mean_inner_product_matrix, (r0, r1, repetitions, 3, 3, 
-        #                                         create_region_masks_1_by_1(n_elements), create_region_masks_1_by_2(n_elements), create_region_masks_2_by_2(n_elements),
-        #                                         compute_all_region_means(np.array([matrix1d,matrix1d,matrix1d]), np.array([matrix2d,matrix2d,matrix2d])))),
+        (diff_mean_inner_product_matrix, (r0, r1, repetitions, np.array([matrix1d,matrix1d,matrix1d]), np.array([matrix2d,matrix2d,matrix2d]),
+                                          compute_all_region_means(np.array([matrix1d,matrix1d,matrix1d]), np.array([matrix2d,matrix2d,matrix2d])))),
         
     ]
 
@@ -1410,9 +1427,11 @@ if __name__=='__main__':# Call the test function
     #test_mean_inner_product_2_by_2()
     #print("Testing mean_inner_product")
     test_diff_mean_inner_product_2_by_2()
+    test_diff_mean_inner_product_1_by_2()
+    test_diff_mean_inner_product_1_by_1()
     functions = profile_compilation()
     test_mean_inner_product()
-    #test_diff_inner_product()
+    test_diff_inner_product()
     
 
     
