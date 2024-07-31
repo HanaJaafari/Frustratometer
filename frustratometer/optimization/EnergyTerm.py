@@ -211,7 +211,13 @@ class EnergyTerm(abc.ABC):
             s1=self.denergy_swap_function
             new_energy_term.denergy_swap_function = new_energy_term.numbify(lambda seq_index,pos1,pos2: s1(seq_index,pos1,pos2) / other)
             return new_energy_term
-        
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
+    
+    def __radd__(self, other):
+        return self.__add__(other)
+    
     def __new__(cls, *args, **kwargs):
         new_instance = super().__new__(cls)
         new_instance.use_numba = True
