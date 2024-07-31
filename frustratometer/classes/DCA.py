@@ -110,30 +110,51 @@ class DCA(Frustratometer):
         return self
 
     @classmethod
-    def from_pottsmodel(cls,
+    def from_pottsmodel(cls,pdb_structure,
                         potts_model: dict,
-                        pdb_file: typing.Union[str, None] = None,
-                        chain: typing.Union[str, None] = None,
                         sequence_cutoff: typing.Union[float, None] = None,
-                        distance_cutoff: typing.Union[float, None] = None,
-                        distance_matrix_method='minimum'):
+                        distance_cutoff: typing.Union[float, None] = None):
         self = cls()
 
         # Set initialization variables
-        self._potts_model = potts_model
-        self._potts_model_file = None
-        self._pdb_file = Path(pdb_file)
-        self._chain = chain
-        self._sequence_cutoff = sequence_cutoff
-        self._distance_cutoff = distance_cutoff
-        self._distance_matrix_method = distance_matrix_method
+        self.structure=pdb_structure.structure
+        self._chain=pdb_structure.chain
+        self._sequence=pdb_structure.sequence
+        self._pdb_file=pdb_structure.pdb_file
+        self._potts_model=potts_model
+        self._sequence_cutoff=sequence_cutoff
+        self._distance_cutoff=distance_cutoff
+        self._distance_matrix_method=None
+
+        self.reformat_potts_model=reformat_potts_model
+        self.init_index_shift=pdb_structure.init_index_shift
+
+        self.full_to_aligned_index_dict=pdb_structure.full_to_aligned_index_dict
+        self.filtered_aligned_sequence=pdb_structure.filtered_aligned_sequence
+        self.aligned_sequence=pdb_structure.aligned_sequence
+
+        self.mapped_distance_matrix=pdb_structure.mapped_distance_matrix
+        self.distance_matrix=self.mapped_distance_matrix
+
+        if self.distance_cutoff==None:
+            example_matrix=np.ones((len(self.filtered_aligned_sequence),len(self.filtered_aligned_sequence)))
+            self.mask = frustration.compute_mask(example_matrix, self.distance_cutoff, self.sequence_cutoff)
+        else:
+            self.mask = frustration.compute_mask(self.mapped_distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+
+        self.minimally_frustrated_threshold=1
 
         # Compute fast properties
-        self._sequence = pdb.get_sequence(self.pdb_file, self.chain)
-        self.distance_matrix = pdb.get_distance_matrix(self.pdb_file, self.chain, self.distance_matrix_method)
-        self.aa_freq = frustration.compute_aa_freq(self.sequence)
-        self.contact_freq = frustration.compute_contact_freq(self.sequence)
-        self.mask = frustration.compute_mask(self.distance_matrix, self.distance_cutoff, self.sequence_cutoff)
+        if self.reformat_potts_model:
+            self.potts_model["h"]=self.potts_model["h"].T
+            self.potts_model["J"]= self.potts_model["familycouplings"].reshape(int(len(self.filtered_aligned_sequence)),21,int(len(self.filtered_aligned_sequence)),21).transpose(0,2,1,3)
+
+        if self.filtered_aligned_sequence is not None:
+            self.aa_freq = frustration.compute_aa_freq(self.sequence)
+            self.contact_freq = frustration.compute_contact_freq(self.sequence)
+        else:
+            self.aa_freq = None
+            self.contact_freq = None   
 
         # Initialize slow properties
         self._native_energy = None

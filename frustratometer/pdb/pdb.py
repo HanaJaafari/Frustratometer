@@ -16,7 +16,20 @@ three_to_one = {'ALA':'A', 'ARG':'R', 'ASN':'N', 'ASP':'D', 'CYS':'C',
 def download(pdbID: str,directory: Path=Path.cwd()) -> Path:
     """
     Downloads a single pdb file
+
+    Parameters
+    ----------
+    pdbID: str,
+        PDB ID
+    directory: str,
+        Directory where PDB file will be downloaded.
+
+    Returns
+    -------
+    pdb_file : str
+        PDB file location.
     """
+
     import urllib.request
     pdb_file=Path(directory) / f'{pdbID}.pdb'
     urllib.request.urlretrieve('http://www.rcsb.org/pdb/files/%s.pdb' % pdbID, pdb_file)
@@ -30,7 +43,7 @@ def get_sequence(pdb_file: str,
 
     Parameters
     ----------
-    pdb : str,
+    pdb_file : str,
         PDB file location.
     chain: str,
         Chain ID of the selected protein.
@@ -76,15 +89,19 @@ def get_distance_matrix(pdb_file: Path,
     """
     Calculate the distance matrix of the specified atoms in a PDB file.
 
-    Parameters:
-        pdb_file (str): The path to the PDB file.
-        chain (str): The chainID or chainIDs (space separated) of the protein.
-        method (str): The method to use for calculating the distance matrix. 
-                      Defaults to 'CB', which uses the CB atom for all residues except GLY, which uses the CA atom. 
-                      Options:
-                       'CA' for using only the CA atom,
-                       'minimum' for using the minimum distance between all atoms in each residue,
-                       'CB_force' computes a new coordinate for the CB atom based on the CA, C, and N atoms and uses CB distance even for glycine.
+    Parameters
+    ----------
+    pdb_file: str 
+        The path to the PDB file.
+    chain: str
+        The chainID or chainIDs (space separated) of the protein.
+    method: str
+        The method to use for calculating the distance matrix. 
+        Defaults to 'CB', which uses the CB atom for all residues except GLY, which uses the CA atom. 
+        Options:
+            'CA' for using only the CA atom,
+            'minimum' for using the minimum distance between all atoms in each residue,
+            'CB_force' computes a new coordinate for the CB atom based on the CA, C, and N atoms and uses CB distance even for glycine.
 
     Returns:
         np.array: The distance matrix of the selected atoms.
@@ -148,6 +165,23 @@ def get_distance_matrix(pdb_file: Path,
 
 def full_to_filtered_aligned_mapping(aligned_sequence: str,
                                     filtered_aligned_sequence: str):
+
+    """
+    Get a dictionary mapping residue positions in the full pdb sequence to the aligned pdb sequence
+
+    Parameters
+    ----------
+    aligned_sequence : str,
+        Raw aligned PDB sequence.
+    filtered_aligned_sequence: str,
+        Filtered aligned PDB sequence (columns with insertions and deletions, i.e. dashes, that are
+        typically filtered in MSA file processing are removed)
+
+    Returns
+    -------
+    full_to_aligned_index_dict : dict
+        Dictionary
+    """
     full_to_aligned_index_dict={}; counter=0
     for i,x in enumerate(aligned_sequence):
         if x != "-" and x==x.upper():
