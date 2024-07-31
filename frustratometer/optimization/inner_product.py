@@ -1,6 +1,6 @@
 from numba import jit
+from numba import types
 from numba import prange
-from numba import int64, float64, boolean, void
 import numpy as np
 
 ###################
@@ -12,7 +12,7 @@ ij, ii = range(2)
 ijk, iik, iji, ijj, iii = range(5)
 ijkl, iikl, ijil, ijjl, ijki, ijkj, ijkk, iiil, iiki, iikk, ijii, ijij, ijji, ijjj, iiii = range(15)
 
-@jit(float64[:](float64[:, :], float64[:, :]),nopython=True)
+@jit(types.Array(types.float64, 1, 'C')(types.Array(types.float64, 2, 'A', readonly=True), types.Array(types.float64, 2, 'A', readonly=True)),nopython=True)
 def compute_region_means_2_by_2(indicator_0, indicator_1):
     n = indicator_0.shape[0]
     region_sum = np.zeros(15, dtype=np.float64) 
@@ -64,7 +64,7 @@ def compute_region_means_2_by_2(indicator_0, indicator_1):
     
     return region_mean
 
-@jit(float64[:](float64[:, :], float64[:, :]),nopython=True, parallel=True)
+@jit(types.Array(types.float64, 1, 'C')(types.Array(types.float64, 2, 'A', readonly=True), types.Array(types.float64, 2, 'A', readonly=True)),nopython=True, parallel=True)
 def compute_region_means_2_by_2_parallel(indicator_0, indicator_1):
     n = indicator_0.shape[0]
     region_sum = np.zeros(15, dtype=np.float64) 
@@ -125,7 +125,7 @@ def compute_region_means_2_by_2_parallel(indicator_0, indicator_1):
     
     return region_mean
 
-@jit(float64[:](float64[:], float64[:, :]),nopython=True)
+@jit(types.Array(types.float64, 1, 'C')(types.Array(types.float64, 1, 'A', readonly=True), types.Array(types.float64, 2, 'A', readonly=True)),nopython=True)
 def compute_region_means_1_by_2(indicator_0, indicator_1):
     n = indicator_1.shape[0]
     region_sum = np.zeros(5, dtype=np.float64) 
@@ -154,7 +154,7 @@ def compute_region_means_1_by_2(indicator_0, indicator_1):
     return region_mean
 
 
-@jit(float64[:](float64[:], float64[:]), nopython=True)
+@jit(types.Array(types.float64, 1, 'C')(types.Array(types.float64, 1, 'A', readonly=True), types.Array(types.float64, 1, 'A', readonly=True)), nopython=True)
 def compute_region_means_1_by_1(indicator_0, indicator_1):
     n = indicator_0.shape[0]
     region_sum = np.zeros(2, dtype=np.float64) 
@@ -170,7 +170,7 @@ def compute_region_means_1_by_1(indicator_0, indicator_1):
         region_mean[ij]=indicator_0.mean()*indicator_1.mean()*(n/(n - 1))-region_sum.sum()/(n*(n-1))
     return region_mean
 
-@jit(float64[:,:](int64[:], float64[:]),nopython=True)
+@jit(types.Array(types.float64, 2, 'C')(types.Array(types.int64, 1, 'A', readonly=True), types.Array(types.float64, 1, 'A', readonly=True)),nopython=True)
 def mean_inner_product_2_by_2(repetitions,region_mean):
     ijkl, iikl, ijil, ijjl, ijki, ijkj, ijkk, iiil, iiki, iikk, ijii, ijij, ijji, ijjj, iiii = range(15)
     n_elements= len(repetitions)
@@ -266,7 +266,7 @@ def mean_inner_product_2_by_2(repetitions,region_mean):
     # Flatten the mean_inner array and expand each equation
     return mean_inner_product.reshape(n_elements**2, n_elements**2)
 
-@jit(float64[:,:](int64[:], float64[:]), nopython=True)
+@jit(types.Array(types.float64, 2, 'C')(types.Array(types.int64, 1, 'A', readonly=True), types.Array(types.float64, 1, 'A', readonly=True)), nopython=True)
 def mean_inner_product_1_by_2(repetitions,region_mean):
     ijk, iik, iji, ijj, iii = range(5)
     n_elements= len(repetitions)
@@ -293,7 +293,7 @@ def mean_inner_product_1_by_2(repetitions,region_mean):
     # Flatten the mean_inner array and expand each equation
     return mean_inner_product.reshape(n_elements, n_elements**2)
 
-@jit(float64[:,:](int64[:], float64[:]),nopython=True)
+@jit(types.Array(types.float64, 2, 'C')(types.Array(types.int64, 1, 'A', readonly=True), types.Array(types.float64, 1, 'A', readonly=True)),nopython=True)
 def mean_inner_product_1_by_1(repetitions,region_mean):
     ij, ii = range(2)
     
@@ -312,7 +312,12 @@ def mean_inner_product_1_by_1(repetitions,region_mean):
  
     return mean_inner_product.reshape(n_elements, n_elements)
 
-@jit(float64[:,:](int64[:], float64[:, :], float64[:, :, :], float64[:,:,:]), nopython=True, parallel=True)
+@jit(types.Array(types.float64, 2, 'C')(
+                 types.Array(types.int64, 1, 'A', readonly=True), 
+                 types.Array(types.float64, 2, 'A', readonly=True), 
+                 types.Array(types.float64, 3, 'A', readonly=True),
+                 types.Array(types.float64, 3, 'A', readonly=True)),
+      nopython=True, parallel=True)
 def build_mean_inner_product_matrix(repetitions, indicators1d, indicators2d, region_means):
     num_matrices1d = len(indicators1d)
     num_matrices2d = len(indicators2d)
@@ -364,7 +369,10 @@ def build_mean_inner_product_matrix(repetitions, indicators1d, indicators2d, reg
     return R
 
 
-@jit(float64[:,:,:](float64[:, :], float64[:, :, :]), nopython=True, parallel=True)
+@jit(types.Array(types.float64, 3, 'C')(
+     types.Array(types.float64, 2, 'A', readonly=True), 
+     types.Array(types.float64, 3, 'A', readonly=True)),
+      nopython=True, parallel=True)
 def compute_all_region_means(indicators1d, indicators2d):
     num_matrices1d = len(indicators1d)
     num_matrices2d = len(indicators2d)
@@ -392,7 +400,11 @@ def compute_all_region_means(indicators1d, indicators2d):
 # # Diferential functions #
 # #########################
 
-@jit(float64[:,:](int64, int64, int64[:], float64[:]),nopython=True)
+@jit(types.Array(types.float64, 2, 'C')(
+     types.int64, 
+     types.int64, 
+     types.Array(types.int64, 1, 'A', readonly=True),
+     types.Array(types.float64, 1, 'A', readonly=True)), nopython=True)
 def diff_mean_inner_product_2_by_2(r0, r1, repetitions, region_mean):
     ijkl, iikl, ijil, ijjl, ijki, ijkj, ijkk, iiil, iiki, iikk, ijii, ijij, ijji, ijjj, iiii = range(15)
     n_elements= len(repetitions)
@@ -493,7 +505,11 @@ def diff_mean_inner_product_2_by_2(r0, r1, repetitions, region_mean):
 
     return mean_inner_product.reshape(n_elements**2, n_elements**2)
 
-@jit(float64[:,:](int64, int64, int64[:], float64[:]), nopython=True)
+@jit(types.Array(types.float64, 2, 'C')(
+     types.int64, 
+     types.int64, 
+     types.Array(types.int64, 1, 'A', readonly=True),
+     types.Array(types.float64, 1, 'A', readonly=True)), nopython=True)
 def diff_mean_inner_product_1_by_2(r0, r1, repetitions, region_mean):
     ijk, iik, iji, ijj, iii = range(5)
     n_elements= len(repetitions)
@@ -528,7 +544,11 @@ def diff_mean_inner_product_1_by_2(r0, r1, repetitions, region_mean):
     # Flatten the mean_inner array and expand each equation
     return mean_inner_product.reshape(n_elements, n_elements**2)
 
-@jit(float64[:,:](int64, int64, int64[:], float64[:]),nopython=True)
+@jit(types.Array(types.float64, 2, 'C')(
+     types.int64, 
+     types.int64, 
+     types.Array(types.int64, 1, 'A', readonly=True),
+     types.Array(types.float64, 1, 'A', readonly=True)), nopython=True)
 def diff_mean_inner_product_1_by_1(r0, r1, repetitions,region_mean):
     ij, ii = range(2)
     
@@ -551,7 +571,14 @@ def diff_mean_inner_product_1_by_1(r0, r1, repetitions,region_mean):
  
     return mean_inner_product.reshape(n_elements, n_elements)
 
-@jit(float64[:,:](int64,int64,int64[:], float64[:, :], float64[:, :, :], float64[:,:,:]), nopython=True, parallel=True)
+@jit(types.Array(types.float64, 2, 'C')(
+     types.int64, 
+     types.int64, 
+     types.Array(types.int64, 1, 'A', readonly=True), 
+     types.Array(types.float64, 2, 'A', readonly=True), 
+     types.Array(types.float64, 3, 'A', readonly=True),
+     types.Array(types.float64, 3, 'A', readonly=True)),
+     nopython=True, parallel=True)
 def diff_mean_inner_product_matrix(r0,r1, repetitions, indicators1d, indicators2d, region_means):
     num_matrices1d = len(indicators1d)
     num_matrices2d = len(indicators2d)
