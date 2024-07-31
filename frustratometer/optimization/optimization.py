@@ -202,9 +202,6 @@ class AWSEM_dE2(EnergyTerm):
         len_alphabet=self.alphabet_size
         gamma=self.gamma
         
-        mask1x1=create_region_masks_1_by_1(len_alphabet)
-        mask1x2=create_region_masks_1_by_2(len_alphabet)
-        mask2x2=create_region_masks_2_by_2(len_alphabet)
         region_means=compute_all_region_means(indicators1D,indicators2D)
        
         #1/0
@@ -237,12 +234,11 @@ class AWSEM_dE2(EnergyTerm):
                 phi_mean[offset:offset+len_alphabet**2]=alpha.ravel()*mean_diagonal_indicator + beta.ravel()*mean_offdiagonal_indicator
                 offset += len_alphabet**2
             
-            B = build_mean_inner_product_matrix(freq_i.copy(),indicators1D.copy(),indicators2D.copy()) - np.outer(phi_mean,phi_mean)
+            B = build_mean_inner_product_matrix(freq_i.copy(),indicators1D.copy(),indicators2D.copy(), region_means) - np.outer(phi_mean,phi_mean)
             return gamma @ B @ gamma
         
         compute_energy_numba=self.numbify(compute_energy)
         
-        #TODO: Code this function using diff_mean_inner_product_matrix
         def denergy_mutation(seq_index, pos, aa):
             seq_index_new = seq_index.copy()
             seq_index_new[pos] = aa
@@ -428,7 +424,7 @@ def benchmark_montecarlo_steps(n_repeats=100, n_steps=20000,valid_indices=np.ara
     print(f"Number of sequences explored per hour: {steps_per_hour:.2e}")
     print(f"Average execution time per step: {average_time_per_step_us:.5f} microseconds")
 
-    
+
 if __name__ == '__main__':
     
     native_pdb = "tests/data/1r69.pdb"
