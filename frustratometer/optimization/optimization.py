@@ -8,9 +8,6 @@ from pathlib import Path
 from frustratometer.optimization.EnergyTerm import EnergyTerm
 import math
 from frustratometer.optimization.inner_product import compute_all_region_means
-from frustratometer.optimization.inner_product import create_region_masks_1_by_1
-from frustratometer.optimization.inner_product import create_region_masks_1_by_2
-from frustratometer.optimization.inner_product import create_region_masks_2_by_2
 from frustratometer.optimization.inner_product import build_mean_inner_product_matrix
 from frustratometer.optimization.inner_product import diff_mean_inner_product_matrix
 import itertools
@@ -31,15 +28,15 @@ def random_seed(seed):
 
 class Zero(EnergyTerm):
     @staticmethod
-    def compute_energy(seq_index:np.array):
+    def compute_energy(seq_index:np.ndarray):
         return 0.
     
     @staticmethod
-    def compute_denergy_mutation(seq_index:np.array, pos:int, aa):
+    def compute_denergy_mutation(seq_index:np.ndarray, pos:int, aa):
         return 0.
     
     @staticmethod
-    def compute_denergy_swap(seq_index:np.array, pos1:int, pos2:int):
+    def compute_denergy_swap(seq_index:np.ndarray, pos1:int, pos2:int):
         return 0.
 
 class Heterogeneity(EnergyTerm):
@@ -431,7 +428,7 @@ def benchmark_montecarlo_steps(n_repeats=100, n_steps=20000,valid_indices=np.ara
     print(f"Number of sequences explored per hour: {steps_per_hour:.2e}")
     print(f"Average execution time per step: {average_time_per_step_us:.5f} microseconds")
 
-
+    
 if __name__ == '__main__':
     
     native_pdb = "tests/data/1r69.pdb"
