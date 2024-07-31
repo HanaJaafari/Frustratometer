@@ -171,8 +171,8 @@ class AWSEM_dE(EnergyTerm):
 
             # J correction, interaction with self aminoacids
             j_correction -= model_J[pos1, pos2, seq_index[pos1], seq_index[pos2]] * mask[pos1, pos2]  # Taken two times
-            j_correction += model_J[pos1, pos2, aa1, seq_index[pos2]] * mask[pos1, pos2]  # Added mistakenly
-            j_correction += model_J[pos1, pos2, seq_index[pos1], aa2] * mask[pos1, pos2]  # Added mistakenly
+            j_correction += model_J[pos1, pos2, aa1, seq_index[pos2]] * mask[pos1, pos2]  # Correction for incorrect addition in the for loop
+            j_correction += model_J[pos1, pos2, seq_index[pos1], aa2] * mask[pos1, pos2]  # Correction for incorrect addition in the for loop
             j_correction -= model_J[pos1, pos2, aa1, aa2] * mask[pos1, pos2]  # Correct combination
             energy_difference += j_correction
             return energy_difference
@@ -181,7 +181,7 @@ class AWSEM_dE(EnergyTerm):
         self.compute_denergy_mutation=compute_denergy_mutation
         self.compute_denergy_swap=compute_denergy_swap
 
-class AWSEM_dE2(EnergyTerm):      
+class AWSEM_dE2(EnergyTerm):   
     def __init__(self, use_numba=True, model=Frustratometer, gamma=None, alphabet=_AA):
         self.use_numba=use_numba
         self.model_h = model.potts_model['h']
@@ -202,11 +202,6 @@ class AWSEM_dE2(EnergyTerm):
         
         region_means=compute_all_region_means(indicators1D,indicators2D)
        
-        #1/0
-        if use_numba:
-            #1/0                
-            pass
-            
         def compute_energy(seq_index):
             aa_count = np.bincount(seq_index, minlength=len_alphabet)
             freq_i=aa_count
@@ -452,6 +447,7 @@ if __name__ == '__main__':
         for i in range(1):
             awsem_de2.test(seq_indices[0])
     
+    energy = awsem_energy + 10 * het + 20 * awsem_de2
     # import warnings
     # import numpy as np
 
@@ -478,256 +474,3 @@ if __name__ == '__main__':
 
     # parallel_tempering(potts_h, potts_J, model.mask, model.indicators, gamma, seq_indices, temperatures, n_steps=int(1E3), n_steps_per_cycle=int(1E1), Ep=10, alphabet=reduced_alphabet, valid_indices=valid_indices, )
     pass
-
-#Scratch
-        # def mean_inner_product_2_by_2(repetitions,i0,i1):
-        #     n_elements= len(repetitions)
-
-        #     # Create the mean_inner_product array
-        #     mean_inner_product = np.zeros((n_elements, n_elements, n_elements, n_elements)).flatten()
-            
-        #     # Create arrays of indices for elements
-        #     #n_i, n_j, n_k, n_l = np.meshgrid(*[repetitions]*4, indexing='ij', sparse=False)
-        #     n_i = np.repeat(repetitions, n_elements**3).reshape(n_elements, n_elements, n_elements, n_elements)
-        #     n_j = n_i.copy().transpose(3, 0, 1, 2).flatten()
-        #     n_k = n_i.copy().transpose(2, 3, 0, 1).flatten()
-        #     n_l = n_i.copy().transpose(1, 2, 3, 0).flatten()
-        #     n_i=n_i.flatten()
-
-        #     mask_names = ['ijkl', 'iikl', 'ijil', 'ijjl', 'ijki', 'ijkj', 'ijkk',
-        #                   'iiil', 'iiki', 'iikk', 'ijii', 'ijij', 'ijji', 'ijjj', 'iiii']
-            
-        #     nm={mask_name:mask_name+'_'+str(i0)+'_'+str(i1) for mask_name in mask_names}
-        #     #mask={mask_name:mask for mask_name,mask in zip(mask2x2_names,mask2x2_values)}
-        #     mask=mask2x2_array
-        #     #region_means=dict(a:bregion_means_global)
-
-
-        #     m = mask['iiii']
-        #     mean_inner_product[m] = (
-        #         n_i[m] * region_means[nm['iiii']] +
-        #         n_i[m] * (n_i[m]-1) * (region_means[nm['iikk']] + region_means[nm['ijij']] + region_means[nm['ijji']] + region_means[nm['iiil']] + region_means[nm['iiki']] + region_means[nm['ijjj']] + region_means[nm['ijii']]) +
-        #         n_i[m] * (n_i[m]-1) * (n_i[m]-2) * (region_means[nm['ijil']] + region_means[nm['ijjl']] + region_means[nm['ijki']] + region_means[nm['ijkj']] + region_means[nm['iikl']] + region_means[nm['ijkk']]) +
-        #         n_i[m] * (n_i[m]-1) * (n_i[m]-2) * (n_i[m]-3) * region_means[nm['ijkl']]
-        #     )
-            
-        #     # m = masks['iiii']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * region_means[i0,i1,'iiii'] +
-        #     #     n_i[m] * (n_i[m]-1) * (region_means[i0,i1,'iikk'] + region_means[i0,i1,'ijij'] + region_means[i0,i1,'ijji'] + region_means[i0,i1,'iiil'] + region_means[i0,i1,'iiki'] + region_means[i0,i1,'ijjj'] + region_means[i0,i1,'ijii']) +
-        #     #     n_i[m] * (n_i[m]-1) * (n_i[m]-2) * (region_means[i0,i1,'ijil'] + region_means[i0,i1,'ijjl'] + region_means[i0,i1,'ijki'] + region_means[i0,i1,'ijkj'] + region_means[i0,i1,'iikl'] + region_means[i0,i1,'ijkk']) +
-        #     #     n_i[m] * (n_i[m]-1) * (n_i[m]-2) * (n_i[m]-3) * region_means[i0,i1,'ijkl']
-        #     # )
-            
-        #     # m = masks['iikk']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_k[m] * region_means[i0,i1,'iikk'] +
-        #     #     n_i[m] * n_k[m] * (n_i[m]-1) * region_means[i0,i1,'ijkk'] +
-        #     #     n_i[m] * n_k[m] * (n_k[m]-1) * region_means[i0,i1,'iikl'] +
-        #     #     n_i[m] * n_k[m] * (n_i[m]-1) * (n_k[m]-1) * region_means[i0,i1,'ijkl']
-        #     # )
-            
-        #     # m = masks['ijij']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_j[m] * region_means[i0,i1,'ijij'] +
-        #     #     n_i[m] * n_j[m] * (n_i[m]-1) * region_means[i0,i1,'ijkj'] +
-        #     #     n_i[m] * n_j[m] * (n_j[m]-1) * region_means[i0,i1,'ijil'] +
-        #     #     n_i[m] * n_j[m] * (n_i[m]-1) * (n_j[m]-1) * region_means[i0,i1,'ijkl']
-        #     # )
-
-        #     # m = masks['ijji']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_j[m] * region_means[i0,i1,'ijji'] +
-        #     #     n_i[m] * n_j[m] * (n_i[m]-1) * region_means[i0,i1,'ijki'] +
-        #     #     n_i[m] * n_j[m] * (n_j[m]-1) * region_means[i0,i1,'ijjl'] +
-        #     #     n_i[m] * n_j[m] * (n_i[m]-1) * (n_j[m]-1) * region_means[i0,i1,'ijkl']
-        #     # )
-            
-        #     # m = masks['iiil']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_l[m] * region_means[i0,i1,'iiil'] +
-        #     #     n_i[m] * n_l[m] * (n_i[m]-1) * (region_means[i0,i1,'ijjl'] + region_means[i0,i1,'ijil'] + region_means[i0,i1,'iikl']) +
-        #     #     n_i[m] * n_l[m] * (n_i[m]-1) * (n_i[m]-2) * region_means[i0,i1,'ijkl']
-        #     # )
-            
-        #     # m = masks['iiki']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_k[m] * region_means[i0,i1,'iiki'] +
-        #     #     n_i[m] * n_k[m] * (n_i[m]-1) * (region_means[i0,i1,'ijki'] + region_means[i0,i1,'ijkj'] + region_means[i0,i1,'iikl']) +
-        #     #     n_i[m] * n_k[m] * (n_i[m]-1) * (n_i[m]-2) * region_means[i0,i1,'ijkl']
-        #     # )
-
-        #     # m = masks['ijjj']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_j[m] * region_means[i0,i1,'ijjj'] +
-        #     #     n_i[m] * n_j[m] * (n_j[m]-1) * (region_means[i0,i1,'ijjl'] + region_means[i0,i1,'ijkj'] + region_means[i0,i1,'ijkk']) +
-        #     #     n_i[m] * n_j[m] * (n_j[m]-1) * (n_j[m]-2) * region_means[i0,i1,'ijkl']
-        #     # )
-
-        #     # m = masks['ijii']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_j[m] * region_means[i0,i1,'ijii'] +
-        #     #     n_i[m] * n_j[m] * (n_i[m]-1) * (region_means[i0,i1,'ijki'] + region_means[i0,i1,'ijil'] + region_means[i0,i1,'ijkk']) +
-        #     #     n_i[m] * n_j[m] * (n_i[m]-1) * (n_i[m]-2) * region_means[i0,i1,'ijkl']
-        #     # )
-            
-        #     # m = masks['ijil']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_j[m] * n_l[m] * region_means[i0,i1,'ijil'] +
-        #     #     n_i[m] * n_j[m] * n_l[m] * (n_i[m]-1) * region_means[i0,i1,'ijkl']
-        #     # )
-
-        #     # m = masks['ijjl']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_j[m] * n_l[m] * region_means[i0,i1,'ijjl'] +
-        #     #     n_i[m] * n_j[m] * n_l[m] * (n_j[m]-1) * region_means[i0,i1,'ijkl']
-        #     # )
-
-        #     # m = masks['ijki']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_j[m] * n_k[m] * region_means[i0,i1,'ijki'] +
-        #     #     n_i[m] * n_j[m] * n_k[m] * (n_i[m]-1) * region_means[i0,i1,'ijkl']
-        #     # )
-
-        #     # m = masks['ijkj']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_j[m] * n_k[m] * region_means[i0,i1,'ijkj'] +
-        #     #     n_i[m] * n_j[m] * n_k[m] * (n_j[m]-1) * region_means[i0,i1,'ijkl']
-        #     # )
-
-        #     # m = masks['ijkk']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_j[m] * n_k[m] * region_means[i0,i1,'ijkk'] +
-        #     #     n_i[m] * n_j[m] * n_k[m] * (n_k[m]-1) * region_means[i0,i1,'ijkl']
-        #     # )
-            
-        #     # m = masks['iikl']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_k[m] * n_l[m] * region_means[i0,i1,'iikl'] +
-        #     #     n_i[m] * n_k[m] * n_l[m] * (n_i[m]-1) * region_means[i0,i1,'ijkl']
-        #     # )
-            
-        #     # m = masks['ijkl']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_j[m] * n_k[m] * n_l[m] * region_means[i0,i1,'ijkl']
-        #     # )
-            
-        #     # Flatten the mean_inner array and expand each equation
-        #     return mean_inner_product.reshape(n_elements**2, n_elements**2)
-
-        # def mean_inner_product_1_by_2(repetitions,i0,i1):
-        #     n_elements= len(repetitions)
-
-        #     # Create the mean_inner_product array
-        #     mean_inner_product = np.zeros((n_elements, n_elements, n_elements)).flatten()
-            
-        #     # Create arrays of indices for elements
-        #     n_i = np.repeat(repetitions, n_elements**2).reshape(n_elements, n_elements, n_elements)
-        #     n_j = n_i.copy().transpose(2, 0, 1).flatten()
-        #     n_k = n_i.copy().transpose(1, 2, 0).flatten()
-        #     n_i=n_i.flatten()
-
-        #     # m = masks['iii']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * region_means[i0,i1,'iii'] +
-        #     #     n_i[m] * (n_i[m]-1) * (region_means[i0,i1,'iik'] + region_means[i0,i1,'iji'] + region_means[i0,i1,'ijj']) +
-        #     #     n_i[m] * (n_i[m]-1) * (n_i[m]-2) * (region_means[i0,i1,'ijk']) 
-        #     # )
-            
-        #     # m = masks['ijj']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_j[m] * region_means[i0,i1,'ijj'] +
-        #     #     n_i[m] * n_j[m] * (n_j[m]-1) * region_means[i0,i1,'ijk']
-        #     # )
-            
-        #     # m = masks['iji']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_j[m] * region_means[i0,i1,'iji'] +
-        #     #     n_i[m] * n_j[m] * (n_i[m]-1) * region_means[i0,i1,'ijk']
-        #     # )
-
-        #     # m = masks['iik']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_k[m] * region_means[i0,i1,'iik'] +
-        #     #     n_i[m] * n_k[m] * (n_i[m]-1) * region_means[i0,i1,'ijk']
-        #     # )
-            
-        #     # m = masks['ijk']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_j[m] * n_k[m] * region_means[i0,i1,'ijk']
-        #     # )
-        #     # Flatten the mean_inner array and expand each equation
-        #     return mean_inner_product.reshape(n_elements, n_elements**2)
-
-        # def mean_inner_product_1_by_1(repetitions,i0,i1):
-            
-        #     n_elements= len(repetitions)
-
-        #     # Create the mean_inner_product array
-        #     mean_inner_product = np.zeros((n_elements, n_elements)).flatten()
-            
-        #     # Create arrays of indices for elements
-        #     n_i = np.repeat(repetitions, n_elements).reshape(n_elements, n_elements)
-        #     n_j = n_i.copy().transpose(1, 0).flatten()
-        #     n_i=n_i.flatten()
-
-        #     # Define masks for elements
-            
-        #     # m = masks['ii']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * region_means[i0,i1,'ii'] +
-        #     #     n_i[m] * (n_i[m]-1) * region_means[i0,i1,'ij']
-        #     # )
-            
-        #     # m = masks['ij']
-        #     # mean_inner_product[m] = (
-        #     #     n_i[m] * n_j[m] * region_means[i0,i1,'ij']
-        #     # )
-        
-        #     return mean_inner_product.reshape(n_elements, n_elements)
-        
-        # mean_inner_product_2_by_2=self.numbify(mean_inner_product_2_by_2)
-        # mean_inner_product_1_by_2=self.numbify(mean_inner_product_1_by_2)
-        # mean_inner_product_1_by_1=self.numbify(mean_inner_product_1_by_1)
-        
-        # def build_mean_inner_product_matrix(repetitions,indicators1d,indicators2d):
-        #     num_matrices1d = len(indicators1d)
-        #     num_matrices2d = len(indicators2d)
-        #     num_matrices = num_matrices1d + num_matrices2d
-        #     n_elements=len(repetitions)
-            
-        #     # Compute the size of each block and the total size
-        #     block_sizes = [n_elements for ind in indicators1d] + [n_elements**2 for ind in indicators2d]
-        #     total_size = sum(block_sizes)
-            
-        #     # Create the resulting matrix filled with zeros
-        #     R = np.zeros((total_size, total_size))
-                
-        #     # Compute the starting indices for each matrix
-        #     #start_indices = np.cumsum([0] + block_sizes[:-1])
-        #     start_indices=np.zeros(len(block_sizes),dtype=np.int64)
-        #     start=0
-        #     for i in range(1,len(block_sizes)):
-        #         start=start+block_sizes[i-1]
-        #         start_indices[i] = start
-            
-        #     for i in range(num_matrices):
-        #         for j in range(i, num_matrices):  # Use symmetry, compute only half
-        #             if i<num_matrices1d and j<num_matrices1d:
-        #                 result_block = mean_inner_product_1_by_1(repetitions,i, j)
-        #             elif i<num_matrices1d and j>=num_matrices1d:
-        #                 result_block = mean_inner_product_1_by_2(repetitions,i,j)
-        #             elif j<num_matrices1d and i>=num_matrices1d:
-        #                 result_block = mean_inner_product_1_by_2(repetitions,j,i).T
-        #             elif i>=num_matrices1d and j>=num_matrices1d:
-        #                 result_block = mean_inner_product_2_by_2(repetitions,i,j)
-                
-        #             si, sj = start_indices[i], start_indices[j]
-        #             ei, ej = si + result_block.shape[0], sj + result_block.shape[1]
-        #             R[si:ei, sj:ej] = result_block
-        #             if i != j:
-        #                 R[sj:ej, si:ei] = result_block.T  # Leverage symmetry
-                    
-        #     return R
-        
-        # build_mean_inner_product_matrix=self.numbify(build_mean_inner_product_matrix)
