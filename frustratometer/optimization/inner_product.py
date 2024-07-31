@@ -230,7 +230,7 @@ def mean_inner_product_2_by_2(repetitions,region_mean, masks):
     n_elements= len(repetitions)
 
     # Create the mean_inner_product array
-    mean_inner_product = np.zeros((n_elements, n_elements, n_elements, n_elements)).flatten()
+    mean_inner_product = np.zeros(n_elements**4)
     
     # Create arrays of indices for elements
     #n_i, n_j, n_k, n_l = np.meshgrid(*[repetitions]*4, indexing='ij', sparse=False)
@@ -350,7 +350,7 @@ def mean_inner_product_1_by_2(repetitions,region_mean, masks):
     n_elements= len(repetitions)
 
     # Create the mean_inner_product array
-    mean_inner_product = np.zeros((n_elements, n_elements, n_elements)).flatten()
+    mean_inner_product = np.zeros(n_elements**3)
     
     # Create arrays of indices for elements
     n_i = np.repeat(repetitions, n_elements**2).reshape(n_elements, n_elements, n_elements)
@@ -397,7 +397,7 @@ def mean_inner_product_1_by_1(repetitions,region_mean, masks):
     n_elements= len(repetitions)
 
     # Create the mean_inner_product array
-    mean_inner_product = np.zeros((n_elements, n_elements)).flatten()
+    mean_inner_product = np.zeros(n_elements**2)
     
     # Create arrays of indices for elements
     n_i = np.repeat(repetitions, n_elements).reshape(n_elements, n_elements)
