@@ -49,19 +49,19 @@ class EnergyTerm(abc.ABC):
     @property
     def energy_function(self):
         if self.use_numba:
-            return numba.njit(self.compute_energy)
+            return numba.njit(self.compute_energy, cache=True)
         return self.compute_energy
 
     @property
     def denergy_mutation_function(self):
         if self.use_numba:
-            return numba.njit(self.compute_denergy_mutation)
+            return numba.njit(self.compute_denergy_mutation, cache=True)
         return self.compute_denergy_mutation
 
     @property
     def denergy_swap_function(self):
         if self.use_numba:
-            return numba.njit(self.compute_denergy_swap)
+            return numba.njit(self.compute_denergy_swap, cache=True)
         return self.compute_denergy_swap
     
     @energy_function.setter
@@ -97,26 +97,26 @@ class EnergyTerm(abc.ABC):
                 new_energy_term.use_numba = False
             
             e1=self.energy_function; e2=other.energy_function
-            new_energy_term.energy_function = new_energy_term.numbify(lambda seq_index: e1(seq_index) + e2(seq_index))
+            new_energy_term.energy_function = new_energy_term.numbify(lambda seq_index: e1(seq_index) + e2(seq_index), cache=True)
             
             m1=self.denergy_mutation_function; m2=other.denergy_mutation_function
-            new_energy_term.denergy_mutation_function = new_energy_term.numbify(lambda seq_index,pos,aa: m1(seq_index,pos,aa) + m2(seq_index,pos,aa))
+            new_energy_term.denergy_mutation_function = new_energy_term.numbify(lambda seq_index,pos,aa: m1(seq_index,pos,aa) + m2(seq_index,pos,aa), cache=True)
             
             s1=self.denergy_swap_function; s2=other.denergy_swap_function
-            new_energy_term.denergy_swap_function = new_energy_term.numbify(lambda seq_index,pos1,pos2: s1(seq_index,pos1,pos2) + s2(seq_index,pos1,pos2))
+            new_energy_term.denergy_swap_function = new_energy_term.numbify(lambda seq_index,pos1,pos2: s1(seq_index,pos1,pos2) + s2(seq_index,pos1,pos2), cache=True)
             return new_energy_term
         elif isinstance(other, (int, float)):
             new_energy_term = EnergyTerm()
             new_energy_term.use_numba = self.use_numba
             
             e1=self.energy_function
-            new_energy_term.energy_function = new_energy_term.numbify(lambda seq_index: e1(seq_index) + other)
+            new_energy_term.energy_function = new_energy_term.numbify(lambda seq_index: e1(seq_index) + other, cache=True)
             
             m1=self.denergy_mutation_function
-            new_energy_term.denergy_mutation_function = new_energy_term.numbify(lambda seq_index,pos,aa: m1(seq_index,pos,aa) + other)
+            new_energy_term.denergy_mutation_function = new_energy_term.numbify(lambda seq_index,pos,aa: m1(seq_index,pos,aa) + other, cache=True)
             
             s1=self.denergy_swap_function
-            new_energy_term.denergy_swap_function = new_energy_term.numbify(lambda seq_index,pos1,pos2: s1(seq_index,pos1,pos2) + other)
+            new_energy_term.denergy_swap_function = new_energy_term.numbify(lambda seq_index,pos1,pos2: s1(seq_index,pos1,pos2) + other, cache=True)
             return new_energy_term
         
     def __mul__(self, other):
@@ -203,13 +203,13 @@ class EnergyTerm(abc.ABC):
             new_energy_term.use_numba = self.use_numba
             
             e1=self.energy_function
-            new_energy_term.energy_function = new_energy_term.numbify(lambda seq_index: e1(seq_index) / other)
+            new_energy_term.energy_function = new_energy_term.numbify(lambda seq_index: e1(seq_index) / other, cache=True)
             
             m1=self.denergy_mutation_function
-            new_energy_term.denergy_mutation_function = new_energy_term.numbify(lambda seq_index,pos,aa: m1(seq_index,pos,aa) / other)
+            new_energy_term.denergy_mutation_function = new_energy_term.numbify(lambda seq_index,pos,aa: m1(seq_index,pos,aa) / other, cache=True)
             
             s1=self.denergy_swap_function
-            new_energy_term.denergy_swap_function = new_energy_term.numbify(lambda seq_index,pos1,pos2: s1(seq_index,pos1,pos2) / other)
+            new_energy_term.denergy_swap_function = new_energy_term.numbify(lambda seq_index,pos1,pos2: s1(seq_index,pos1,pos2) / other, cache=True)
             return new_energy_term
 
     def __rmul__(self, other):
