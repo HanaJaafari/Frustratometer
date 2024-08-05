@@ -1,13 +1,13 @@
 import prody
 import scipy.spatial.distance as sdist
 import numpy as np
-import typing
+from typing import Union
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
 
 def compute_mask(distance_matrix: np.array,
-                 maximum_contact_distance: typing.Union[float, None] = None,
-                 minimum_sequence_separation: typing.Union[int, None] = None) -> np.array:
+                 maximum_contact_distance: Union[float, None] = None,
+                 minimum_sequence_separation: Union[int, None] = None) -> np.array:
     """
     Computes a 2D Boolean mask from a given distance matrix based on a distance cutoff and a sequence separation cutoff.
 
@@ -685,7 +685,7 @@ def compute_single_frustration(decoy_fluctuation,
 
 
 def compute_pair_frustration(decoy_fluctuation,
-                             contact_freq: typing.Union[None, np.array],
+                             contact_freq: Union[None, np.array],
                              correction=0) -> np.array:
     """
     Calculates pair residue frustration indices

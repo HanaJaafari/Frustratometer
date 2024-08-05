@@ -1,5 +1,5 @@
 """Provide the primary functions."""
-import typing
+from typing import Union
 import numpy as np
 from pathlib import Path
 
@@ -35,8 +35,8 @@ class DCA(Frustratometer):
                  potts_model: dict,
                  distance_matrix : np.array,
                  sequence: str,
-                 sequence_cutoff: typing.Union[float, None] = None,
-                 distance_cutoff: typing.Union[float, None] = None):
+                 sequence_cutoff: Union[float, None] = None,
+                 distance_cutoff: Union[float, None] = None):
         
         self = cls()
         # Set initialization variables
@@ -64,8 +64,8 @@ class DCA(Frustratometer):
     def from_potts_model_file(cls,pdb_structure: object,
                               potts_model_file: str,
                               reformat_potts_model: bool = False,
-                              sequence_cutoff: typing.Union[float, None] = None,
-                              distance_cutoff: typing.Union[float, None] = None)->object:
+                              sequence_cutoff: Union[float, None] = None,
+                              distance_cutoff: Union[float, None] = None)->object:
         self = cls()
 
         # Set initialization variables
@@ -118,8 +118,8 @@ class DCA(Frustratometer):
     @classmethod
     def from_pottsmodel(cls,pdb_structure : object,
                         potts_model: dict,
-                        sequence_cutoff: typing.Union[float, None] = None,
-                        distance_cutoff: typing.Union[float, None] = None)->object:
+                        sequence_cutoff: Union[float, None] = None,
+                        distance_cutoff: Union[float, None] = None)->object:
         self = cls()
 
         # Set initialization variables
@@ -175,8 +175,8 @@ class DCA(Frustratometer):
                             pdb_chain:  str,
                             download_all_alignment_files: bool,
                             alignment_files_directory: str,
-                            sequence_cutoff: typing.Union[float, None] = None,
-                            distance_cutoff: typing.Union[float, None] = None,
+                            sequence_cutoff: Union[float, None] = None,
+                            distance_cutoff: Union[float, None] = None,
                             distance_matrix_method='minimum'):
         self = cls()
 
@@ -228,8 +228,8 @@ class DCA(Frustratometer):
                              alignment_files_directory: str,
                              alignment_output_file:  bool,
                              alignment_sequence_database:    str,
-                             sequence_cutoff: typing.Union[float, None] = None,
-                             distance_cutoff: typing.Union[float, None] = None,
+                             sequence_cutoff: Union[float, None] = None,
+                             distance_cutoff: Union[float, None] = None,
                              distance_matrix_method='minimum'):
         self = cls()
 
@@ -272,8 +272,8 @@ class DCA(Frustratometer):
                        alignment: str,
                        pdb_file: str,
                        chain: str,
-                       sequence_cutoff: typing.Union[float, None] = None,
-                       distance_cutoff: typing.Union[float, None] = None,
+                       sequence_cutoff: Union[float, None] = None,
+                       distance_cutoff: Union[float, None] = None,
                        distance_matrix_method='minimum'):
         
         # Compute dca

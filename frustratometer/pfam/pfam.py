@@ -4,6 +4,7 @@ import logging
 import gzip
 from ..utils import create_directory
 import glob
+from typing import Union
 
 
 #Download whole database

@@ -6,6 +6,7 @@ import numpy as np
 import itertools
 import os
 from pathlib import Path
+from typing import Union
 
 three_to_one = {'ALA':'A', 'ARG':'R', 'ASN':'N', 'ASP':'D', 'CYS':'C',
                 'GLU':'E', 'GLN':'Q', 'GLY':'G', 'HIS':'H', 'ILE':'I',
