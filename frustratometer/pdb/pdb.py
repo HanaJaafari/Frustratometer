@@ -13,7 +13,7 @@ three_to_one = {'ALA':'A', 'ARG':'R', 'ASN':'N', 'ASP':'D', 'CYS':'C',
                 'SER':'S', 'THR':'T', 'TRP':'W', 'TYR':'Y', 'VAL':'V'}
 
 
-def download(pdbID: str,directory: Path=Path.cwd()) -> Path:
+def download(pdbID: str,directory: Union[Path,str]=Path.cwd()) -> Path:
     """
     Downloads a single pdb file
 
@@ -21,12 +21,12 @@ def download(pdbID: str,directory: Path=Path.cwd()) -> Path:
     ----------
     pdbID: str,
         PDB ID
-    directory: str,
+    directory: Path or str,
         Directory where PDB file will be downloaded.
 
     Returns
     -------
-    pdb_file : str
+    pdb_file : Path
         PDB file location.
     """
 
@@ -82,7 +82,7 @@ def get_sequence(pdb_file: str,
 
 
 
-def get_distance_matrix(pdb_file: Path,
+def get_distance_matrix(pdb_file: Union[Path,str],
                         chain: str,
                         method: str = 'CB'
                         ) -> np.array:
@@ -91,7 +91,7 @@ def get_distance_matrix(pdb_file: Path,
 
     Parameters
     ----------
-    pdb_file: str 
+    pdb_file: Path or str 
         The path to the PDB file.
     chain: str
         The chainID or chainIDs (space separated) of the protein.
@@ -164,7 +164,7 @@ def get_distance_matrix(pdb_file: Path,
 
 
 def full_to_filtered_aligned_mapping(aligned_sequence: str,
-                                    filtered_aligned_sequence: str):
+                                    filtered_aligned_sequence: str)->dict:
 
     """
     Get a dictionary mapping residue positions in the full pdb sequence to the aligned pdb sequence
