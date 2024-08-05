@@ -2,6 +2,7 @@ import prody
 import scipy.spatial.distance as sdist
 import numpy as np
 from typing import Union
+from pathlib import Path
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
 

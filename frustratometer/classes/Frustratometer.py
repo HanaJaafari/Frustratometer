@@ -7,6 +7,7 @@ import numpy as np
 # import seaborn as sns
 import scipy.spatial.distance as sdist
 from typing import Union
+from pathlib import Path
 #Import other modules
 from .. import frustration
 
@@ -291,7 +292,7 @@ class Frustratometer:
         return frustration.compute_auc(self.roc())
 
     def vmd(self, sequence: str = None, pair: str = 'mutational',
-             aa_freq:np.array = None, max_connections:Union[int,None] = None, movie_name=None):
+             aa_freq:np.array = None, max_connections:Union[int,None] = None, movie_name:Union[Path,str]=None):
         """
         Calculates frustration indices and superimposes frustration patterns onto PDB structure using the VMD software.
 
