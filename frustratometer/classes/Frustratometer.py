@@ -188,6 +188,7 @@ class Frustratometer:
             The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
         kind : str
             Kind of decoys generated. Options: "singleresidue," "mutational," "configurational," and "contact." 
+
         Returns
         -------
         decoy_energy: np.array
@@ -199,9 +200,36 @@ class Frustratometer:
         return decoy_energy
 
     def scores(self):
+        """
+        Computes accuracy of DCA predicted contacts by calculating contact scores based on the Frobenius norm
+
+        Returns
+        -------
+        corr_norm : np.array
+            Contact score matrix (N x N)
+        """
         return frustration.compute_scores(self.potts_model)
 
-    def frustration(self, sequence:str = None, kind:str = 'singleresidue', mask:np.array = None, aa_freq:np.array = None, correction:int = 0):
+    def frustration(self, sequence:str = None, kind:str = 'singleresidue', mask:np.array = None, aa_freq:np.array = None, correction:int = 0) -> np.array:
+        """
+        Calculates frustration index values.
+        
+        Parameters
+        ----------
+        sequence : str
+            The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+        kind : str
+            Kind of decoys generated. Options: "singleresidue," "mutational," "configurational," and "contact." 
+        mask : np.array
+            A 2D Boolean array that determines which residue pairs should be considered in the energy computation. The mask should have dimensions (L, L), where L is the length of the sequence.
+        aa_freq: np.array
+            Array of frequencies of all 21 possible amino acids within sequence
+
+        Returns
+        -------
+        frustration_values: np.array
+            Frustration index values.
+        """
         if sequence is None:
             sequence=self.sequence
         if not isinstance(mask, np.ndarray):
@@ -210,15 +238,30 @@ class Frustratometer:
         if kind == 'singleresidue':
             if aa_freq is None:
                 aa_freq = self.aa_freq
-            return frustration.compute_single_frustration(decoy_fluctuation, aa_freq, correction)
+            frustration_values=frustration.compute_single_frustration(decoy_fluctuation, aa_freq, correction)
+            return frustration_values
         elif kind in ['mutational', 'configurational', 'contact']:
             if kind == 'configurational' and 'configurational_frustration' in dir(self):
-                return self.configurational_frustration(self.aa_freq, correction)
+                frustration_values=self.configurational_frustration(self.aa_freq, correction)
+                return frustration_values
             if aa_freq is None:
                 aa_freq = self.contact_freq
-            return frustration.compute_pair_frustration(decoy_fluctuation, aa_freq, correction)
+            frustration_values=frustration.compute_pair_frustration(decoy_fluctuation, aa_freq, correction)
+            return frustration_values
 
     def plot_decoy_energy(self, sequence:str = None, kind:str = 'singleresidue', method:str = 'clustermap'):
+        """
+        Plot comparison of single residue decoy energies, relative to the native energy
+
+        Parameters
+        ----------
+        sequence : str
+            The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+        kind : str
+            Kind of decoys generated. Options: "singleresidue," "mutational," "configurational," and "contact." 
+        method : str
+            Options: "clustermap", "heatmap"
+        """
         if sequence is None:
             sequence=self.sequence
         native_energy = self.native_energy(sequence=sequence)
@@ -228,28 +271,66 @@ class Frustratometer:
             return g
 
     def roc(self):
+        """
+        Computes Receiver Operating Characteristic (ROC) curve of 
+        contacts predicted by DCA and true contacts, as identified from the distance matrix.
+        """
         return frustration.compute_roc(self.scores(), self.distance_matrix, self.distance_cutoff)
 
     def plot_roc(self):
+        """
+        Plots the curve of the receiver-operating characteristic.
+        """
         frustration.plot_roc(self.roc())
 
     def auc(self):
-        """Computes area under the curve of the receiver-operating characteristic.
-           Function intended"""
+        """
+        Computes area under the curve of the receiver-operating characteristic.
+        A higher AUC value (maximum=1) indicates that the TPR is always high, regardless of FPR. 
+        """
         return frustration.compute_auc(self.roc())
 
-    def vmd(self, sequence: str = None, single:typing.Union[str,np.array] = 'singleresidue', pair:typing.Union[str,np.array] = 'mutational',
-             aa_freq:np.array = None, correction:int = 0, max_connections:typing.Union[int,None] = None, movie_name=None):
+    def vmd(self, sequence: str = None, pair: str = 'mutational',
+             aa_freq:np.array = None, max_connections:typing.Union[int,None] = None, movie_name=None):
+        """
+        Calculates frustration indices and superimposes frustration patterns onto PDB structure using the VMD software.
+
+        Parameters
+        ----------
+        sequence : str
+            The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+        pair : str
+            Kind of pair frustration calculated. Options: "mutational," "configurational," and "contact." 
+        aa_freq: np.array
+            Array of frequencies of all 21 possible amino acids within sequence
+        max_connections : int
+            Maximum number of pair frustration values visualized in tcl file
+        movie_name : Path or str
+            Output tcl script file with rotating structure
+        """
         if sequence is None:
             sequence=self.sequence
 
         tcl_script = frustration.write_tcl_script(self.pdb_file, self.chain, self.mask, self.distance_matrix, self.distance_cutoff,
-                                      -self.frustration(kind=single, sequence=sequence, aa_freq=aa_freq, correction=correction),
-                                      -self.frustration(kind=pair, sequence=sequence, aa_freq=aa_freq, correction=correction),
+                                      -self.frustration(kind='singleresidue', sequence=sequence, aa_freq=aa_freq),
+                                      -self.frustration(kind=pair, sequence=sequence, aa_freq=aa_freq),
                                       max_connections=max_connections, movie_name=movie_name)
         frustration.call_vmd(self.pdb_file, tcl_script)
 
-    def view_pair_frustration(self, sequence:str = None, pair:str = 'mutational', aa_freq:np.array = None, correction:int = 0):
+    def view_pair_frustration(self, sequence:str = None, pair:str = 'mutational', aa_freq:np.array = None):
+        """
+        Calculates pair frustration indices and superimposes frustration patterns onto PDB structure, using Pymol
+        for local visualization.
+
+        Parameters
+        ----------
+        sequence : str
+            The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+        pair : str
+            Kind of pair frustration calculated. Options: "mutational," "configurational," and "contact." 
+        aa_freq: np.array
+            Array of frequencies of all 21 possible amino acids within sequence
+        """
         import py3Dmol
 
         if sequence is None:
@@ -284,7 +365,20 @@ class Frustratometer:
 
         return view
 
-    def view_single_frustration(self,  aa_freq:np.array = None, correction:int = 0, max_connections:int = 100, only_frustrated_contacts:bool=False):
+    def view_single_frustration(self,  aa_freq:np.array = None, only_frustrated_contacts:bool=False):
+        """
+        Calculates single residue frustration indices and superimposes frustration patterns onto PDB structure, using Pymol
+        for local visualization.
+
+        Parameters
+        ----------
+        sequence : str
+            The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+        aa_freq : np.array
+            Array of frequencies of all 21 possible amino acids within sequence
+        only_frustrated_contacts : bool
+            If set to True, minimally frustrated contacts are also hilighted.
+        """
         import py3Dmol
         pdb_filename = self.pdb_file
         shift=self.init_index_shift+1
@@ -316,7 +410,34 @@ class Frustratometer:
 
         return view
 
-    def generate_frustration_pair_distribution(self,sequence: str =None, kind:str ="singleresidue",bins=30,maximum_shell_radius=20):
+    def generate_frustration_pair_distribution(self,sequence: str =None, kind:str ="singleresidue",bins: int =30,maximum_shell_radius: int=20):
+        """
+        Calculates frustration pair distributions. This helps identify spatial proximity of similarly frustrated residues or contacts from one another.
+
+        Parameters
+        ----------
+        sequence : str
+            The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+        aa_freq : np.array
+            Array of frequencies of all 21 possible amino acids within sequence
+        kind : str
+            Kind of decoys generated. Options: "singleresidue," "mutational," "configurational," and "contact." 
+        bins : int 
+            Number of bins
+        maximum_shell_radius : int
+            Maximum shell radius to evaluate
+
+        Returns
+        ----------
+        minimally_frustrated_gr : np.array
+            Pair distribution function of minimally frustrated contacts
+        frustrated_gr : np.array
+            Pair distribution function of frustrated contacts
+        neutral_gr : np.array
+            Pair distribution function of neutral contacts
+        r_m : np.array
+            Array of midpoints between evaluated spherical shells
+        """
         if sequence==None:
             sequence=self.sequence
         frustration_values=self.frustration(sequence=sequence,kind=kind)
@@ -365,7 +486,7 @@ class Frustratometer:
 
         neutral_hist,_=np.histogram(neutral_contacts,bins=r)
         neutral_gr=np.divide(neutral_hist,(shell_vol*neutral_density))
-
+        
         return minimally_frustrated_gr,frustrated_gr,neutral_gr,r_m
 
 

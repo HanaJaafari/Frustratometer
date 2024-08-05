@@ -14,7 +14,7 @@ class Structure:
     
     @classmethod
     def full_pdb(cls,pdb_file: Union[Path,str], chain: Union[str,None]=None, aligned_sequence: str = None, filtered_aligned_sequence: str = None,
-                distance_matrix_method:str = 'CB', pdb_directory: Path = Path.cwd(), repair_pdb:bool = False):
+                distance_matrix_method:str = 'CB', pdb_directory: Path = Path.cwd(), repair_pdb:bool = False)->object:
 
         """
         Generates structure object 
@@ -99,7 +99,7 @@ class Structure:
     @classmethod
     def spliced_pdb(cls,pdb_file:Union[Path,str], chain:str, seq_selection: str, aligned_sequence: str = None,
                     filtered_aligned_sequence: str = None, distance_matrix_method:str = 'CB',repair_pdb:bool = True, 
-                    pdb_directory: str = os.getcwd()):
+                    pdb_directory: str = os.getcwd())->object:
         """
         Generates substructure object 
 
@@ -140,7 +140,7 @@ class Structure:
 
         Returns
         -------
-        Substructure object
+        Structure object
         """
         #Provide the indices according to the original pdb numbering
         self=cls()
