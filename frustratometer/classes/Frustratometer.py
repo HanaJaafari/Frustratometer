@@ -3,8 +3,6 @@ from .. import pdb
 from .. import dca
 
 import numpy as np
-# import matplotlib.pyplot as plt
-# import seaborn as sns
 import scipy.spatial.distance as sdist
 from typing import Union
 from pathlib import Path
@@ -489,101 +487,5 @@ class Frustratometer:
         neutral_gr=np.divide(neutral_hist,(shell_vol*neutral_density))
         
         return minimally_frustrated_gr,frustrated_gr,neutral_gr,r_m
-
-
-    # def view_frustration_pair_distribution(self,sequence: str =None,kind:str ="singleresidue"):
-    #     if sequence==None:
-    #         sequence=self.sequence
-    #     minimally_frustrated_gr,frustrated_gr,neutral_gr,r_m=self.generate_frustration_pair_distribution(sequence=sequence,kind=kind)
-        
-    #     with sns.plotting_context("poster"):
-    #         plt.figure(figsize=(15,12))
-
-    #         #Fix the volume
-    #         g=sns.lineplot(x=r_m,y=minimally_frustrated_gr,color="green",label="Minimally Frustrated")
-    #         g=sns.lineplot(x=r_m,y=frustrated_gr,color="red",label="Frustrated")
-    #         g=sns.lineplot(x=r_m,y=neutral_gr,color="gray",label="Neutral")
-    #         plt.xlabel("Pair Distance (A)"); plt.ylabel("g(r)")
-    #         plt.legend()
-    #         plt.show()
-
-    # def view_frustration_histogram(self,sequence:str = None, kind:str = "singleresidue"):
-        
-    #     if sequence is None:
-    #         sequence=self.sequence
-        
-    #     frustration_values=self.frustration(sequence=sequence,kind=kind)
-
-    #     r=np.linspace(-4,4,num=100)
-
-    #     if kind=="singleresidue":
-    #         minimally_frustrated=[i for i in frustration_values if i>self.minimally_frustrated_threshold]
-    #         frustrated=[i for i in frustration_values if i<-1]
-    #         neutral=[i for i in frustration_values if -1<i<self.minimally_frustrated_threshold]
-
-    #         #Plot histogram of all frustration values.
-    #         with sns.plotting_context("poster"):
-    #             plt.figure(figsize=(10,5))
-
-    #             g=sns.histplot(x=minimally_frustrated,bins=r,color="green")
-    #             g=sns.histplot(x=frustrated,bins=r,color="red")
-    #             g=sns.histplot(x=neutral,bins=r,color="gray")
-
-    #             ymin, ymax = g.get_ylim()
-    #             g.vlines(x=[-1, self.minimally_frustrated_threshold], ymin=ymin, ymax=ymax, colors=['black', 'black'], ls='--', lw=2)
-    #             plt.title(f"{len(frustration_values)} Residues")
-    #             plt.xlabel("$F_{i}$")
-    #             plt.show()
-    #         print(f"{(len(minimally_frustrated)/len(frustration_values))*100:.2f}% of Residues are Minimally Frustrated")
-    #         print(f"{(len(frustrated)/len(frustration_values))*100:.2f}% of Residues are Frustrated")
-    #         print(f"{(len(neutral)/len(frustration_values))*100:.2f}% of Residues are Neutral")
-
-    #     elif kind in ["configurational","mutational"]:
-    #         cb_distance_matrix=self.distance_matrix
-    #         #Avoid double counting of frustration values
-    #         frustration_values=np.triu(frustration_values)
-    #         frustration_values[np.tril_indices(frustration_values.shape[0])] = np.nan
-
-    #         sel_frustration = np.array([cb_distance_matrix.ravel(), frustration_values.ravel()]).T
-    #         sel_frustration=sel_frustration[~np.isnan(sel_frustration[:, 1])]
-    #         minimally_frustrated = sel_frustration[sel_frustration[:, 1] > self.minimally_frustrated_threshold]
-    #         frustrated = sel_frustration[sel_frustration[:, 1] < -1]
-    #         neutral=sel_frustration[(sel_frustration[:, 1] > -1) & (sel_frustration[:, 1] < self.minimally_frustrated_threshold)]
-
-    #         #Plot histogram of all frustration values.
-    #         with sns.plotting_context("poster"):
-    #             fig,axes=plt.subplots(1,2,figsize=(15,5),sharex=True)
-
-    #             g=sns.histplot(x=minimally_frustrated[minimally_frustrated[:,0]<6.5][:,1],bins=r,ax=axes[0],color="green")
-    #             g=sns.histplot(x=frustrated[frustrated[:,0]<6.5][:,1],bins=r,ax=axes[0],color="red")
-    #             g=sns.histplot(x=neutral[neutral[:,0]<6.5][:,1],bins=r,ax=axes[0],color="gray")
-
-    #             ymin, ymax = g.get_ylim()
-    #             g.vlines(x=[-1, self.minimally_frustrated_threshold], ymin=ymin, ymax=ymax, colors=['black', 'black'], ls='--', lw=2)
-    #             axes[0].title.set_text(f"Direct Contacts\n(N={len(sel_frustration[sel_frustration[:,0]<6.5])})")
-    #             axes[0].set_xlabel("$F_{ij}$")
-    #             ###
-    #             g=sns.histplot(x=minimally_frustrated[minimally_frustrated[:,0]>6.5][:,1],bins=r,ax=axes[1],color="green")
-    #             g=sns.histplot(x=frustrated[frustrated[:,0]>6.5][:,1],bins=r,ax=axes[1],color="red")
-    #             g=sns.histplot(x=neutral[neutral[:,0]>6.5][:,1],bins=r,ax=axes[1],color="gray")
-
-    #             ymin, ymax = g.get_ylim()
-    #             g.vlines(x=[-1, self.minimally_frustrated_threshold], ymin=ymin, ymax=ymax, colors=['black', 'black'], ls='--', lw=2)
-    #             axes[1].title.set_text(f"Water-Mediated and\nProtein-Mediated Contacts\n(N={len(sel_frustration[sel_frustration[:,0]>6.5])})")
-    #             axes[1].set_xlabel("$F_{ij}$")
-
-    #             plt.tight_layout()
-    #             plt.show()
-    #         ###
-    #         print(f"{(len(minimally_frustrated[minimally_frustrated[:,0]<6.5])/len(sel_frustration[sel_frustration[:,0]<6.5]))*100:.2f}% of Direct Contacts are Minimally Frustrated")
-    #         print(f"{(len(frustrated[frustrated[:,0]<6.5])/len(sel_frustration[sel_frustration[:,0]<6.5]))*100:.2f}% of Direct Contacts are Frustrated")
-    #         print(f"{(len(neutral[neutral[:,0]<6.5])/len(sel_frustration[sel_frustration[:,0]<6.5]))*100:.2f}% of Direct Contacts are Neutral")
-    #         print("###")
-    #         print(f"{(len(minimally_frustrated[minimally_frustrated[:,0]>6.5])/len(sel_frustration[sel_frustration[:,0]>6.5]))*100:.2f}% of Water-Mediated Contacts are Minimally Frustrated")
-    #         print(f"{(len(frustrated[frustrated[:,0]>6.5])/len(sel_frustration[sel_frustration[:,0]>6.5]))*100:.2f}% of Water-Mediated Contacts are Frustrated")
-    #         print(f"{(len(neutral[neutral[:,0]>6.5])/len(sel_frustration[sel_frustration[:,0]>6.5]))*100:.2f}% of Water-Mediated Contacts are Neutral")
-
-
-
 
 
