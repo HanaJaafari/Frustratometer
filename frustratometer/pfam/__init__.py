@@ -1,14 +1,16 @@
-"""PFAM functions
+"""pfam: PFAM functions
 
 This module includes functions to download and manipulate PFAM alignments.
+
 There are two options to obtain alignments from PFAM: downloading the database
 locally or downloading specific alignments.
 
-If you want to download the database locally use the download function to
-download or update the database and the get function to select a single
-alignment.
+If you want to download the database locally, use the "download_database" function to
+download or update the database. Then, use the "get_alignment" function to select a single
+alignment from the downloaded database.
 
-If you want to retrieve a single alignment use the alignemnt function
+If you want to retrieve a single alignment from the PFAM database,
+use the "download_alignment" function
 
 Examples:
     
