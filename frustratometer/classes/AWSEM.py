@@ -50,7 +50,7 @@ class AWSEMParameters(BaseModel):
 class AWSEM(Frustratometer):
     #Mapping to DCA
     q = 20
-    aa_map_awsem_list = [0, 0, 4, 3, 6, 13, 7, 8, 9, 11, 10, 12, 2, 14, 5, 1, 15, 16, 19, 17, 18] #A gap is equivalent to Alanine
+    aa_map_awsem_list = [0, 0, 4, 3, 6, 13, 7, 8, 9, 11, 10, 12, 2, 14, 5, 1, 15, 16, 19, 17, 18] #A gap has no energy
     aa_map_awsem_x, aa_map_awsem_y = np.meshgrid(aa_map_awsem_list, aa_map_awsem_list, indexing='ij')
 
     def __init__(self, 
@@ -188,6 +188,11 @@ class AWSEM(Frustratometer):
         self.potts_model = {}
         self.potts_model['h'] = -burial_energy.sum(axis=-1)[:, self.aa_map_awsem_list]
         self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
+        
+        # Set the gap energy to zero
+        self.potts_model['h'][:, 0] = 0
+        self.potts_model['J'][:, :, 0, :] = 0
+        self.potts_model['J'][:, :, :, 0] = 0
         self._native_energy=None
 
     def compute_configurational_decoy_statistics(self, n_decoys=4000,aa_freq=None):
