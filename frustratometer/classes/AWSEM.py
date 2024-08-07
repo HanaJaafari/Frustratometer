@@ -139,26 +139,48 @@ class AWSEM(Frustratometer):
         protein_indicator = thetaII[:, :, np.newaxis, np.newaxis] * sigma_protein[:, :, np.newaxis, np.newaxis]
         
         if expose_indicator_functions:
+            self.indicators=[]
+            self.indicators.append(burial_indicator[:,0])
+            self.indicators.append(burial_indicator[:,1])
+            self.indicators.append(burial_indicator[:,2])
+            
+            self.indicators.append(direct_indicator[:,:,0,0]*sequence_mask_contact)
+            self.indicators.append(protein_indicator[:,:,0,0]*sequence_mask_contact)
+            self.indicators.append(water_indicator[:,:,0,0]*sequence_mask_contact)
+            
+            self.gamma_array=[]
+            temp_burial_gamma=self.burial_gamma[self.aa_map_awsem_list]
+            temp_burial_gamma[0]=0
+            temp_burial_gamma *= -0.5 * p.k_contact
+            self.gamma_array.append(temp_burial_gamma[:,0])
+            self.gamma_array.append(temp_burial_gamma[:,1])
+            self.gamma_array.append(temp_burial_gamma[:,2])
+
+            for contact_gamma in [self.direct_gamma, self.protein_gamma, self.water_gamma]:
+                temp_gamma = contact_gamma[self.aa_map_awsem_x, self.aa_map_awsem_y].copy()
+                temp_gamma[0, :] = 0
+                temp_gamma[:, 0] = 0
+                temp_gamma *= -0.5 * self.k_contact
+                self.gamma_array.append(temp_gamma)
+
             self.burial_indicator = burial_indicator
             self.direct_indicator = direct_indicator
             self.water_indicator = water_indicator
             self.protein_indicator = protein_indicator
-            self.indicators=[self.burial_indicator[:,0],self.burial_indicator[:,1],self.burial_indicator[:,2], 
-                             self.direct_indicator[:,:,0,0], self.water_indicator[:,:,0,0], self.protein_indicator[:,:,0,0]]
-
+            
 
         J_index = np.meshgrid(range(self.N), range(self.N), range(self.q), range(self.q), indexing='ij', sparse=False)
         h_index = np.meshgrid(range(self.N), range(self.q), indexing='ij', sparse=False)
 
         #Burial energy
-        burial_energy = -0.5 * p.k_contact * self.burial_gamma[h_index[1]] * burial_indicator[:, np.newaxis, :]
-        self.burial_energy=burial_energy
+        burial_energy = 0.5 * p.k_contact * self.burial_gamma[h_index[1]] * burial_indicator[:, np.newaxis, :]
+        self.burial_energy = burial_energy
 
         #Contact energy
         direct = direct_indicator * self.direct_gamma[J_index[2], J_index[3]]
         water_mediated = water_indicator * self.water_gamma[J_index[2], J_index[3]]
         protein_mediated = protein_indicator  * self.protein_gamma[J_index[2], J_index[3]]
-        contact_energy = -p.k_contact * np.array([direct, water_mediated, protein_mediated]) * sequence_mask_contact[np.newaxis, :, :, np.newaxis, np.newaxis]
+        contact_energy = p.k_contact * np.array([direct, water_mediated, protein_mediated]) * sequence_mask_contact[np.newaxis, :, :, np.newaxis, np.newaxis]
 
         # Compute electrostatics
         if p.k_electrostatics!=0:
@@ -171,10 +193,16 @@ class AWSEM(Frustratometer):
             charges = np.array([0, 1, 0, -1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
             charges2 = charges[:,np.newaxis]*charges[np.newaxis,:]
 
-            electrostatics_indicator = p.k_electrostatics / (self.distance_matrix + 1E-6) * np.exp(-self.distance_matrix / p.electrostatics_screening_length) * electrostatics_mask
-            electrostatics_energy = (charges2[np.newaxis,np.newaxis,:,:]*electrostatics_indicator[:,:,np.newaxis,np.newaxis])
+            electrostatics_indicator = 1 / (self.distance_matrix + 1E-6) * np.exp(-self.distance_matrix / p.electrostatics_screening_length) * electrostatics_mask
+            electrostatics_energy = -p.k_electrostatics * (charges2[np.newaxis,np.newaxis,:,:]*electrostatics_indicator[:,:,np.newaxis,np.newaxis])
 
             contact_energy = np.append(contact_energy, electrostatics_energy[np.newaxis,:,:,:,:], axis=0)
+            if expose_indicator_functions:
+                self.indicators.append(electrostatics_indicator)
+                temp_gamma=0.5 * p.k_electrostatics * charges2[self.aa_map_awsem_x, self.aa_map_awsem_y]
+                temp_gamma[0,:]=0
+                temp_gamma[:,0]=0
+                self.gamma_array.append(temp_gamma)
         else:
             self.sequence_cutoff=p.min_sequence_separation_contact
             self.distance_cutoff=p.distance_cutoff_contact
@@ -186,8 +214,8 @@ class AWSEM(Frustratometer):
         self.aa_freq = frustration.compute_aa_freq(self.sequence)
         self.contact_freq = frustration.compute_contact_freq(self.sequence)
         self.potts_model = {}
-        self.potts_model['h'] = -burial_energy.sum(axis=-1)[:, self.aa_map_awsem_list]
-        self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
+        self.potts_model['h'] = burial_energy.sum(axis=-1)[:, self.aa_map_awsem_list]
+        self.potts_model['J'] = contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
         
         # Set the gap energy to zero
         self.potts_model['h'][:, 0] = 0
