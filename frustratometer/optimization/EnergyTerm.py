@@ -43,7 +43,7 @@ class EnergyTerm(abc.ABC):
             return self.dummy_decorator
 
     @staticmethod
-    def dummy_decorator(func, cache=True):
+    def dummy_decorator(func, *args, **kwargs):
         return func
 
     @property
