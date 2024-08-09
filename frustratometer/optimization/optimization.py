@@ -302,9 +302,7 @@ class AwsemEnergyVariance(EnergyTerm):
         phi_len= indicators1D.shape[0]*len_alphabet + indicators2D.shape[0]*len_alphabet**2
         
         region_means=compute_all_region_means(indicators1D,indicators2D)
-        awsem_de = AwsemEnergy(use_numba=self.use_numba, model=self.model, alphabet=self.alphabet)
-
-       
+        
         def compute_energy(seq_index):
             aa_count = np.bincount(seq_index, minlength=len_alphabet)
             freq_i=aa_count
@@ -344,22 +342,29 @@ class AwsemEnergyVariance(EnergyTerm):
         self.compute_energy = compute_energy
         self.compute_denergy_mutation = denergy_mutation
 
-        def compute_energy_slow(seq_index, num_decoys=1000):
-            #def alternative_compute_dE2(model_h, model_J, mask, gamma,seq_index, indicators, len_alphabet=len(_AA),num_decoys=1000):
-            """Modified algorithm of Papoian and Wolynes, Biopolymers 2003 (doi.org/10.1002/bip.10286)
-            While Papoian and Wolynes required a range of Q values, we only care that they represent
-            the molten globule. To design against the bottom of the funnel, a target of Q=0.35 seems appropriate
-            Q = 1
-                while Q > 0.35:
-                swap_pair = np.random.randint(0,gamma.shape[0],size=2,) #could pick the same residue twice but that's okay"""
-            energies = np.zeros(num_decoys)
-            #for decoy_num in numba.prange(num_decoys):
-            for decoy_num in range(num_decoys):
-                np.random.shuffle(seq_index)
-                energies[decoy_num] = awsem_de.energy(seq_index)
+        awsem_energy = AwsemEnergy(use_numba=self.use_numba, model=self.model, alphabet=self.alphabet).energy_function
+
+        def compute_energy_sample(seq_index,n_decoys=100000):
+            """ Function to compute the variance of the energy of permutations of a sequence using random shuffling.
+                This function is much faster than compute_energy_permutation but is an approximation"""
+            energies=np.zeros(n_decoys)
+            shuffled_index=seq_index.copy()
+            for i in numba.prange(n_decoys):
+                energies[i]=awsem_energy(shuffled_index[np.random.permutation(len(shuffled_index))])
             return np.var(energies)
 
-        self.compute_energy_slow=compute_energy_slow
+        def compute_energy_permutation(seq_index):
+            """ Function to compute the variance of the energy of all permutations of a sequence 
+                Caution: This function is very slow for normal sequences """
+            from itertools import permutations
+            decoy_sequences = np.array(list(permutations(seq_index)))
+            energies=np.zeros(len(decoy_sequences))
+            for i in numba.prange(len(decoy_sequences)):
+                energies[i]=awsem_energy(decoy_sequences[i])
+            return np.var(energies)
+        
+        self.compute_energy_sample=self.numbify(compute_energy_sample,parallel=True)
+        self.compute_energy_permutation=compute_energy_permutation
 
 class MonteCarlo:
     def __init__(self, model, seq_index, energy, alphabet, use_numba=True):
