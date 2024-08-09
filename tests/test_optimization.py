@@ -1,5 +1,10 @@
 from frustratometer.optimization import *
 
+def test_energy_term():
+    et = EnergyTerm()
+    et.test()
+
+
 def test_heterogeneity_approximation():
     sequence = list("SISSRVKSKRIQLGLNQAELAQKVGTTQQSIEQLENGKTKRPRFLP")
     het = heterogeneity(sequence)

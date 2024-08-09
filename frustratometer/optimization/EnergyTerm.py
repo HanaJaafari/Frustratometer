@@ -265,7 +265,3 @@ class EnergyTerm(abc.ABC):
         self.test_denergy_mutation_accuracy(seq_index, np.random.randint(len(seq_index)), 0)
         self.test_denergy_swap_accuracy(seq_index, np.random.randint(len(seq_index)), np.random.randint(len(seq_index)))
         print("All tests passed!")
-
-if __name__ == "__main__":
-    et = EnergyTerm()
-    et.test()
