@@ -15,7 +15,7 @@ import itertools
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
 
 def index_to_sequence(seq_index, alphabet):
-    """Converts sequence index array back to sequence string."""
+    """Converts sequence index array back to a sequence string."""
     seq = ''.join([alphabet[index] for index in seq_index])
     return seq
 
@@ -28,9 +28,12 @@ def sequence_to_index(sequence, alphabet):
 
 @numba.njit
 def random_seed(seed):
+    """Sets the random seed for the numpy random number generator.
+    This function is needed to set the seed in a numba compatible way."""
     np.random.seed(seed)
 
 class Zero(EnergyTerm):
+    """ Zero energy term for testing purposes. """
     @staticmethod
     def compute_energy(seq_index:np.ndarray):
         return 0.
@@ -44,6 +47,11 @@ class Zero(EnergyTerm):
         return 0.
 
 class Heterogeneity(EnergyTerm):
+    """ Heterogeneity energy term.
+        This term calculates the heterogeneity of a sequence using the Shannon entropy.
+        The heterogeneity is calculated as the ratio of the number of possible sequences with the same amino acid composition to the total number of sequences.
+        The energy is the negative logarithm of the heterogeneity.
+     """
     def __init__(self, exact=False, alphabet=_AA, use_numba=True):
         self.use_numba=use_numba
         self.exact=exact
@@ -97,6 +105,10 @@ class Heterogeneity(EnergyTerm):
         self.compute_denergy_mutation=dheterogeneity
 
 class AwsemEnergy(EnergyTerm):
+    """ AWSEM energy term.
+        This term calculates the energy of a sequence using the AWSEM model.
+        The energy is calculated from the fields and couplings of the Potts model.
+        """
     def __init__(self, model:Frustratometer, alphabet=_AA, use_numba=True):
         self.use_numba=use_numba
         self.model=model
@@ -255,24 +267,6 @@ class AwsemEnergyAverage(EnergyTerm):
         self.compute_energy = compute_energy
         self.compute_denergy_mutation = denergy_mutation
 
-        # def compute_energy_slow(seq_index, num_decoys=1000):
-        #     #def alternative_compute_dE2(model_h, model_J, mask, gamma,seq_index, indicators, len_alphabet=len(_AA),num_decoys=1000):
-        #     """Modified algorithm of Papoian and Wolynes, Biopolymers 2003 (doi.org/10.1002/bip.10286)
-        #     While Papoian and Wolynes required a range of Q values, we only care that they represent
-        #     the molten globule. To design against the bottom of the funnel, a target of Q=0.35 seems appropriate
-        #     Q = 1
-        #         while Q > 0.35:
-        #         swap_pair = np.random.randint(0,gamma.shape[0],size=2,) #could pick the same residue twice but that's okay"""
-        #     energies = np.zeros(num_decoys)
-        #     #for decoy_num in numba.prange(num_decoys):
-        #     for decoy_num in range(num_decoys):
-        #         np.random.shuffle(seq_index)
-        #         energies[decoy_num] = awsem_de.energy(seq_index)
-        #     return np.var(energies)
-
-        # self.compute_energy_slow=compute_energy_slow
-
-
 class AwsemEnergyVariance(EnergyTerm):   
     def __init__(self, model:Frustratometer, use_numba=True, alphabet=_AA):
         self.use_numba=use_numba
@@ -365,6 +359,11 @@ class AwsemEnergyVariance(EnergyTerm):
         
         self.compute_energy_sample=self.numbify(compute_energy_sample,parallel=True)
         self.compute_energy_permutation=compute_energy_permutation
+
+    def regression_test(self, seq_index):
+        expected_energy=self.compute_energy_permutation(seq_index)
+        energy=self.compute_energy(seq_index)
+        assert np.isclose(energy,expected_energy), f"Expected energy {expected_energy} but got {energy}"
 
 class MonteCarlo:
     def __init__(self, model, seq_index, energy, alphabet, use_numba=True):
@@ -568,18 +567,18 @@ if __name__ == '__main__':
     reindex_dca=[_AA.index(aa) for aa in reduced_alphabet]
     model_seq_index=sequence_to_index(model.sequence,alphabet=reduced_alphabet)
     seq_indices = np.random.randint(0, len(reduced_alphabet), size=(1,len(structure.sequence)))
-    #Tests
-    # for exact,use_numba in [(True,False),(False,False),(True,True),(False,True)]:
-    #     het=Heterogeneity(exact=exact,use_numba=use_numba)
-    #     for i in range(1):
-    #         het.test(seq_indices[i])
-        
     
-    # for use_numba in [False, True]:
-    #     awsem_energy = AwsemEnergy(use_numba=use_numba, model=model, alphabet=reduced_alphabet)
-    #     for i in range(1):
-    #         awsem_energy.test(seq_indices[i])
-    #     awsem_energy.regression_test()
+    # Tests
+    for exact,use_numba in [(True,False),(False,False),(True,True),(False,True)]:
+        het=Heterogeneity(exact=exact,use_numba=use_numba)
+        for i in range(1):
+            het.test(seq_indices[i])
+    
+    for use_numba in [False, True]:
+        awsem_energy = AwsemEnergy(use_numba=use_numba, model=model, alphabet=reduced_alphabet)
+        for i in range(1):
+            awsem_energy.test(seq_indices[i])
+        awsem_energy.regression_test()
 
     for use_numba in [False, True]:
         awsem_de2 = AwsemEnergyVariance(use_numba=use_numba, model=model, alphabet=reduced_alphabet)
@@ -657,28 +656,21 @@ if __name__ == '__main__':
     mean_outer_product -= np.outer(indicator_arrays.mean(axis=0), indicator_arrays.mean(axis=0))
     assert np.allclose(gamma_array @ mean_outer_product @ gamma_array, energies.var()), "Covariance matrix is not correct"
 
-    # This is working right:
-    # np.where(~np.isclose(np.einsum('ij,ik->ijk', indicator_arrays, indicator_arrays).mean(axis=0),build_mean_inner_product_matrix(freq_i.copy(),indicators1D.copy(),indicators2D.copy(), region_means)))
-
-    # This is working wrong:
-    # np.where(~np.isclose(np.outer(indicator_arrays.mean(axis=0), indicator_arrays.mean(axis=0)),np.outer(phi_mean,phi_mean)))
-
-
     # Indicator tests    
-    # indicators1D=np.array(model.indicators[0:3])
-    # indicators2D=np.array(model.indicators[3:])
-    # gamma=model.gamma_array
-    # true_indicator1D=np.array([indicators1D[:,model_seq_index==i].sum(axis=1) for i in range(21)]).T
-    # true_indicator2D=np.array([indicators2D[:,model_seq_index==i][:,:, model_seq_index==j].sum(axis=(1,2)) for i in range(21) for j in range(21)]).reshape(21,21,3).T
-    # true_indicator=np.concatenate([true_indicator1D.ravel(),true_indicator2D.ravel()])
-    # burial_gamma=np.concatenate(model.gamma_array[:3])
-    # burial_energy_predicted = (burial_gamma * np.concatenate(true_indicator1D)).sum()
-    # burial_energy_expected = -model.potts_model['h'][range(len(model_seq_index)), model_seq_index].sum()
-    # assert np.isclose(burial_energy_predicted,burial_energy_expected), f"Expected energy {burial_energy_expected} but got {burial_energy_predicted}"
-    # contact_gamma=np.concatenate([a.ravel() for a in model.gamma_array[3:]])
-    # contact_energy_predicted = (contact_gamma * np.concatenate([a.ravel() for a in true_indicator2D])).sum()
-    # contact_energy_expected = model.couplings_energy()
-    # assert np.isclose(contact_energy_predicted,contact_energy_expected), f"Expected energy {contact_energy_expected} but got {contact_energy_predicted}"
+    indicators1D=np.array(model.indicators[0:3])
+    indicators2D=np.array(model.indicators[3:])
+    gamma=model.gamma_array
+    true_indicator1D=np.array([indicators1D[:,model_seq_index==i].sum(axis=1) for i in range(21)]).T
+    true_indicator2D=np.array([indicators2D[:,model_seq_index==i][:,:, model_seq_index==j].sum(axis=(1,2)) for i in range(21) for j in range(21)]).reshape(21,21,3).T
+    true_indicator=np.concatenate([true_indicator1D.ravel(),true_indicator2D.ravel()])
+    burial_gamma=np.concatenate(model.gamma_array[:3])
+    burial_energy_predicted = (burial_gamma * np.concatenate(true_indicator1D)).sum()
+    burial_energy_expected = -model.potts_model['h'][range(len(model_seq_index)), model_seq_index].sum()
+    assert np.isclose(burial_energy_predicted,burial_energy_expected), f"Expected energy {burial_energy_expected} but got {burial_energy_predicted}"
+    contact_gamma=np.concatenate([a.ravel() for a in model.gamma_array[3:]])
+    contact_energy_predicted = (contact_gamma * np.concatenate([a.ravel() for a in true_indicator2D])).sum()
+    contact_energy_expected = model.couplings_energy()
+    assert np.isclose(contact_energy_predicted,contact_energy_expected), f"Expected energy {contact_energy_expected} but got {contact_energy_predicted}"
     
     # Combination test
     #energy = awsem_energy + 10 * het + 20 * awsem_de2
