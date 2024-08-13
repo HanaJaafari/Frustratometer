@@ -93,7 +93,6 @@ class EnergyTerm(abc.ABC):
         return 0.
 
     def __add__(self, other):
-        print(f"__add__ {type(self)} {type(other)}")
         new_energy_term = EnergyTerm()
         if isinstance(other, EnergyTerm):
             new_energy_term.use_numba = self.use_numba and other.use_numba
@@ -114,7 +113,6 @@ class EnergyTerm(abc.ABC):
         return new_energy_term
         
     def __mul__(self, other):
-        print(f"__mul__ {type(self)} {type(other)}")
         new_energy_term = EnergyTerm()
         if isinstance(other, EnergyTerm):
             new_energy_term.use_numba = self.use_numba and other.use_numba
@@ -151,7 +149,6 @@ class EnergyTerm(abc.ABC):
         return new_energy_term
         
     def __sub__(self, other):
-        print(f"__sub__ {type(self)} {type(other)}")
         new_energy_term = EnergyTerm()
         if isinstance(other, EnergyTerm):
             new_energy_term.use_numba = self.use_numba and other.use_numba
@@ -172,7 +169,6 @@ class EnergyTerm(abc.ABC):
         return new_energy_term
 
     def __truediv__(self, other):
-        print(f"__truediv__ {type(self)} {type(other)}")
         new_energy_term = EnergyTerm()
         if isinstance(other, EnergyTerm):
             new_energy_term.use_numba = self.use_numba and other.use_numba
@@ -215,19 +211,15 @@ class EnergyTerm(abc.ABC):
         return new_energy_term
 
     def __rmul__(self, other):
-        print(f"__rmul__ {type(self)} {type(other)}")
         return self.__mul__(other)
     
     def __radd__(self, other):
-        print(f"__radd__ {type(self)} {type(other)}")
         return self.__add__(other)
     
     def __rsub__(self, other):
-        print(f"__rsub__ {type(self)} {type(other)}")
         return (self * -1).__add__(other)
     
     def __rtruediv__(self, other):
-        print(f"__truediv__ {type(self)} {type(other)}")
         new_energy_term = EnergyTerm()
         if isinstance(other, EnergyTerm):
             return other / self
@@ -265,7 +257,7 @@ class EnergyTerm(abc.ABC):
         return new_instance
         
     def test_energy(self,seq_index=np.array([0,1,2,3,4])):
-        assert type(self.energy(seq_index)) in [float,np.float64], "Energy function should return a float. It is returning a {}".format(type(self.energy(seq_index)))
+        assert type(self.energy(seq_index)) in [float,np.float64], f"Energy function should return a float."
 
     def test_denergy_mutation(self,seq_index=np.array([0,1,2,3,4]), pos=0, aa=1):
         assert type(self.denergy_mutation(seq_index, pos, aa)) in [float,np.float64], "Mutation energy change function should return a float"
@@ -307,8 +299,40 @@ class EnergyTerm(abc.ABC):
         self.test_denergy_swap_accuracy(seq_index, np.random.randint(len(seq_index)), np.random.randint(len(seq_index)))
         print("All tests passed!")
 
+    def benchmark(self,seq_indices):
+        import time
+        
+        # Compile functions (run once and discard result)
+        energy_function = self.energy_function
+        denergy_mutation_function = self.denergy_mutation_function
+        denergy_swap_function = self.denergy_swap_function
+
+        energy_function(seq_indices[0])
+        denergy_mutation_function(seq_indices[0], 0, 1)
+        denergy_swap_function(seq_indices[0], 0, 1)
+        
+        t0 = time.time()
+        for seq_index in seq_indices:
+            energy_function(seq_index)
+        t1 = time.time()
+        print(f"Energy function took {(t1-t0)/len(seq_indices)*1E6} microseconds per sequence")
+
+        t0 = time.time()
+        for seq_index in seq_indices:
+            denergy_mutation_function(seq_index, np.random.randint(len(seq_index)), 1)
+        t1 = time.time()
+        print(f"Mutation energy change function took {(t1-t0)/len(seq_indices)*1E6} microseconds per sequence")
+
+        t0 = time.time()
+        for seq_index in seq_indices:
+            denergy_swap_function(seq_index, np.random.randint(len(seq_index)), np.random.randint(len(seq_index)))
+        t1 = time.time()
+        print(f"Swap energy change function took {(t1-t0)/len(seq_indices)*1E6} microseconds per sequence")
+
+
 if __name__ == "__main__":
     class TestEnergyTerm(EnergyTerm):
+        
         @staticmethod
         def compute_energy(seq_index:np.ndarray):
             return float(np.sum(seq_index*np.arange(len(seq_index))))
@@ -386,3 +410,10 @@ if __name__ == "__main__":
     assert et2.energy(seq_index) == 12, f"Expected {et.energy(seq_index) + 1}, got {et2.energy(seq_index)}"
     et2.test()
 
+    print("No numba benchmark")
+    et2.use_numba = False
+    et2.benchmark([seq_index for _ in range(1000)])
+
+    print("Numba benchmark")
+    et2.use_numba = True
+    et2.benchmark([seq_index for _ in range(1000)])
