@@ -372,7 +372,7 @@ def build_mean_inner_product_matrix(repetitions, indicators1d, indicators2d, reg
 @jit(types.Array(types.float64, 3, 'C')(
      types.Array(types.float64, 2, 'A', readonly=True), 
      types.Array(types.float64, 3, 'A', readonly=True)),
-      nopython=True, parallel=True, cache=True)
+      nopython=True, cache=True)
 def compute_all_region_means(indicators1d, indicators2d):
     num_matrices1d = len(indicators1d)
     num_matrices2d = len(indicators2d)
@@ -555,28 +555,32 @@ def diff_mean_inner_product_2_by_2_v2(r0, r1, repetitions, region_mean):
                         mean_inner_product[l * n_elements_3 + k * n_elements_2 + j * n_elements + i] = value_ijkl
 
                 if nijk!=mijk:
+                    #Diferences
                     dijk = nijk - mijk
                     dijki = nijk * (n[i] - 1) - mijk * (m[i] - 1)
                     dijkj = nijk * (n[j] - 1) - mijk * (m[j] - 1)
                     dijkk = nijk * (n[k] - 1) - mijk * (m[k] - 1)
+                    
+                    # Same region
                     dr_ijil = dijk * region_mean[ijil]
                     dr_ijjl = dijk * region_mean[ijjl]
                     dr_ijki = dijk * region_mean[ijki]
                     dr_ijkj = dijk * region_mean[ijkj]
                     dr_ijkk = dijk * region_mean[ijkk]
                     dr_iikl = dijk * region_mean[iikl]
+                    
+                    # Degenarate cases
                     dri_ijkl = dijki * region_mean[ijkl]
                     drj_ijkl = dijkj * region_mean[ijkl]
                     drk_ijkl = dijkk * region_mean[ijkl]
 
-                    # i, j, k
+                    # First permutation for the regions with 1 repeated index (i,j,k)
                     mean_inner_product[i * n_elements_3 + j * n_elements_2 + i * n_elements + k] = dr_ijil + dri_ijkl
                     mean_inner_product[i * n_elements_3 + j * n_elements_2 + j * n_elements + k] = dr_ijjl + drj_ijkl
                     mean_inner_product[i * n_elements_3 + j * n_elements_2 + k * n_elements + i] = dr_ijki + dri_ijkl
                     mean_inner_product[i * n_elements_3 + j * n_elements_2 + k * n_elements + j] = dr_ijkj + drj_ijkl
                     mean_inner_product[i * n_elements_3 + j * n_elements_2 + k * n_elements + k] = dr_ijkk + drk_ijkl
                     mean_inner_product[i * n_elements_3 + i * n_elements_2 + j * n_elements + k] = dr_iikl + dri_ijkl
-
                     # i, k, j
                     mean_inner_product[i * n_elements_3 + k * n_elements_2 + i * n_elements + j] = dr_ijil + dri_ijkl
                     mean_inner_product[i * n_elements_3 + k * n_elements_2 + k * n_elements + j] = dr_ijjl + drk_ijkl
@@ -584,7 +588,6 @@ def diff_mean_inner_product_2_by_2_v2(r0, r1, repetitions, region_mean):
                     mean_inner_product[i * n_elements_3 + k * n_elements_2 + j * n_elements + k] = dr_ijkj + drk_ijkl
                     mean_inner_product[i * n_elements_3 + k * n_elements_2 + j * n_elements + j] = dr_ijkk + drj_ijkl
                     mean_inner_product[i * n_elements_3 + i * n_elements_2 + k * n_elements + j] = dr_iikl + dri_ijkl
-
                     # j, i, k
                     mean_inner_product[j * n_elements_3 + i * n_elements_2 + j * n_elements + k] = dr_ijil + drj_ijkl
                     mean_inner_product[j * n_elements_3 + i * n_elements_2 + i * n_elements + k] = dr_ijjl + dri_ijkl
@@ -592,7 +595,6 @@ def diff_mean_inner_product_2_by_2_v2(r0, r1, repetitions, region_mean):
                     mean_inner_product[j * n_elements_3 + i * n_elements_2 + k * n_elements + i] = dr_ijkj + dri_ijkl
                     mean_inner_product[j * n_elements_3 + i * n_elements_2 + k * n_elements + k] = dr_ijkk + drk_ijkl
                     mean_inner_product[j * n_elements_3 + j * n_elements_2 + i * n_elements + k] = dr_iikl + drj_ijkl
-
                     # j, k, i
                     mean_inner_product[j * n_elements_3 + k * n_elements_2 + j * n_elements + i] = dr_ijil + drj_ijkl
                     mean_inner_product[j * n_elements_3 + k * n_elements_2 + k * n_elements + i] = dr_ijjl + drk_ijkl
@@ -600,7 +602,6 @@ def diff_mean_inner_product_2_by_2_v2(r0, r1, repetitions, region_mean):
                     mean_inner_product[j * n_elements_3 + k * n_elements_2 + i * n_elements + k] = dr_ijkj + drk_ijkl
                     mean_inner_product[j * n_elements_3 + k * n_elements_2 + i * n_elements + i] = dr_ijkk + dri_ijkl
                     mean_inner_product[j * n_elements_3 + j * n_elements_2 + k * n_elements + i] = dr_iikl + drj_ijkl
-
                     # k, i, j
                     mean_inner_product[k * n_elements_3 + i * n_elements_2 + k * n_elements + j] = dr_ijil + drk_ijkl
                     mean_inner_product[k * n_elements_3 + i * n_elements_2 + i * n_elements + j] = dr_ijjl + dri_ijkl
@@ -608,7 +609,6 @@ def diff_mean_inner_product_2_by_2_v2(r0, r1, repetitions, region_mean):
                     mean_inner_product[k * n_elements_3 + i * n_elements_2 + j * n_elements + i] = dr_ijkj + dri_ijkl
                     mean_inner_product[k * n_elements_3 + i * n_elements_2 + j * n_elements + j] = dr_ijkk + drj_ijkl
                     mean_inner_product[k * n_elements_3 + k * n_elements_2 + i * n_elements + j] = dr_iikl + drk_ijkl
-
                     # k, j, i
                     mean_inner_product[k * n_elements_3 + j * n_elements_2 + k * n_elements + i] = dr_ijil + drk_ijkl
                     mean_inner_product[k * n_elements_3 + j * n_elements_2 + j * n_elements + i] = dr_ijjl + drj_ijkl
@@ -753,7 +753,7 @@ def diff_mean_inner_product_1_by_1(r0, r1, repetitions,region_mean):
      types.Array(types.float64, 2, 'A', readonly=True), 
      types.Array(types.float64, 3, 'A', readonly=True),
      types.Array(types.float64, 3, 'A', readonly=True)),
-     nopython=True, parallel=True, cache=True)
+     nopython=True, cache=True)
 def diff_mean_inner_product_matrix(r0,r1, repetitions, indicators1d, indicators2d, region_means):
     num_matrices1d = len(indicators1d)
     num_matrices2d = len(indicators2d)
