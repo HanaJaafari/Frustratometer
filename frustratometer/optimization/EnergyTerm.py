@@ -311,6 +311,19 @@ class EnergyTerm(abc.ABC):
         denergy_mutation_function(seq_indices[0], 0, 1)
         denergy_swap_function(seq_indices[0], 0, 1)
         
+        # energy_function_loop = self.numbify(lambda seq_indices: [(energy_function(seq_index) for seq_index in seq_indices])])
+        # denergy_mutation_function_loop = self.numbify(lambda seq_indices: [denergy_mutation_function(seq_index, 0, 1) for seq_index in seq_indices])
+        # denergy_swap_function_loop = self.numbify(lambda seq_indices: [denergy_swap_function(seq_index, 1, 0) for seq_index in seq_indices])
+
+        # energy_function_loop_instantiated=energy_function_loop
+        # denergy_mutation_function_loop_instantiated =denergy_mutation_function_loop
+        # denergy_swap_function_loop_instantiated=denergy_swap_function_loop
+
+        # energy_function_loop_instantiated(seq_indices[0:1])
+        # denergy_mutation_function_loop_instantiated(seq_indices[0:1])
+        # denergy_swap_function_loop_instantiated(seq_indices[0:1])
+        
+        # TODO: Implement looped functions in numba for benchmarking
         t0 = time.time()
         for seq_index in seq_indices:
             energy_function(seq_index)
@@ -319,13 +332,13 @@ class EnergyTerm(abc.ABC):
 
         t0 = time.time()
         for seq_index in seq_indices:
-            denergy_mutation_function(seq_index, np.random.randint(len(seq_index)), 1)
+            denergy_mutation_function(seq_index, 0, 1)
         t1 = time.time()
         print(f"Mutation energy change function took {(t1-t0)/len(seq_indices)*1E6} microseconds per sequence")
 
         t0 = time.time()
         for seq_index in seq_indices:
-            denergy_swap_function(seq_index, np.random.randint(len(seq_index)), np.random.randint(len(seq_index)))
+            denergy_swap_function(seq_index, 1, 0)
         t1 = time.time()
         print(f"Swap energy change function took {(t1-t0)/len(seq_indices)*1E6} microseconds per sequence")
 
@@ -349,71 +362,10 @@ if __name__ == "__main__":
     et.test()
 
     seq_index=np.array([0,1,2,3])
-    pos, aa = 0, 1
-    pos1, pos2 = 2, 3
-    seq_index_mut=seq_index.copy()
-    seq_index_mut[pos] = aa
-    seq_index_swap=seq_index.copy()
-    seq_index_swap[pos1], seq_index_swap[pos2] = seq_index[pos2], seq_index[pos1]
-
-    seq_index=np.array([0,1,2,3])
-        
-    assert et.energy(seq_index) == float(np.sum(seq_index*np.arange(len(seq_index)))), f"Energy function is not working, expected {float(np.sum(seq_index*np.arange(len(seq_index))))}, got {et.energy(seq_index)}"
-    assert et.denergy_mutation(seq_index, 0, 1) == float((aa-seq_index[pos])*pos), f"Mutation energy change is not working, expected {float((aa-seq_index[pos])*pos)}, got {et.denergy_mutation(seq_index, 0, 1)}"
-    assert et.denergy_swap(seq_index, 0, 1) ==float((seq_index[pos1]-seq_index[pos2])*(pos2-pos1)), f"Swap energy change is not working, expected {float((seq_index[pos1]-seq_index[pos2])*(pos2-pos1))}, got {et.denergy_swap(seq_index, 0, 1)}"
-
-    et2 = et + 1
-    assert et2.energy(seq_index) == et.energy(seq_index) + 1, f"Expected {et.energy(seq_index) + 1}, got {et2.energy(seq_index)}"
-    et2.test()
-
-    et2 = et * 2
-    assert et2.energy(seq_index) == et.energy(seq_index) * 2, f"Expected {et.energy(seq_index) + 1}, got {et2.energy(seq_index)}"
-    et2.test()
-
-    et2 = et - 3
-    assert et2.energy(seq_index) == et.energy(seq_index) - 3, f"Ed {et.energy(seq_index) + 1}, got {et2.energy(seq_index)}"
-    et2.test()
-
-    et2 = et / 4
-    assert et2.energy(seq_index) == et.energy(seq_index) / 4, f"Expected {et.energy(seq_index) + 1}, got {et2.energy(seq_index)}"
-    et2.test()
-
-    et2 = 5 + et 
-    assert et2.energy(seq_index) == 5 + et.energy(seq_index), f"Expected {et.energy(seq_index) + 1}, got {et2.energy(seq_index)}"
-    et2.test()
-
-    et2 = 6 * et
-    assert et2.energy(seq_index) == 6 * et.energy(seq_index), f"Expected {et.energy(seq_index) + 1}, got {et2.energy(seq_index)}"
-    et2.test()
-
-    et2 = 7 - et
-    assert et2.energy(seq_index) == 7 - et.energy(seq_index) , f"Expected {et.energy(seq_index) + 1}, got {et2.energy(seq_index)}"
-    et2.test()
-
-    et2 = 8 / et 
-    assert et2.energy(seq_index) == 8 / et.energy(seq_index), f"Expected {et.energy(seq_index) + 1}, got {et2.energy(seq_index)}"
-    et2.test()
-
-    et2 = et + 9 * et
-    assert et2.energy(seq_index) == 10 *et.energy(seq_index), f"Expected {et.energy(seq_index) + 1}, got {et2.energy(seq_index)}"
-    et2.test()
-
-    et2 = (10 * et) * et
-    assert et2.energy(seq_index) == 10 * et.energy(seq_index) ** 2, f"Expected {et.energy(seq_index) + 1}, got {et2.energy(seq_index)}"
-    et2.test()
-
-    et2 = (11 * et) - et
-    assert et2.energy(seq_index) == 10 * et.energy(seq_index), f"Ed {et.energy(seq_index) + 1}, got {et2.energy(seq_index)}"
-    et2.test()
-
-    et2 = (12 * et) / et
-    assert et2.energy(seq_index) == 12, f"Expected {et.energy(seq_index) + 1}, got {et2.energy(seq_index)}"
-    et2.test()
-
     print("No numba benchmark")
-    et2.use_numba = False
-    et2.benchmark([seq_index for _ in range(1000)])
+    et.use_numba = False
+    et.benchmark([seq_index for _ in range(1000)])
 
     print("Numba benchmark")
-    et2.use_numba = True
-    et2.benchmark([seq_index for _ in range(1000)])
+    et.use_numba = True
+    et.benchmark([seq_index for _ in range(1000)])
