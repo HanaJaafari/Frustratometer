@@ -216,8 +216,8 @@ class AwsemEnergyAverage(EnergyTerm):
         self.indicators = model.indicators
         self.alphabet_size=len(alphabet)
         self.model=model
-        self.model_h=model.potts_model['h'][:,self.reindex_dca]
-        self.model_J= model.potts_model['J'][:,:,self.reindex_dca][:,:,:,self.reindex_dca]
+        self.model_h = model.potts_model['h'][:,self.reindex_dca]
+        self.model_J = model.potts_model['J'][:,:,self.reindex_dca][:,:,:,self.reindex_dca]
         self.mask = model.mask
         self.indicators1D=np.array([ind for ind in self.indicators if len(ind.shape)==1])
         self.indicators2D=np.array([ind for ind in self.indicators if len(ind.shape)==2])
@@ -230,16 +230,14 @@ class AwsemEnergyAverage(EnergyTerm):
         indicators1D=self.indicators1D
         indicators2D=self.indicators2D
         len_alphabet=self.alphabet_size
-        gamma=self.gamma
         phi_len= indicators1D.shape[0]*len_alphabet + indicators2D.shape[0]*len_alphabet**2
-      
+        gamma=self.gamma
+        
         def compute_energy(seq_index):
             aa_count = np.bincount(seq_index, minlength=len_alphabet)
             freq_i=aa_count
             freq_ij=np.outer(freq_i,freq_i)
-            alpha = np.diag(freq_i)
-            beta = freq_ij.copy()
-            np.fill_diagonal(beta, freq_i*(freq_i-1))
+            np.fill_diagonal(freq_ij,freq_i*(freq_i-1))
             
             phi_mean = np.zeros(phi_len)
             offset=0
@@ -247,15 +245,25 @@ class AwsemEnergyAverage(EnergyTerm):
                 phi_mean[offset:offset+len_alphabet]=np.mean(indicator)*freq_i
                 offset += len_alphabet
             for indicator in indicators2D:
-                temp_indicator=indicator.copy()
-                mean_diagonal_indicator = np.diag(temp_indicator).mean()
-                np.fill_diagonal(temp_indicator, 0)
-                mean_offdiagonal_indicator = temp_indicator.mean()
+                # Calculate the off-diagonal mean
+                sum=0
+                count=0
+                for i in range(len(indicator)):
+                    for j in range(len(indicator)):
+                        if i!=j:
+                            sum+=indicator[i,j]
+                            count+=1
+                mean_offdiagonal_indicator=sum/count
                 
-                phi_mean[offset:offset+len_alphabet**2]=alpha.ravel()*mean_diagonal_indicator + beta.ravel()*mean_offdiagonal_indicator
+                
+                phi_mean[offset:offset+len_alphabet**2]=freq_ij.ravel()*mean_offdiagonal_indicator
                 offset += len_alphabet**2
             
-            return gamma @ phi_mean
+            energy=0
+            for i in range(len(gamma)):
+                energy+=gamma[i]*phi_mean[i]
+            
+            return energy
         
         compute_energy_numba=self.numbify(compute_energy, cache=True)
         
@@ -266,6 +274,35 @@ class AwsemEnergyAverage(EnergyTerm):
         
         self.compute_energy = compute_energy
         self.compute_denergy_mutation = denergy_mutation
+
+        awsem_energy = AwsemEnergy(use_numba=self.use_numba, model=self.model, alphabet=self.alphabet).energy_function
+
+        def compute_energy_sample(seq_index,n_decoys=100000):
+            """ Function to compute the variance of the energy of permutations of a sequence using random shuffling.
+                This function is much faster than compute_energy_permutation but is an approximation"""
+            energies=np.zeros(n_decoys)
+            shuffled_index=seq_index.copy()
+            for i in numba.prange(n_decoys):
+                energies[i]=awsem_energy(shuffled_index[np.random.permutation(len(shuffled_index))])
+            return np.mean(energies)
+
+        def compute_energy_permutation(seq_index):
+            """ Function to compute the variance of the energy of all permutations of a sequence 
+                Caution: This function is very slow for normal sequences """
+            from itertools import permutations
+            decoy_sequences = np.array(list(permutations(seq_index)))
+            energies=np.zeros(len(decoy_sequences))
+            for i in numba.prange(len(decoy_sequences)):
+                energies[i]=awsem_energy(decoy_sequences[i])
+            return np.mean(energies)
+        
+        self.compute_energy_sample=self.numbify(compute_energy_sample,parallel=True)
+        self.compute_energy_permutation=compute_energy_permutation
+
+    def regression_test(self, seq_index):
+        expected_energy=self.compute_energy_permutation(seq_index)
+        energy=self.compute_energy(seq_index)
+        assert np.isclose(energy,expected_energy), f"Expected energy {expected_energy} but got {energy}"
 
 class AwsemEnergyVariance(EnergyTerm):   
     def __init__(self, model:Frustratometer, use_numba=True, alphabet=_AA):
@@ -559,6 +596,14 @@ class MonteCarlo:
 
 if __name__ == '__main__':
     
+    import cProfile
+    import pstats
+    import io
+
+    # Run the profiler
+    profiler = cProfile.Profile()
+    
+
     native_pdb = "tests/data/1bfz.pdb"
     # native_pdb = "frustratometer/optimization/10.3_model_LinkerBack_partialEGFR.pdb"
     structure_bound = Structure.full_pdb(native_pdb, chain=None)
@@ -569,6 +614,7 @@ if __name__ == '__main__':
 
     energy_bound = AwsemEnergy(model_bound, reduced_alphabet)
     energy_unbound = AwsemEnergy(model_free, reduced_alphabet)
+    energy_average = AwsemEnergyAverage(model_free, reduced_alphabet)
     energy_variance = AwsemEnergyVariance(model_free, reduced_alphabet)
     heterogeneity = Heterogeneity(exact=False, use_numba=True)
 
@@ -576,32 +622,17 @@ if __name__ == '__main__':
     Ev = 10
     energy= (energy_bound - energy_unbound) + 10 * energy_variance + 10 * heterogeneity
 
-    energy_terms={"energy_bound": energy_bound, "energy_unbound": energy_unbound, "heterogeneity": heterogeneity, "energy_variance":energy_variance}
+    energy_terms={"energy_bound": energy_bound, "energy_unbound": energy_unbound, "heterogeneity": heterogeneity, "energy_average": energy_average} #, "energy_variance":energy_variance
 
     for energy_name,energy_term in energy_terms.items():
         print (f"Energy term: {energy_name}")
         energy_term.test(seq_index=np.random.randint(0, len(reduced_alphabet), size=len(structure_free.sequence)))
         energy_term.benchmark(seq_indices=np.random.randint(0, len(reduced_alphabet), size=(1000,len(structure_free.sequence))))
+        
         monte_carlo = MonteCarlo(sequence = structure_free.sequence, energy=energy_term, alphabet=reduced_alphabet, evaluation_energies=energy_terms)
-        monte_carlo.benchmark_montecarlo_steps(n_repeats=3,n_steps=100)
+        monte_carlo.benchmark_montecarlo_steps(n_repeats=3,n_steps=10)
 
-    import cProfile
-    import pstats
-    import io
-
-    def profile_energy_terms():
-        for energy_name, energy_term in energy_terms.items():
-            print(f"Energy term: {energy_name}")
-            energy_term.test(seq_index=np.random.randint(0, len(reduced_alphabet), size=len(structure_free.sequence)))
-            energy_term.benchmark(seq_indices=np.random.randint(0, len(reduced_alphabet), size=(1000, len(structure_free.sequence))))
-            monte_carlo = MonteCarlo(sequence=structure_free.sequence, energy=energy_term, alphabet=reduced_alphabet, evaluation_energies=energy_terms)
-            monte_carlo.benchmark_montecarlo_steps(n_repeats=3, n_steps=100)
-
-    # Run the profiler
-    profiler = cProfile.Profile()
-    profiler.enable()
-    profile_energy_terms()
-    profiler.disable()
+    
 
     # Print the stats
     s = io.StringIO()
@@ -609,7 +640,7 @@ if __name__ == '__main__':
     ps.print_stats()
     print(s.getvalue())
 
-    ps.dump_stats('energy_terms_profile.prof')
+    ps.dump_stats('sample_profile.prof')
     #monte_carlo.annealing()
     #print(monte_carlo.sequences)
 

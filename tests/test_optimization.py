@@ -2,10 +2,6 @@ import pytest
 from frustratometer.optimization import *
 from frustratometer.optimization.inner_product import *
 
-def test_energy_term():
-    et = EnergyTerm()
-    et.test()
-
 ##################
 # Test functions #
 ##################
@@ -337,12 +333,25 @@ def test_awsem_energy(model,reduced_alphabet,use_numba):
 
 @pytest.mark.parametrize("reduced_alphabet", [_AA,''.join([a for a in _AA if a not in ['-','C','P']]),''.join([a for a in _AA if a != '-'] + ['-'])])
 @pytest.mark.parametrize("use_numba", [True, False])
+def test_awsem_energy_average(model, reduced_alphabet, use_numba):
+    seq_indices = np.random.randint(0, len(reduced_alphabet), size=(1,len(model.sequence)))
+    awsem_de2 = AwsemEnergyAverage(use_numba=use_numba, model=model, alphabet=reduced_alphabet)
+    awsem_de2.test(seq_indices[0])
+    awsem_de2.regression_test(seq_indices[0])
+
+
+@pytest.mark.parametrize("reduced_alphabet", [_AA,''.join([a for a in _AA if a not in ['-','C','P']]),''.join([a for a in _AA if a != '-'] + ['-'])])
+@pytest.mark.parametrize("use_numba", [True, False])
 def test_awsem_energy_variance(model, reduced_alphabet, use_numba):
     seq_indices = np.random.randint(0, len(reduced_alphabet), size=(1,len(model.sequence)))
     awsem_de2 = AwsemEnergyVariance(use_numba=use_numba, model=model, alphabet=reduced_alphabet)
     awsem_de2.test(seq_indices[0])
     awsem_de2.regression_test(seq_indices[0])
 
+
+###############
+# Monte Carlo #
+###############
 
 def test_awsem_energy_variance_sample(model):
     seq_index=sequence_to_index(model.sequence,alphabet=_AA)
@@ -431,7 +440,6 @@ def test_awsem_energy_variance_sample(model):
     contact_energy_predicted = (contact_gamma * np.concatenate([a.ravel() for a in true_indicator2D])).sum()
     contact_energy_expected = model.couplings_energy()
     assert np.isclose(contact_energy_predicted,contact_energy_expected), f"Expected energy {contact_energy_expected} but got {contact_energy_predicted}"
-
 
 
 def test_heterogeneity_approximation():
