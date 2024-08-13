@@ -397,7 +397,7 @@ class MonteCarlo:
         alphabet=self.alphabet
         alphabet_size=len(alphabet)
         sequence_size = self.seq_len
-        energy=self.energy.energy_function
+        compute_energy=self.energy.energy_function
         energy_functions = (e.energy_function for e in self.evaluation_energies)
         mutation_energy=self.energy.denergy_mutation_function
         swap_energy=self.energy.denergy_swap_function
@@ -467,7 +467,7 @@ class MonteCarlo:
             for i in numba.prange(n_replicas):
                 temp_seq_index = seq_indices[i]
                 seq_indices[i] = montecarlo_steps(temperatures[i], seq_index=temp_seq_index, n_steps=n_steps_per_cycle)
-                energy = energy(seq_indices[i])
+                energy = compute_energy(seq_indices[i])
                 # Compute energy for the new sequence
                 energies[i] = energy
 
@@ -576,10 +576,40 @@ if __name__ == '__main__':
     Ev = 10
     energy= (energy_bound - energy_unbound) + 10 * energy_variance + 10 * heterogeneity
 
-    for key,value in {"energy_bound": energy_bound, "energy_unbound": energy_unbound, "heterogeneity": heterogeneity}.items():
-        print (f"Energy term: {key}")
-        monte_carlo = MonteCarlo(sequence = structure_free.sequence, energy=value, alphabet=reduced_alphabet, evaluation_energies=[energy_bound, energy_unbound, energy_variance, heterogeneity])
-        monte_carlo.benchmark_montecarlo_steps(n_repeats=3,n_steps=200)
+    energy_terms={"energy_bound": energy_bound, "energy_unbound": energy_unbound, "heterogeneity": heterogeneity, "energy_variance":energy_variance}
+
+    for energy_name,energy_term in energy_terms.items():
+        print (f"Energy term: {energy_name}")
+        energy_term.test(seq_index=np.random.randint(0, len(reduced_alphabet), size=len(structure_free.sequence)))
+        energy_term.benchmark(seq_indices=np.random.randint(0, len(reduced_alphabet), size=(1000,len(structure_free.sequence))))
+        monte_carlo = MonteCarlo(sequence = structure_free.sequence, energy=energy_term, alphabet=reduced_alphabet, evaluation_energies=energy_terms)
+        monte_carlo.benchmark_montecarlo_steps(n_repeats=3,n_steps=100)
+
+    import cProfile
+    import pstats
+    import io
+
+    def profile_energy_terms():
+        for energy_name, energy_term in energy_terms.items():
+            print(f"Energy term: {energy_name}")
+            energy_term.test(seq_index=np.random.randint(0, len(reduced_alphabet), size=len(structure_free.sequence)))
+            energy_term.benchmark(seq_indices=np.random.randint(0, len(reduced_alphabet), size=(1000, len(structure_free.sequence))))
+            monte_carlo = MonteCarlo(sequence=structure_free.sequence, energy=energy_term, alphabet=reduced_alphabet, evaluation_energies=energy_terms)
+            monte_carlo.benchmark_montecarlo_steps(n_repeats=3, n_steps=100)
+
+    # Run the profiler
+    profiler = cProfile.Profile()
+    profiler.enable()
+    profile_energy_terms()
+    profiler.disable()
+
+    # Print the stats
+    s = io.StringIO()
+    ps = pstats.Stats(profiler, stream=s).sort_stats('cumulative')
+    ps.print_stats()
+    print(s.getvalue())
+
+    ps.dump_stats('energy_terms_profile.prof')
     #monte_carlo.annealing()
     #print(monte_carlo.sequences)
 
