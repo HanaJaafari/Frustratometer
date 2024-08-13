@@ -787,16 +787,13 @@ def diff_mean_inner_product_matrix(r0,r1, repetitions, indicators1d, indicators2
         si, sj = start_indices[i], start_indices[j]
         if i<num_matrices1d and j<num_matrices1d:
             ei, ej = si + n_elements, sj + n_elements
-            #region_mean_11 = compute_region_means_1_by_1(indicators1d[i], indicators1d[j])
             R[si:ei, sj:ej] = diff_mean_inner_product_1_by_1(r0,r1,repetitions, region_means[i,j])
         elif i<num_matrices1d and j>=num_matrices1d:
             ei, ej = si + n_elements, sj + n_elements**2
-            #region_mean_12 = compute_region_means_1_by_2(indicators1d[i],indicators2d[j-num_matrices1d])
             R[si:ei, sj:ej] = diff_mean_inner_product_1_by_2(r0,r1,repetitions, region_means[i,j])
 
         elif i>=num_matrices1d and j>=num_matrices1d:
             ei, ej = si + n_elements**2, sj + n_elements**2
-            #region_mean_22 = compute_region_means_2_by_2(indicators2d[i-num_matrices1d],indicators2d[j-num_matrices1d])
             R[si:ei, sj:ej] = diff_mean_inner_product_2_by_2(r0,r1,repetitions, region_means[i,j])
         
         if i != j:
