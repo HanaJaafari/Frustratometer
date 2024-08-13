@@ -366,32 +366,44 @@ class AwsemEnergyVariance(EnergyTerm):
         assert np.isclose(energy,expected_energy), f"Expected energy {expected_energy} but got {energy}"
 
 class MonteCarlo:
-    def __init__(self, model, seq_index, energy, alphabet, use_numba=True):
-        self.model = model
-        self.seq_index = seq_index
+    def __init__(self, sequence: str, energy: EnergyTerm, alphabet:str=_AA, use_numba:bool=True, evaluation_energies:list=[]):
+        self.seq_len=len(sequence)
+        self.seq_index=sequence_to_index(sequence,alphabet)
         self.energy = energy
-        self.alphabet=alphabet
-        self.use_numba=use_numba
+        self.alphabet = alphabet
+        self.use_numba = use_numba
+        self.evaluation_energies = evaluation_energies
         self.initialize_functions()
 
+    def generate_random_sequences(self,n):
+        """ Generates n random sequences of the same length as the input sequence. """
+        return np.random.randint(0, len(self.alphabet), size=(n,self.seq_len))
+        
     @property
     def numbify(self):
+        """ Returns the numba decorator if use_numba is True, otherwise returns a dummy decorator. """
         if self.use_numba:
             return numba.njit
         else:
             return self.dummy_decorator
-        
-    def dummy_decorator(func, **kwargs):
+
+    @staticmethod        
+    def dummy_decorator(func, *args, **kwargs):
+        """ Dummy decorator that returns the function unchanged. """
         return func
 
     def initialize_functions(self):
+        """ Initializes the Monte Carlo functions for numba. """
         alphabet=self.alphabet
+        alphabet_size=len(alphabet)
+        sequence_size = self.seq_len
         energy=self.energy.energy_function
+        energy_functions = (e.energy_function for e in self.evaluation_energies)
         mutation_energy=self.energy.denergy_mutation_function
         swap_energy=self.energy.denergy_swap_function
 
         def sequence_swap(seq_index):
-            seq_index_new = seq_index.copy()
+            seq_index_new = seq_index[:]
             n=len(seq_index_new)
             res1 = np.random.randint(0,n)
             res2 = np.random.randint(0,n-1)
@@ -403,10 +415,10 @@ class MonteCarlo:
         sequence_swap=self.numbify(sequence_swap)
 
         def sequence_mutation(seq_index):
-            seq_index_new = seq_index.copy()
-            r = np.random.randint(0, len(alphabet)*len(seq_index)) # Select a random index
-            res = r // len(alphabet)
-            aa_new = alphabet[r % len(alphabet)]
+            seq_index_new = seq_index[:]
+            r = np.random.randint(0, alphabet_size*sequence_size) # Select a random index
+            res = r // alphabet_size
+            aa_new = r % alphabet_size
             seq_index_new[res] = aa_new
             energy_difference = mutation_energy(seq_index, res, aa_new)
             return seq_index_new, energy_difference
@@ -462,42 +474,41 @@ class MonteCarlo:
             return seq_indices, energies
         parallel_montecarlo_step=self.numbify(parallel_montecarlo_step, parallel=True)
 
-        def parallel_tempering(seq_indices, temperatures, n_steps, n_steps_per_cycle):
+        def parallel_tempering_steps(seq_indices, temperatures, n_steps, n_steps_per_cycle):
             for s in range(n_steps//n_steps_per_cycle):
-                seq_indices, energy, het, de2, total_energies = parallel_montecarlo_step(seq_indices, temperatures, n_steps_per_cycle)
+                seq_indices, total_energies = parallel_montecarlo_step(seq_indices, temperatures, n_steps_per_cycle)
 
                 # Yield data every 10 exchanges
                 if s % 10 == 9:
-                    yield s, seq_indices, energy, het, de2, total_energies
+                    yield s, seq_indices, total_energies
 
                 # Perform replica exchanges
                 order = replica_exchange(total_energies, temperatures, exchange_id=s)
                 seq_indices = seq_indices[order]
 
-        parallel_tempering=self.numbify(parallel_tempering)
+        parallel_tempering_steps=self.numbify(parallel_tempering_steps)
 
         self.sequence_swap=sequence_swap
         self.sequence_mutation=sequence_mutation
         self.montecarlo_steps=montecarlo_steps
         self.replica_exchange=replica_exchange
         self.parallel_montecarlo_step=parallel_montecarlo_step
-        self.parallel_tempering=parallel_tempering
+        self.parallel_tempering_steps=parallel_tempering_steps
             
 
-    def parallel_tempering(model_h, model_J, mask, indicators, gamma, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep, filename="parallel_tempering_resultsv3.csv",valid_indices=np.arange(len(_AA)),alphabet=_AA):
+    def parallel_tempering(self, seq_indices, temperatures, n_steps, n_steps_per_cycle, filename="parallel_tempering_results.csv", alphabet=_AA):
         columns=['Step', 'Temperature', 'Sequence', 'Energy', 'Heterogeneity', 'Total Energy']
         df_headers = pd.DataFrame(columns=columns)
         df_headers.to_csv(filename, index=False)
         print(*columns, sep='\t')
 
         # Run the simulation and append data periodically
-        for s, updated_seq_indices, energy, het, de2, total_energy in parallel_tempering_numba(model_h, model_J, mask, indicators, gamma, seq_indices, temperatures, n_steps, n_steps_per_cycle, Ep,valid_indices=valid_indices):
+        for s, updated_seq_indices, total_energy in self.parallel_tempering_steps(seq_indices, temperatures, n_steps, n_steps_per_cycle):
             # Prepare data for this chunk
             data_chunk = []
             for i, temp in enumerate(temperatures):
                 sequence_str = index_to_sequence(updated_seq_indices[i],alphabet=alphabet)  # Convert sequence index back to string
-                #total_energy = energy[i] - Ep * het[i]
-                data_chunk.append({'Step': (s+1) * n_steps_per_cycle, 'Temperature': temp, 'Sequence': sequence_str, 'Energy': energy[i], 'Heterogeneity': het[i], 'DE2': de2[i], 'Total Energy': total_energy[i]})
+                data_chunk.append({'Step': (s+1) * n_steps_per_cycle, 'Temperature': temp, 'Sequence': sequence_str, 'Total Energy': total_energy[i]})
             
             # Convert the chunk to a DataFrame and append it to the CSV
             df_chunk = pd.DataFrame(data_chunk)
@@ -505,47 +516,37 @@ class MonteCarlo:
             df_chunk.to_csv(filename, mode='a', header=False, index=False)
 
 
-    def annealing(temp_max=500, temp_min=0, n_steps=1E8, Ep=10,valid_indices=np.arange(len(_AA))):
-        native_pdb = "tests/data/1r69.pdb"
-        structure = frustratometer.Structure.full_pdb(native_pdb, "A")
-        model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
-        seq_index = sequence_to_index("SISSRVKSKRIQLGLNQAELAQKVGTTQQSIEQLENGKTKRPRFLPELASALGVSVDWLLNGT")
-        
+    def annealing(self,temp_max=500, temp_min=0, n_steps=1E8):
         simulation_data = []
         n_steps_per_cycle=n_steps//(temp_max-temp_min)
         for temp in range(temp_max, temp_min, -1):
-            seq_index= montecarlo_steps(temp, model.potts_model['h'], model.potts_model['J'], model.mask, seq_index, Ep=Ep, n_steps=n_steps_per_cycle,valid_indices=valid_indices)
-            energy = model_energy(seq_index, model.potts_model['h'],model.potts_model['J'], model.mask)
-            het = heterogeneity_approximation(seq_index)
-            simulation_data.append({'Temperature': temp, 'Sequence': index_to_sequence(seq_index), 'Energy': energy, 'Heterogeneity': het, 'Total Energy': energy - Ep * het})
-            print(temp, index_to_sequence(seq_index), energy - Ep * het, energy, het)
+            seq_index= self.montecarlo_steps(temp, seq_index, n_steps=n_steps_per_cycle)
+            energy = energy.energy(seq_index)
+            simulation_data.append({'Temperature': temp, 'Sequence': index_to_sequence(seq_index), 'Energy': energy})
+            print(temp, index_to_sequence(seq_index, self.alphabet), energy)
         simulation_df = pd.DataFrame(simulation_data)
         simulation_df.to_csv("mcso_simulation_results.csv", index=False)
 
-    def benchmark_montecarlo_steps(n_repeats=100, n_steps=20000,valid_indices=np.arange(len(_AA))):
+    def benchmark_montecarlo_steps(self, n_repeats=10, n_steps=20000):
         import time
-        # Initialize the model for 1r69
-        native_pdb = "tests/data/1r69.pdb"  # Ensure this path is correct
-        structure = frustratometer.Structure.full_pdb(native_pdb, "A")
-        model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
-        
-        seq_len = len(model.sequence)
         times = []
 
         #Adds one step for numba compilation time
-        montecarlo_steps(temperature=500, model_h=model.potts_model['h'], model_J=model.potts_model['J'], mask=model.mask, seq_index=sequence_to_index(model.sequence), Ep=100, n_steps=1,valid_indices=valid_indices)
+        seq_index = np.random.randint(1, len(self.alphabet), size=self.seq_len)
+        self.montecarlo_steps(temperature=500, seq_index=self.generate_random_sequences(1)[0], n_steps=1)
 
         for _ in range(n_repeats):  # Run benchmark 10 times
             # Generate a new random sequence for each run
-            seq_index = np.random.randint(1, 21, size=seq_len)
+            seq_index = np.random.randint(1, len(self.alphabet), size=self.seq_len)
             start_time = time.time()
             
-            montecarlo_steps(temperature=500, model_h=model.potts_model['h'], model_J=model.potts_model['J'], mask=model.mask, seq_index=seq_index, Ep=100, n_steps=n_steps,valid_indices=valid_indices)
+            self.montecarlo_steps(temperature=500, seq_index=seq_index, n_steps=n_steps)
             
             end_time = time.time()
             times.append(end_time - start_time)
         
         average_time_per_step_s = sum(times) / len(times) / n_steps
+        std_time_per_step_us = np.std(times) / len(times) / n_steps * 1000000
         average_time_per_step_us = average_time_per_step_s * 1000000
         
         steps_per_hour = 3600 / average_time_per_step_s
@@ -553,124 +554,155 @@ class MonteCarlo:
 
         print(f"Time needed to explore 10^10 sequences with 8 process in parallel: {minutes_needed:.2e} minutes")
         print(f"Number of sequences explored per hour: {steps_per_hour:.2e}")
-        print(f"Average execution time per step: {average_time_per_step_us:.5f} microseconds")
+        print(f"Average execution time per step: {average_time_per_step_us:.5f} +- {3*std_time_per_step_us:.5f} microseconds")
 
 
 if __name__ == '__main__':
     
     native_pdb = "tests/data/1bfz.pdb"
-    structure = Structure.full_pdb(native_pdb, "A")
-    #reduced_alphabet = 'ADEFGHIKLMNQRSTVWY'
-    reduced_alphabet = _AA
+    # native_pdb = "frustratometer/optimization/10.3_model_LinkerBack_partialEGFR.pdb"
+    structure_bound = Structure.full_pdb(native_pdb, chain=None)
+    structure_free = Structure.full_pdb(native_pdb, "A")
+    model_bound = AWSEM(structure_bound, distance_cutoff_contact=10, min_sequence_separation_contact=2, expose_indicator_functions=True)
+    model_free = AWSEM(structure_free, distance_cutoff_contact=10, min_sequence_separation_contact=2, expose_indicator_functions=True)
+    reduced_alphabet = 'ADEFHIKLMNQRSTVWY'
+
+    energy_bound = AwsemEnergy(model_bound, reduced_alphabet)
+    energy_unbound = AwsemEnergy(model_free, reduced_alphabet)
+    energy_variance = AwsemEnergyVariance(model_free, reduced_alphabet)
+    heterogeneity = Heterogeneity(exact=False, use_numba=True)
+
+    Ep = 10
+    Ev = 10
+    energy= (energy_bound - energy_unbound) + 10 * energy_variance + 10 * heterogeneity
+
+    for key,value in {"energy_bound": energy_bound, "energy_unbound": energy_unbound, "heterogeneity": heterogeneity}.items():
+        print (f"Energy term: {key}")
+        monte_carlo = MonteCarlo(sequence = structure_free.sequence, energy=value, alphabet=reduced_alphabet, evaluation_energies=[energy_bound, energy_unbound, energy_variance, heterogeneity])
+        monte_carlo.benchmark_montecarlo_steps(n_repeats=3,n_steps=200)
+    #monte_carlo.annealing()
+    #print(monte_carlo.sequences)
+
+
+
+
     
-    model = AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2, expose_indicator_functions=True, k_electrostatics=0.0)
-    reindex_dca=[_AA.index(aa) for aa in reduced_alphabet]
-    model_seq_index=sequence_to_index(model.sequence,alphabet=reduced_alphabet)
-    seq_indices = np.random.randint(0, len(reduced_alphabet), size=(1,len(structure.sequence)))
     
-    # Tests
-    for exact,use_numba in [(True,False),(False,False),(True,True),(False,True)]:
-        het=Heterogeneity(exact=exact,use_numba=use_numba)
-        for i in range(1):
-            het.test(seq_indices[i])
+    # native_pdb = "tests/data/1bfz.pdb"
+    # structure = Structure.full_pdb(native_pdb, "A")
+    # #reduced_alphabet = 'ADEFGHIKLMNQRSTVWY'
+    # reduced_alphabet = _AA
     
-    for use_numba in [False, True]:
-        awsem_energy = AwsemEnergy(use_numba=use_numba, model=model, alphabet=reduced_alphabet)
-        for i in range(1):
-            awsem_energy.test(seq_indices[i])
-        awsem_energy.regression_test()
-
-    for use_numba in [False, True]:
-        awsem_de2 = AwsemEnergyVariance(use_numba=use_numba, model=model, alphabet=reduced_alphabet)
-        for i in range(1):
-            awsem_de2.test(seq_indices[0])
-
-    seq_index=sequence_to_index(model.sequence,alphabet=_AA)
+    # model = AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2, expose_indicator_functions=True, k_electrostatics=0.0)
+    # reindex_dca=[_AA.index(aa) for aa in reduced_alphabet]
+    # model_seq_index=sequence_to_index(model.sequence,alphabet=reduced_alphabet)
+    # seq_indices = np.random.randint(0, len(reduced_alphabet), size=(1,len(structure.sequence)))
     
-    def compute_energy_variance_sample(seq_index,n_decoys=10000):
-        energies=[]
-        shuffled_index=seq_index.copy()
-        for i in range(n_decoys):
-            np.random.shuffle(shuffled_index)
-            energies.append(model.native_energy(index_to_sequence(shuffled_index,alphabet=_AA)))
-            #if i%(n_decoys//100)==0:
-                #energies_array=np.array(energies)
-                #print(i,energies_array.mean(),energies_array.var())
-        #Split the energies into 10 groups and compute the variance of each group to get an error estimate
-        energies_array=np.array(energies)
-        energies_array=energies_array.reshape(10,-1)
-        energy_variances=np.var(energies_array,axis=1)
-        mean_variance=energy_variances.mean()
-        error_variance=energy_variances.std()
-        print(f"Decoy Variance: {mean_variance} +/- {3*error_variance}") #3 sigma error
-        print(f"Expected variance: {awsem_de2.compute_energy(seq_index)}")
-        return np.var(energies), awsem_de2.compute_energy(seq_index)
+    # # Tests
+    # for exact,use_numba in [(True,False),(False,False),(True,True),(False,True)]:
+    #     het=Heterogeneity(exact=exact,use_numba=use_numba)
+    #     for i in range(1):
+    #         het.test(seq_indices[i])
     
-    print(compute_energy_variance_sample(seq_index))
+    # for use_numba in [False, True]:
+    #     awsem_energy = AwsemEnergy(use_numba=use_numba, model=model, alphabet=reduced_alphabet)
+    #     for i in range(1):
+    #         awsem_energy.test(seq_indices[i])
+    #     awsem_energy.regression_test()
 
-    def compute_energy_variance_permutation(seq_index):
-        from itertools import permutations
-        decoy_sequences = np.array(list(permutations(seq_index)))
-        energies=[]
-        for seq in decoy_sequences:
-            energies.append(model.native_energy(index_to_sequence(seq,alphabet=_AA)))
+    # for use_numba in [False, True]:
+    #     awsem_de2 = AwsemEnergyVariance(use_numba=use_numba, model=model, alphabet=reduced_alphabet)
+    #     for i in range(1):
+    #         awsem_de2.test(seq_indices[0])
 
-        print(f"Decoy Variance: {np.var(energies)}") # Exact variance
-        print(f"Expected variance: {awsem_de2.compute_energy(seq_index)}")
-        return np.var(energies), awsem_de2.compute_energy(seq_index)
+    # seq_index=sequence_to_index(model.sequence,alphabet=_AA)
     
-    print(compute_energy_variance_permutation(seq_index))
+    # def compute_energy_variance_sample(seq_index,n_decoys=10000):
+    #     energies=[]
+    #     shuffled_index=seq_index.copy()
+    #     for i in range(n_decoys):
+    #         np.random.shuffle(shuffled_index)
+    #         energies.append(model.native_energy(index_to_sequence(shuffled_index,alphabet=_AA)))
+    #         #if i%(n_decoys//100)==0:
+    #             #energies_array=np.array(energies)
+    #             #print(i,energies_array.mean(),energies_array.var())
+    #     #Split the energies into 10 groups and compute the variance of each group to get an error estimate
+    #     energies_array=np.array(energies)
+    #     energies_array=energies_array.reshape(10,-1)
+    #     energy_variances=np.var(energies_array,axis=1)
+    #     mean_variance=energy_variances.mean()
+    #     error_variance=energy_variances.std()
+    #     print(f"Decoy Variance: {mean_variance} +/- {3*error_variance}") #3 sigma error
+    #     print(f"Expected variance: {awsem_de2.compute_energy(seq_index)}")
+    #     return np.var(energies), awsem_de2.compute_energy(seq_index)
+    
+    # print(compute_energy_variance_sample(seq_index))
 
-    from itertools import permutations
-    decoy_sequences = np.array(list(permutations(seq_index)))
-    indicators1D=np.array(model.indicators[:3])
-    indicators2D=np.array(model.indicators[3:])
-    indicator_arrays=[]
-    energies=[]
-    for decoy_index in decoy_sequences:
-        ind1D=np.zeros((len(indicators1D),21))
-        for i in range(len(ind1D)):
-            ind1D[i] = np.bincount(decoy_index, weights=indicators1D[i], minlength=21)
+    # def compute_energy_variance_permutation(seq_index):
+    #     from itertools import permutations
+    #     decoy_sequences = np.array(list(permutations(seq_index)))
+    #     energies=[]
+    #     for seq in decoy_sequences:
+    #         energies.append(model.native_energy(index_to_sequence(seq,alphabet=_AA)))
 
-        decoy_index2D=decoy_index[np.newaxis,:]*21+decoy_index[:,np.newaxis]
-        ind2D=np.zeros((len(indicators2D),21*21))
-        for i in range(len(ind2D)):
-            ind2D[i] =np.bincount(decoy_index2D.ravel(), weights=indicators2D[i].ravel(), minlength=21*21)
+    #     print(f"Decoy Variance: {np.var(energies)}") # Exact variance
+    #     print(f"Expected variance: {awsem_de2.compute_energy(seq_index)}")
+    #     return np.var(energies), awsem_de2.compute_energy(seq_index)
+    
+    # print(compute_energy_variance_permutation(seq_index))
 
-        indicator_array = np.concatenate([ind1D.ravel(),ind2D.ravel()])
-        gamma_array = np.concatenate([a.ravel() for a in model.gamma_array])
+    # from itertools import permutations
+    # decoy_sequences = np.array(list(permutations(seq_index)))
+    # indicators1D=np.array(model.indicators[:3])
+    # indicators2D=np.array(model.indicators[3:])
+    # indicator_arrays=[]
+    # energies=[]
+    # for decoy_index in decoy_sequences:
+    #     ind1D=np.zeros((len(indicators1D),21))
+    #     for i in range(len(ind1D)):
+    #         ind1D[i] = np.bincount(decoy_index, weights=indicators1D[i], minlength=21)
 
-        energy_i = gamma_array @ indicator_array
-        assert np.isclose(model.native_energy(index_to_sequence(decoy_index,alphabet=_AA)),energy_i), f"Expected energy {model.native_energy(index_to_sequence(decoy_index,alphabet=_AA))} but got {energy_i}"
-        energies.append(energy_i)
-        indicator_arrays.append(indicator_array)
+    #     decoy_index2D=decoy_index[np.newaxis,:]*21+decoy_index[:,np.newaxis]
+    #     ind2D=np.zeros((len(indicators2D),21*21))
+    #     for i in range(len(ind2D)):
+    #         ind2D[i] =np.bincount(decoy_index2D.ravel(), weights=indicators2D[i].ravel(), minlength=21*21)
 
-    indicator_arrays = np.array(indicator_arrays)
-    energies = np.array(energies)
-    assert np.isclose(gamma_array@indicator_arrays.mean(axis=0),energies.mean()), f"Expected mean energy {gamma_array@indicator_arrays.mean(axis=0)} but got {np.mean(energies)}"
+    #     indicator_array = np.concatenate([ind1D.ravel(),ind2D.ravel()])
+    #     gamma_array = np.concatenate([a.ravel() for a in model.gamma_array])
 
-    # I will code something like this using numpy einsums:
-    # np.array([[np.outer(indicator_arrays[:,i],indicator_arrays[:,j]).mean() - indicator_arrays[:,i].mean()*indicator_arrays[:,i].mean() for i in range(indicator_arrays.shape[1])] for j in range(indicator_arrays.shape[1])])
-    outer_product = np.einsum('ij,ik->ijk', indicator_arrays, indicator_arrays)
-    mean_outer_product = outer_product.mean(axis=0)
-    mean_outer_product -= np.outer(indicator_arrays.mean(axis=0), indicator_arrays.mean(axis=0))
-    assert np.allclose(gamma_array @ mean_outer_product @ gamma_array, energies.var()), "Covariance matrix is not correct"
+    #     energy_i = gamma_array @ indicator_array
+    #     assert np.isclose(model.native_energy(index_to_sequence(decoy_index,alphabet=_AA)),energy_i), f"Expected energy {model.native_energy(index_to_sequence(decoy_index,alphabet=_AA))} but got {energy_i}"
+    #     energies.append(energy_i)
+    #     indicator_arrays.append(indicator_array)
 
-    # Indicator tests    
-    indicators1D=np.array(model.indicators[0:3])
-    indicators2D=np.array(model.indicators[3:])
-    gamma=model.gamma_array
-    true_indicator1D=np.array([indicators1D[:,model_seq_index==i].sum(axis=1) for i in range(21)]).T
-    true_indicator2D=np.array([indicators2D[:,model_seq_index==i][:,:, model_seq_index==j].sum(axis=(1,2)) for i in range(21) for j in range(21)]).reshape(21,21,3).T
-    true_indicator=np.concatenate([true_indicator1D.ravel(),true_indicator2D.ravel()])
-    burial_gamma=np.concatenate(model.gamma_array[:3])
-    burial_energy_predicted = (burial_gamma * np.concatenate(true_indicator1D)).sum()
-    burial_energy_expected = -model.potts_model['h'][range(len(model_seq_index)), model_seq_index].sum()
-    assert np.isclose(burial_energy_predicted,burial_energy_expected), f"Expected energy {burial_energy_expected} but got {burial_energy_predicted}"
-    contact_gamma=np.concatenate([a.ravel() for a in model.gamma_array[3:]])
-    contact_energy_predicted = (contact_gamma * np.concatenate([a.ravel() for a in true_indicator2D])).sum()
-    contact_energy_expected = model.couplings_energy()
-    assert np.isclose(contact_energy_predicted,contact_energy_expected), f"Expected energy {contact_energy_expected} but got {contact_energy_predicted}"
+    # indicator_arrays = np.array(indicator_arrays)
+    # energies = np.array(energies)
+    # assert np.isclose(gamma_array@indicator_arrays.mean(axis=0),energies.mean()), f"Expected mean energy {gamma_array@indicator_arrays.mean(axis=0)} but got {np.mean(energies)}"
+
+    # # I will code something like this using numpy einsums:
+    # # np.array([[np.outer(indicator_arrays[:,i],indicator_arrays[:,j]).mean() - indicator_arrays[:,i].mean()*indicator_arrays[:,i].mean() for i in range(indicator_arrays.shape[1])] for j in range(indicator_arrays.shape[1])])
+    # outer_product = np.einsum('ij,ik->ijk', indicator_arrays, indicator_arrays)
+    # mean_outer_product = outer_product.mean(axis=0)
+    # mean_outer_product -= np.outer(indicator_arrays.mean(axis=0), indicator_arrays.mean(axis=0))
+    # assert np.allclose(gamma_array @ mean_outer_product @ gamma_array, energies.var()), "Covariance matrix is not correct"
+
+    # # Indicator tests    
+    # indicators1D=np.array(model.indicators[0:3])
+    # indicators2D=np.array(model.indicators[3:])
+    # gamma=model.gamma_array
+    # true_indicator1D=np.array([indicators1D[:,model_seq_index==i].sum(axis=1) for i in range(21)]).T
+    # true_indicator2D=np.array([indicators2D[:,model_seq_index==i][:,:, model_seq_index==j].sum(axis=(1,2)) for i in range(21) for j in range(21)]).reshape(21,21,3).T
+    # true_indicator=np.concatenate([true_indicator1D.ravel(),true_indicator2D.ravel()])
+    # burial_gamma=np.concatenate(model.gamma_array[:3])
+    # burial_energy_predicted = (burial_gamma * np.concatenate(true_indicator1D)).sum()
+    # burial_energy_expected = -model.potts_model['h'][range(len(model_seq_index)), model_seq_index].sum()
+    # assert np.isclose(burial_energy_predicted,burial_energy_expected), f"Expected energy {burial_energy_expected} but got {burial_energy_predicted}"
+    # contact_gamma=np.concatenate([a.ravel() for a in model.gamma_array[3:]])
+    # contact_energy_predicted = (contact_gamma * np.concatenate([a.ravel() for a in true_indicator2D])).sum()
+    # contact_energy_expected = model.couplings_energy()
+    # assert np.isclose(contact_energy_predicted,contact_energy_expected), f"Expected energy {contact_energy_expected} but got {contact_energy_predicted}"
+
+
     
     # Combination test
     #energy = awsem_energy + 10 * het + 20 * awsem_de2
