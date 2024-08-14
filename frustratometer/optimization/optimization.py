@@ -426,8 +426,6 @@ class AwsemEnergyVariance(EnergyTerm):
                     energy += gamma[i] * (B[i,j] - phi_mean[i]*phi_mean[j]) * gamma[j]
             return energy
         
-        compute_energy_numba=self.numbify(compute_energy, cache=True)
-        
         def denergy_mutation(seq_index, pos, aa):
             counts = np.zeros(len_alphabet, dtype=np.int64)
             for val in seq_index:
@@ -538,6 +536,120 @@ class AwsemEnergyVariance(EnergyTerm):
         expected_energy=self.compute_energy_permutation(seq_index)
         energy=self.compute_energy(seq_index)
         assert np.isclose(energy,expected_energy), f"Expected energy {expected_energy} but got {energy}"
+
+class AwsemEnergyStd(EnergyTerm):   
+    def __init__(self, model:Frustratometer, use_numba=True, alphabet=_AA):
+        self.use_numba=use_numba
+        self.model=model
+        self.alphabet=alphabet
+        self.reindex_dca=[_AA.index(aa) for aa in alphabet]
+        
+        assert "indicators" in model.__dict__.keys(), "Indicator functions were not exposed. Initialize AWSEM function with `expose_indicator_functions=True` first."
+        self.indicators = model.indicators
+        self.alphabet_size=len(alphabet)
+        self.model=model
+        self.model_h = model.potts_model['h'][:,self.reindex_dca]
+        self.model_J = model.potts_model['J'][:,:,self.reindex_dca][:,:,:,self.reindex_dca]
+        self.mask = model.mask
+        self.indicators1D=np.array([ind for ind in self.indicators if len(ind.shape)==1])
+        self.indicators2D=np.array([ind for ind in self.indicators if len(ind.shape)==2])
+        #TODO: Fix the gamma matrix to account for elecrostatics
+        self.gamma = np.concatenate([(a[self.reindex_dca].ravel() if len(a.shape)==1 else a[self.reindex_dca][:,self.reindex_dca].ravel()) for a in model.gamma_array])
+        
+        self.initialize_functions()
+    
+    def initialize_functions(self):
+        indicators1D=self.indicators1D
+        indicators2D=self.indicators2D
+        len_alphabet=self.alphabet_size
+        phi_len= indicators1D.shape[0]*len_alphabet + indicators2D.shape[0]*len_alphabet**2
+        gamma=self.gamma
+        
+        # Precompute the mean of the indicators
+        indicator_means=np.zeros(len(indicators1D)+len(indicators2D))
+        c=0
+        for indicator in indicators1D:
+            indicator_means[c]=np.mean(indicator)
+            c+=1
+        for indicator in indicators2D:
+            indicator_means[c]=(np.sum(indicator)-np.sum(np.diag(indicator)))/(len(indicator)**2-len(indicator))
+            c+=1
+        
+        len_indicators1D=len(indicators1D)
+        len_indicators2D=len(indicators2D)
+        
+        region_means=compute_all_region_means(indicators1D,indicators2D)
+        # indicator_means*=0 # Set indicator means to zero to check if the problem is with the mean phi or the inner product matrix
+        
+        def compute_energy(seq_index):
+            counts = np.zeros(len_alphabet, dtype=np.int64)
+            for val in seq_index:
+                counts[val] += 1
+            
+            # Calculate phi_mean
+            phi_mean = np.zeros(len_alphabet*len_indicators1D + len_alphabet**2*len_indicators2D)
+            
+            # 1D indicators
+            c=0
+            for i in range(len_indicators1D):
+                for j in range(len_alphabet):
+                    phi_mean[c] = indicator_means[i] * counts[j]
+                    c += 1
+
+            # 2D indicators
+            for i in range(len_indicators2D):
+                for j in range(len_alphabet):
+                    for k in range(len_alphabet):
+                        t=1 if j==k else 0
+                        phi_mean[c] = indicator_means[i+ len_indicators1D] * counts[j] * (counts[k] - t)
+                        c += 1
+
+            B = build_mean_inner_product_matrix(counts,indicators1D,indicators2D,region_means)
+            energy=0
+            for i in range(phi_len):
+                for j in range(phi_len):
+                    energy += gamma[i] * (B[i,j] - phi_mean[i]*phi_mean[j]) * gamma[j]
+            return energy**.5
+        
+        compute_energy_numba=self.numbify(compute_energy, cache=True)
+        
+        def denergy_mutation(seq_index, pos, aa):
+            seq_index_new = seq_index.copy()
+            seq_index_new[pos] = aa
+            return compute_energy_numba(seq_index_new) - compute_energy_numba(seq_index)
+        
+        self.compute_energy = compute_energy
+        self.compute_denergy_mutation = denergy_mutation
+
+        awsem_energy = AwsemEnergy(use_numba=self.use_numba, model=self.model, alphabet=self.alphabet).energy_function
+
+        def compute_energy_sample(seq_index,n_decoys=100000):
+            """ Function to compute the variance of the energy of permutations of a sequence using random shuffling.
+                This function is much faster than compute_energy_permutation but is an approximation"""
+            energies=np.zeros(n_decoys)
+            shuffled_index=seq_index.copy()
+            for i in numba.prange(n_decoys):
+                energies[i]=awsem_energy(shuffled_index[np.random.permutation(len(shuffled_index))])
+            return np.var(energies)
+
+        def compute_energy_permutation(seq_index):
+            """ Function to compute the variance of the energy of all permutations of a sequence 
+                Caution: This function is very slow for normal sequences """
+            from itertools import permutations
+            decoy_sequences = np.array(list(permutations(seq_index)))
+            energies=np.zeros(len(decoy_sequences))
+            for i in numba.prange(len(decoy_sequences)):
+                energies[i]=awsem_energy(decoy_sequences[i])
+            return np.var(energies)
+        
+        self.compute_energy_sample=self.numbify(compute_energy_sample,parallel=True)
+        self.compute_energy_permutation=compute_energy_permutation
+
+    def regression_test(self, seq_index):
+        expected_energy=self.compute_energy_permutation(seq_index)
+        energy=self.compute_energy(seq_index)
+        assert np.isclose(energy,expected_energy), f"Expected energy {expected_energy} but got {energy}"
+
 
 class MonteCarlo:
     def __init__(self, sequence: str, energy: EnergyTerm, alphabet:str=_AA, use_numba:bool=True, evaluation_energies:dict={}):
@@ -697,7 +809,7 @@ class MonteCarlo:
         simulation_data = []
         done_steps=0
         total_energy = self.energy.energy(seq_index)
-        step_data={'Step': done_steps, 'Temperature': temperatures[0], 'Sequence': index_to_sequence(seq_index,alphabet=self.alphabet), 'Energy': total_energy}
+        step_data={'Step': done_steps, 'Temperature': temperatures[0], 'Sequence': index_to_sequence(seq_index,alphabet=self.alphabet), 'TotalEnergy': total_energy}
         step_data.update({key: energy_term.energy_function(seq_index) for key, energy_term in self.evaluation_energies.items()})
         simulation_data.append(step_data)
         print('\t'.join(step_data.keys()))
@@ -707,7 +819,7 @@ class MonteCarlo:
             seq_index= self.montecarlo_steps(temp, seq_index, n_steps=steps)
             total_energy = self.energy.energy(seq_index)
             done_steps+=steps
-            step_data={'Step': done_steps, 'Temperature': temp, 'Sequence': index_to_sequence(seq_index,alphabet=self.alphabet), 'Energy': total_energy}
+            step_data={'Step': done_steps, 'Temperature': temp, 'Sequence': index_to_sequence(seq_index,alphabet=self.alphabet), 'TotalEnergy': total_energy}
             step_data.update({key: energy_term.energy_function(seq_index) for key, energy_term in self.evaluation_energies.items()})
             simulation_data.append(step_data)
             print('\t'.join(str(a) for a in step_data.values()))
@@ -771,10 +883,13 @@ if __name__ == '__main__':
     energy_bound = AwsemEnergy(model_bound, alphabet=reduced_alphabet)
     energy_free = AwsemEnergy(model_free, alphabet=reduced_alphabet)
     energy_average = AwsemEnergyAverage(model_free, alphabet=reduced_alphabet)
+    energy_std = AwsemEnergyStd(model_free, alphabet=reduced_alphabet)
     energy_variance = AwsemEnergyVariance(model_free, alphabet=reduced_alphabet)
     heterogeneity = Heterogeneity(exact=False, use_numba=True)
 
-    energy_mix = energy_free - 40 * heterogeneity
-    monte_carlo = MonteCarlo(sequence=model_free.sequence,  energy=energy_mix, alphabet=reduced_alphabet, evaluation_energies={"Energy": energy_free, "Heterogeneity": heterogeneity, "EnergyAverage": energy_average, "EnergyVariance": energy_variance})
+    #energy_mix = energy_free - 40 * heterogeneity
+    energy_mix = (energy_free - energy_average) / energy_std
+    monte_carlo = MonteCarlo(sequence=model_free.sequence,  energy=energy_mix, alphabet=reduced_alphabet, 
+                             evaluation_energies={"Energy": energy_free, "Heterogeneity": heterogeneity, "EnergyAverage": energy_average, "EnergyVariance": energy_variance, "EnergyStd": energy_std})
     monte_carlo.annealing(temperatures=[0 for i in range(1000)], n_steps=1E6)
 
