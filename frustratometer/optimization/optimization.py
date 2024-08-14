@@ -670,8 +670,11 @@ class MonteCarlo:
         self.parallel_tempering_steps=parallel_tempering_steps
             
 
-    def parallel_tempering(self, seq_indices, temperatures, n_steps, n_steps_per_cycle, filename="parallel_tempering_results.csv"):
-        columns=['Step', 'Temperature', 'Sequence', 'Energy', 'Heterogeneity', 'Total Energy']
+    def parallel_tempering(self, seq_indices=None, temperatures=np.logspace(0,6,25), n_steps=int(1E8), n_steps_per_cycle=int(1E4), filename="parallel_tempering_results.csv"):
+        if seq_indices is None:
+            seq_indices = self.generate_random_sequences(len(temperatures))
+        
+        columns=['Step', 'Temperature', 'Sequence', 'Total Energy']
         df_headers = pd.DataFrame(columns=columns)
         df_headers.to_csv(filename, index=False)
         print(*columns, sep='\t')
@@ -774,7 +777,8 @@ if __name__ == '__main__':
         monte_carlo = MonteCarlo(sequence = structure_free.sequence, energy=energy_term, alphabet=reduced_alphabet, evaluation_energies=energy_terms)
         monte_carlo.benchmark_montecarlo_steps(n_repeats=3,n_steps=100)
 
-    monte_carlo.annealing()
+    #monte_carlo.annealing()
+    monte_carlo.parallel_tempering()
 
     # Print the stats
     s = io.StringIO()
