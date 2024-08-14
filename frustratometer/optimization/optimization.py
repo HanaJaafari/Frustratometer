@@ -670,7 +670,7 @@ class MonteCarlo:
         self.parallel_tempering_steps=parallel_tempering_steps
             
 
-    def parallel_tempering(self, seq_indices, temperatures, n_steps, n_steps_per_cycle, filename="parallel_tempering_results.csv", alphabet=_AA):
+    def parallel_tempering(self, seq_indices, temperatures, n_steps, n_steps_per_cycle, filename="parallel_tempering_results.csv"):
         columns=['Step', 'Temperature', 'Sequence', 'Energy', 'Heterogeneity', 'Total Energy']
         df_headers = pd.DataFrame(columns=columns)
         df_headers.to_csv(filename, index=False)
@@ -681,7 +681,7 @@ class MonteCarlo:
             # Prepare data for this chunk
             data_chunk = []
             for i, temp in enumerate(temperatures):
-                sequence_str = index_to_sequence(updated_seq_indices[i],alphabet=alphabet)  # Convert sequence index back to string
+                sequence_str = index_to_sequence(updated_seq_indices[i],alphabet=self.alphabet)  # Convert sequence index back to string
                 data_chunk.append({'Step': (s+1) * n_steps_per_cycle, 'Temperature': temp, 'Sequence': sequence_str, 'Total Energy': total_energy[i]})
             
             # Convert the chunk to a DataFrame and append it to the CSV
@@ -690,14 +690,17 @@ class MonteCarlo:
             df_chunk.to_csv(filename, mode='a', header=False, index=False)
 
 
-    def annealing(self,temp_max=500, temp_min=0, n_steps=1E8):
+    def annealing(self, seq_index:(np.ndarray|None)=None, temp_max=500, temp_min=0, n_steps=1E8):
+        if seq_index is None:
+            seq_index = self.generate_random_sequences(1)[0]
         simulation_data = []
         n_steps_per_cycle=n_steps//(temp_max-temp_min)
+        
         for temp in range(temp_max, temp_min, -1):
             seq_index= self.montecarlo_steps(temp, seq_index, n_steps=n_steps_per_cycle)
-            energy = energy.energy(seq_index)
-            simulation_data.append({'Temperature': temp, 'Sequence': index_to_sequence(seq_index), 'Energy': energy})
-            print(temp, index_to_sequence(seq_index, self.alphabet), energy)
+            total_energy = self.energy.energy(seq_index)
+            simulation_data.append({'Temperature': temp, 'Sequence': index_to_sequence(seq_index,alphabet=self.alphabet), 'Energy': total_energy})
+            print(temp, index_to_sequence(seq_index, self.alphabet), total_energy)
         simulation_df = pd.DataFrame(simulation_data)
         simulation_df.to_csv("mcso_simulation_results.csv", index=False)
 
@@ -759,18 +762,19 @@ if __name__ == '__main__':
 
     Ep = 10
     Ev = 10
-    energy= (energy_bound - energy_unbound) + 10 * energy_variance + 10 * heterogeneity
+    energy_mix = (energy_bound - energy_unbound) + 10 * energy_variance + 10 * heterogeneity
 
-    energy_terms={"energy_bound": energy_bound, "energy_unbound": energy_unbound, "heterogeneity": heterogeneity, "energy_average": energy_average, "energy_variance":energy_variance}
+    energy_terms={"energy_bound": energy_bound, "energy_unbound": energy_unbound, "heterogeneity": heterogeneity, "energy_average": energy_average, "energy_variance":energy_variance, "energy_mix":energy_mix}
 
     for energy_name,energy_term in energy_terms.items():
         print (f"Energy term: {energy_name}")
-        energy_term.benchmark(seq_indices=np.random.randint(0, len(reduced_alphabet), size=(1000,len(structure_free.sequence))))
+        energy_term.benchmark(seq_indices=np.random.randint(0, len(reduced_alphabet), size=(100,len(structure_free.sequence))))
         energy_term.test(seq_index=np.random.randint(0, len(reduced_alphabet), size=len(structure_free.sequence)))
         
         monte_carlo = MonteCarlo(sequence = structure_free.sequence, energy=energy_term, alphabet=reduced_alphabet, evaluation_energies=energy_terms)
-        monte_carlo.benchmark_montecarlo_steps(n_repeats=3,n_steps=10)
+        monte_carlo.benchmark_montecarlo_steps(n_repeats=3,n_steps=100)
 
+    monte_carlo.annealing()
 
     # Print the stats
     s = io.StringIO()
