@@ -542,7 +542,6 @@ class AwsemEnergyVariance(EnergyTerm):
 class MonteCarlo:
     def __init__(self, sequence: str, energy: EnergyTerm, alphabet:str=_AA, use_numba:bool=True, evaluation_energies:list=[]):
         self.seq_len=len(sequence)
-        self.seq_index=sequence_to_index(sequence,alphabet)
         self.energy = energy
         self.alphabet = alphabet
         self.use_numba = use_numba
@@ -749,6 +748,7 @@ if __name__ == '__main__':
 
     native_pdb = "tests/data/1bfz.pdb"
     # native_pdb = "frustratometer/optimization/10.3_model_LinkerBack_partialEGFR.pdb"
+    
     structure_bound = Structure.full_pdb(native_pdb, chain=None)
     structure_free = Structure.full_pdb(native_pdb, "A")
     model_bound = AWSEM(structure_bound, distance_cutoff_contact=10, min_sequence_separation_contact=2, expose_indicator_functions=True)
