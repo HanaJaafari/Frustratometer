@@ -377,39 +377,53 @@ class AwsemEnergyVariance(EnergyTerm):
         indicators1D=self.indicators1D
         indicators2D=self.indicators2D
         len_alphabet=self.alphabet_size
-        gamma=self.gamma
         phi_len= indicators1D.shape[0]*len_alphabet + indicators2D.shape[0]*len_alphabet**2
+        gamma=self.gamma
+        
+        # Precompute the mean of the indicators
+        indicator_means=np.zeros(len(indicators1D)+len(indicators2D))
+        c=0
+        for indicator in indicators1D:
+            indicator_means[c]=np.mean(indicator)
+            c+=1
+        for indicator in indicators2D:
+            indicator_means[c]=(np.sum(indicator)-np.sum(np.diag(indicator)))/(len(indicator)**2-len(indicator))
+            c+=1
+        
+        len_indicators1D=len(indicators1D)
+        len_indicators2D=len(indicators2D)
         
         region_means=compute_all_region_means(indicators1D,indicators2D)
         
         def compute_energy(seq_index):
-            aa_count = np.bincount(seq_index, minlength=len_alphabet)
-            freq_i=aa_count
-            freq_ij=np.outer(freq_i,freq_i)
-            np.fill_diagonal(freq_ij,freq_i*(freq_i-1))
+            counts = np.zeros(len_alphabet, dtype=np.int64)
+            for val in seq_index:
+                counts[val] += 1
             
-            phi_mean = np.zeros(phi_len)
-            offset=0
-            for indicator in indicators1D:
-                phi_mean[offset:offset+len_alphabet]=np.mean(indicator)*freq_i
-                offset += len_alphabet
-            for indicator in indicators2D:
-                # Calculate the off-diagonal mean
-                sum=0
-                count=0
-                for i in range(len(indicator)):
-                    for j in range(len(indicator)):
-                        if i!=j:
-                            sum+=indicator[i,j]
-                            count+=1
-                mean_offdiagonal_indicator=sum/count
-                
-                
-                phi_mean[offset:offset+len_alphabet**2]=freq_ij.ravel()*mean_offdiagonal_indicator
-                offset += len_alphabet**2
+            # Calculate phi_mean
+            phi_mean = np.zeros(len_alphabet*len_indicators1D + len_alphabet**2*len_indicators2D)
             
-            B = build_mean_inner_product_matrix(freq_i.copy(),indicators1D.copy(),indicators2D.copy(), region_means) - np.outer(phi_mean,phi_mean)
-            return gamma @ B @ gamma
+            # 1D indicators
+            c=0
+            for i in range(len_indicators1D):
+                for j in range(len_alphabet):
+                    phi_mean[c] = indicator_means[i] * counts[j]
+                    c += 1
+
+            # 2D indicators
+            for i in range(len_indicators2D):
+                for j in range(len_alphabet):
+                    for k in range(len_alphabet):
+                        t=1 if j==k else 0
+                        phi_mean[c] = indicator_means[i+ len_indicators1D] * counts[j] * (counts[k] - t)
+                        c += 1
+
+            B = build_mean_inner_product_matrix(counts,indicators1D,indicators2D,region_means)
+            energy=0
+            for i in range(phi_len):
+                for j in range(phi_len):
+                    energy += gamma[i] * (B[i,j] - phi_mean[i]*phi_mean[j]) * gamma[j]
+            return energy
         
         compute_energy_numba=self.numbify(compute_energy, cache=True)
         
@@ -672,7 +686,7 @@ if __name__ == '__main__':
     Ev = 10
     energy= (energy_bound - energy_unbound) + 10 * energy_variance + 10 * heterogeneity
 
-    energy_terms={"energy_bound": energy_bound, "energy_unbound": energy_unbound, "heterogeneity": heterogeneity, "energy_average": energy_average} #, "energy_variance":energy_variance
+    energy_terms={"energy_bound": energy_bound, "energy_unbound": energy_unbound, "heterogeneity": heterogeneity, "energy_average": energy_average, "energy_variance":energy_variance}
 
     for energy_name,energy_term in energy_terms.items():
         print (f"Energy term: {energy_name}")
@@ -682,10 +696,6 @@ if __name__ == '__main__':
         monte_carlo = MonteCarlo(sequence = structure_free.sequence, energy=energy_term, alphabet=reduced_alphabet, evaluation_energies=energy_terms)
         monte_carlo.benchmark_montecarlo_steps(n_repeats=3,n_steps=10)
 
-    energy_average = AwsemEnergyAverage(model_free, alphabet=reduced_alphabet, use_numba=False)
-    energy_average.test()
-
-    
 
     # Print the stats
     s = io.StringIO()
