@@ -232,6 +232,8 @@ class AwsemEnergyAverage(EnergyTerm):
         len_alphabet=self.alphabet_size
         phi_len= indicators1D.shape[0]*len_alphabet + indicators2D.shape[0]*len_alphabet**2
         gamma=self.gamma
+        
+        # Precompute the mean of the indicators
         indicator_means=np.zeros(len(indicators1D)+len(indicators2D))
         c=0
         for indicator in indicators1D:
@@ -240,6 +242,7 @@ class AwsemEnergyAverage(EnergyTerm):
         for indicator in indicators2D:
             indicator_means[c]=(np.sum(indicator)-np.sum(np.diag(indicator)))/(len(indicator)**2-len(indicator))
             c+=1
+        
         len_indicators1D=len(indicators1D)
         len_indicators2D=len(indicators2D)
         
@@ -274,33 +277,18 @@ class AwsemEnergyAverage(EnergyTerm):
             return energy
         
         def denergy_mutation(seq_index, pos, aa):
-            aa_old=seq_index[pos]
             counts = np.zeros(len_alphabet, dtype=np.int64)
             for val in seq_index:
                 counts[val] += 1
-            counts_new = counts.copy()
-            counts_new[aa_old] -= 1
-            counts_new[aa] += 1
+            aa_old=seq_index[pos]
             if aa_old==aa:
                 return 0
             
             # Calculate phi_mean
-            phi_mean_new = np.zeros(len_alphabet*len_indicators1D + len_alphabet**2*len_indicators2D)
-            phi_mean_old = np.zeros(len_alphabet*len_indicators1D + len_alphabet**2*len_indicators2D)
+
             dphi_mean = np.zeros(len_alphabet*len_indicators1D + len_alphabet**2*len_indicators2D)
             
             # 1D indicators
-            c=0
-            for i in range(len_indicators1D):
-                for j in range(len_alphabet):
-                    phi_mean_old[c] = indicator_means[i] * counts[j]
-                    phi_mean_new[c] = phi_mean_old[c]
-                    if j==seq_index[pos]:
-                        phi_mean_new[c] -= indicator_means[i]
-                    if j==aa:
-                        phi_mean_new[c] += indicator_means[i]
-                    c += 1
-            
             for i in range(len_indicators1D):
                 dphi_mean[i*len_alphabet + aa_old] -= indicator_means[i]
                 dphi_mean[i*len_alphabet + aa] += indicator_means[i]
@@ -309,22 +297,14 @@ class AwsemEnergyAverage(EnergyTerm):
             for i in range(len_indicators2D):
                 for j in range(len_alphabet):
                     k=aa_old
-                    t=1 if j==k else 0
-                    correct_answer = (indicator_means[i+ len_indicators1D] * counts_new[j] * (counts_new[k] - t)) - (indicator_means[i+ len_indicators1D] * counts[j] * (counts[k] - t))
                     if j==k:
                         dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k] -= 2 * indicator_means[i + len_indicators1D] *  (counts[j]-1)
                     elif j==aa:
                         dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k] += indicator_means[i+ len_indicators1D] * (counts[k] - counts[j] -1)
                     else:
                         dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k] -= indicator_means[i + len_indicators1D] * counts[j]
-                        dphi_mean[offset + i*len_alphabet**2 + k*len_alphabet + j] -= indicator_means[i + len_indicators1D] * counts[j]
-                    
-                    if ~np.isclose(dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k],correct_answer):
-                        print(f"AA_old {aa_old}, AA {aa}, Error {i} {j} {k} {str(dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k])} {str(correct_answer)}")
-
+                        dphi_mean[offset + i*len_alphabet**2 + k*len_alphabet + j] -= indicator_means[i + len_indicators1D] * counts[j]                    
                     k=aa
-                    t=1 if j==k else 0
-                    correct_answer = (indicator_means[i+ len_indicators1D] * counts_new[j] * (counts_new[k] - t)) - (indicator_means[i+ len_indicators1D] * counts[j] * (counts[k] - t))
                     if j==k:
                         dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k] += 2 * indicator_means[i + len_indicators1D] *  counts[j]
                     elif j==aa_old:
@@ -332,10 +312,7 @@ class AwsemEnergyAverage(EnergyTerm):
                     else:
                         dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k] += indicator_means[i + len_indicators1D] * counts[j]
                         dphi_mean[offset + i*len_alphabet**2 + k*len_alphabet + j] += indicator_means[i + len_indicators1D] * counts[j]
-                    
-                    if ~np.isclose(dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k],correct_answer):
-                        print(f"AA_old {aa_old}, AA {aa}, Error {i} {j} {k} {str(dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k])} {str(correct_answer)}")
-
+            
             # Calculate energy
             denergy = 0
             for i in range(phi_len):
