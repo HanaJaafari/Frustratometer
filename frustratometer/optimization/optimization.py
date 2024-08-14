@@ -576,7 +576,7 @@ class MonteCarlo:
         swap_energy=self.energy.denergy_swap_function
 
         def sequence_swap(seq_index):
-            seq_index_new = seq_index[:]
+            seq_index_new = seq_index.copy()
             n=len(seq_index_new)
             res1 = np.random.randint(0,n)
             res2 = np.random.randint(0,n-1)
@@ -588,7 +588,7 @@ class MonteCarlo:
         sequence_swap=self.numbify(sequence_swap)
 
         def sequence_mutation(seq_index):
-            seq_index_new = seq_index[:]
+            seq_index_new = seq_index.copy()
             r = np.random.randint(0, alphabet_size*sequence_size) # Select a random index
             res = r // alphabet_size
             aa_new = r % alphabet_size

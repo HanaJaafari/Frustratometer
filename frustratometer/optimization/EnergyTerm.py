@@ -58,21 +58,21 @@ class EnergyTerm(abc.ABC):
     def energy_function(self):
         """ Returns the energy function as a numba dispatcher. """
         if self.use_numba:
-            return numba.njit(types.float64(types.Array(types.int64, 1, 'A', readonly=True)), cache=True)(self.compute_energy)
+            return numba.njit(types.float64(types.Array(types.int64, 1, 'A', readonly=True)))(self.compute_energy)
         return self.compute_energy
 
     @property
     def denergy_mutation_function(self):
         """ Returns the mutation energy change function as a numba dispatcher. """
         if self.use_numba:
-            return numba.njit(types.float64(types.Array(types.int64, 1, 'A', readonly=True),types.int64,types.int64), cache=True)(self.compute_denergy_mutation)
+            return numba.njit(types.float64(types.Array(types.int64, 1, 'A', readonly=True),types.int64,types.int64))(self.compute_denergy_mutation)
         return self.compute_denergy_mutation
 
     @property
     def denergy_swap_function(self):
         """ Returns the swap energy change function as a numba dispatcher. """
         if self.use_numba:
-            return numba.njit(types.float64(types.Array(types.int64, 1, 'A', readonly=True),types.int64,types.int64), cache=True)(self.compute_denergy_swap)
+            return numba.njit(types.float64(types.Array(types.int64, 1, 'A', readonly=True),types.int64,types.int64))(self.compute_denergy_swap)
         return self.compute_denergy_swap
     
     @staticmethod
