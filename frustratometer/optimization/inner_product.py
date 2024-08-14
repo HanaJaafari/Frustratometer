@@ -794,7 +794,7 @@ def diff_mean_inner_product_matrix(r0,r1, repetitions, indicators1d, indicators2
 
         elif i>=num_matrices1d and j>=num_matrices1d:
             ei, ej = si + n_elements**2, sj + n_elements**2
-            R[si:ei, sj:ej] = diff_mean_inner_product_2_by_2(r0,r1,repetitions, region_means[i,j])
+            R[si:ei, sj:ej] = diff_mean_inner_product_2_by_2_v2(r0,r1,repetitions, region_means[i,j])
         
         if i != j:
             R[sj:ej, si:ei] = R[si:ei, sj:ej].T

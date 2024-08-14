@@ -394,6 +394,7 @@ class AwsemEnergyVariance(EnergyTerm):
         len_indicators2D=len(indicators2D)
         
         region_means=compute_all_region_means(indicators1D,indicators2D)
+        # indicator_means*=0 # Set indicator means to zero to check if the problem is with the mean phi or the inner product matrix
         
         def compute_energy(seq_index):
             counts = np.zeros(len_alphabet, dtype=np.int64)
@@ -428,9 +429,83 @@ class AwsemEnergyVariance(EnergyTerm):
         compute_energy_numba=self.numbify(compute_energy, cache=True)
         
         def denergy_mutation(seq_index, pos, aa):
-            seq_index_new = seq_index.copy()
-            seq_index_new[pos] = aa
-            return compute_energy_numba(seq_index_new) - compute_energy_numba(seq_index)
+            counts = np.zeros(len_alphabet, dtype=np.int64)
+            for val in seq_index:
+                counts[val] += 1
+            aa_old=seq_index[pos]
+            if aa_old==aa:
+                return 0
+            
+            counts_new=counts.copy()
+            counts_new[aa]+=1
+            counts_new[aa_old]-=1
+            
+            #Calculate phi_mean_old
+            phi_mean_old = np.zeros(len_alphabet*len_indicators1D + len_alphabet**2*len_indicators2D)
+            # 1D indicators
+            c=0
+            for i in range(len_indicators1D):
+                for j in range(len_alphabet):
+                    phi_mean_old[c] = indicator_means[i] * counts[j]
+                    c += 1
+            # 2D indicators
+            for i in range(len_indicators2D):
+                for j in range(len_alphabet):
+                    for k in range(len_alphabet):
+                        t=1 if j==k else 0
+                        phi_mean_old[c] = indicator_means[i+ len_indicators1D] * counts[j] * (counts[k] - t)
+                        c += 1
+            
+            #Calculate phi_mean_new
+            phi_mean_new = np.zeros(len_alphabet*len_indicators1D + len_alphabet**2*len_indicators2D)
+            # 1D indicators
+            c=0
+            for i in range(len_indicators1D):
+                for j in range(len_alphabet):
+                    phi_mean_new[c] = indicator_means[i] * counts_new[j]
+                    c += 1
+            # 2D indicators
+            for i in range(len_indicators2D):
+                for j in range(len_alphabet):
+                    for k in range(len_alphabet):
+                        t=1 if j==k else 0
+                        phi_mean_new[c] = indicator_means[i+ len_indicators1D] * counts_new[j] * (counts_new[k] - t)
+                        c += 1
+
+
+            # # Calculate phi_mean
+            # dphi_mean2 = np.zeros((phi_len,phi_len))
+            # for i in range(phi_len):
+            #     for j in range(phi_len):
+            #         if i==aa_old:
+            #             di=-1
+            #         elif i==aa:
+            #             di=1
+            #         if j==aa_old:
+            #             dj=-1
+            #         elif j==aa:
+            #             dj=1
+            #         if di!=0 and dj!=0:
+            #             indicator_i = i // len_alphabet if i < len_alphabet*len_indicators1D else len_indicators1D + (i - len_alphabet*len_indicators1D) // len_alphabet**2
+            #             indicator_j = j // len_alphabet if j < len_alphabet*len_indicators1D else len_indicators1D + (j - len_alphabet*len_indicators1D) // len_alphabet**2
+            #             ii=i % len_alphabet if i < len_alphabet*len_indicators1D else (i - len_alphabet*len_indicators1D) % len_alphabet**2
+            #             jj=j % len_alphabet if j < len_alphabet*len_indicators1D else (j - len_alphabet*len_indicators1D) % len_alphabet**2
+            #             countsi = counts[ii] if i < len_alphabet*len_indicators1D else counts[ii // len_alphabet]*counts[ii % len_alphabet]
+            #             countsj = counts[jj] if j < len_alphabet*len_indicators1D else counts[jj // len_alphabet]*counts[jj % len_alphabet]
+            #             indicator_i_mean = indicator_means[indicator_i]
+            #             indicator_j_mean = indicator_means[indicator_j]
+            #             dphi_mean2[i,j] = indicator_i_mean * (countsi + di) + indicator_j_mean * (countsj + dj) - indicator_i_mean * indicator_j_mean * countsi * countsj
+
+            dB = diff_mean_inner_product_matrix(aa_old, aa, counts,indicators1D,indicators2D,region_means)
+            # Calculate energy
+            denergy=0
+            for i in range(phi_len):
+                for j in range(phi_len):
+                    denergy += gamma[i] * (dB[i,j] - (phi_mean_new[i]*phi_mean_new[j]-phi_mean_old[i]*phi_mean_old[j])) * gamma[j]
+                    
+            return denergy
+            
+
         
         self.compute_energy = compute_energy
         self.compute_denergy_mutation = denergy_mutation
