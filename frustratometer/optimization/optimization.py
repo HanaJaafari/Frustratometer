@@ -82,7 +82,7 @@ class Heterogeneity(EnergyTerm):
             Uses Stirling's approximation to calculate the sequence entropy
             """
             N = len(seq_index)
-            counts = np.zeros(21, dtype=np.int32)
+            counts = np.zeros(alphabet_size, dtype=np.int64)
             
             for val in seq_index:
                 counts[val] += 1
@@ -232,45 +232,116 @@ class AwsemEnergyAverage(EnergyTerm):
         len_alphabet=self.alphabet_size
         phi_len= indicators1D.shape[0]*len_alphabet + indicators2D.shape[0]*len_alphabet**2
         gamma=self.gamma
+        indicator_means=np.zeros(len(indicators1D)+len(indicators2D))
+        c=0
+        for indicator in indicators1D:
+            indicator_means[c]=np.mean(indicator)
+            c+=1
+        for indicator in indicators2D:
+            indicator_means[c]=(np.sum(indicator)-np.sum(np.diag(indicator)))/(len(indicator)**2-len(indicator))
+            c+=1
+        len_indicators1D=len(indicators1D)
+        len_indicators2D=len(indicators2D)
         
         def compute_energy(seq_index):
-            aa_count = np.bincount(seq_index, minlength=len_alphabet)
-            freq_i=aa_count
-            freq_ij=np.outer(freq_i,freq_i)
-            np.fill_diagonal(freq_ij,freq_i*(freq_i-1))
+            counts = np.zeros(len_alphabet, dtype=np.int64)
+            for val in seq_index:
+                counts[val] += 1
             
-            phi_mean = np.zeros(phi_len)
-            offset=0
-            for indicator in indicators1D:
-                phi_mean[offset:offset+len_alphabet]=np.mean(indicator)*freq_i
-                offset += len_alphabet
-            for indicator in indicators2D:
-                # Calculate the off-diagonal mean
-                sum=0
-                count=0
-                for i in range(len(indicator)):
-                    for j in range(len(indicator)):
-                        if i!=j:
-                            sum+=indicator[i,j]
-                            count+=1
-                mean_offdiagonal_indicator=sum/count
-                
-                
-                phi_mean[offset:offset+len_alphabet**2]=freq_ij.ravel()*mean_offdiagonal_indicator
-                offset += len_alphabet**2
+            # Calculate phi_mean
+            phi_mean = np.zeros(len_alphabet*len_indicators1D + len_alphabet**2*len_indicators2D)
             
-            energy=0
-            for i in range(len(gamma)):
-                energy+=gamma[i]*phi_mean[i]
+            # 1D indicators
+            c=0
+            for i in range(len_indicators1D):
+                for j in range(len_alphabet):
+                    phi_mean[c] = indicator_means[i] * counts[j]
+                    c += 1
+
+            # 2D indicators
+            for i in range(len_indicators2D):
+                for j in range(len_alphabet):
+                    for k in range(len_alphabet):
+                        t=1 if j==k else 0
+                        phi_mean[c] = indicator_means[i+ len_indicators1D] * counts[j] * (counts[k] - t)
+                        c += 1
+
+            # Calculate energy
+            energy = 0
+            for i in range(phi_len):
+                energy += gamma[i] * phi_mean[i]
             
             return energy
         
-        compute_energy_numba=self.numbify(compute_energy, cache=True)
-        
         def denergy_mutation(seq_index, pos, aa):
-            seq_index_new = seq_index.copy()
-            seq_index_new[pos] = aa
-            return compute_energy_numba(seq_index_new) - compute_energy_numba(seq_index)
+            aa_old=seq_index[pos]
+            counts = np.zeros(len_alphabet, dtype=np.int64)
+            for val in seq_index:
+                counts[val] += 1
+            counts_new = counts.copy()
+            counts_new[aa_old] -= 1
+            counts_new[aa] += 1
+            if aa_old==aa:
+                return 0
+            
+            # Calculate phi_mean
+            phi_mean_new = np.zeros(len_alphabet*len_indicators1D + len_alphabet**2*len_indicators2D)
+            phi_mean_old = np.zeros(len_alphabet*len_indicators1D + len_alphabet**2*len_indicators2D)
+            dphi_mean = np.zeros(len_alphabet*len_indicators1D + len_alphabet**2*len_indicators2D)
+            
+            # 1D indicators
+            c=0
+            for i in range(len_indicators1D):
+                for j in range(len_alphabet):
+                    phi_mean_old[c] = indicator_means[i] * counts[j]
+                    phi_mean_new[c] = phi_mean_old[c]
+                    if j==seq_index[pos]:
+                        phi_mean_new[c] -= indicator_means[i]
+                    if j==aa:
+                        phi_mean_new[c] += indicator_means[i]
+                    c += 1
+            
+            for i in range(len_indicators1D):
+                dphi_mean[i*len_alphabet + aa_old] -= indicator_means[i]
+                dphi_mean[i*len_alphabet + aa] += indicator_means[i]
+
+            offset = len_alphabet*len_indicators1D
+            for i in range(len_indicators2D):
+                for j in range(len_alphabet):
+                    k=aa_old
+                    t=1 if j==k else 0
+                    correct_answer = (indicator_means[i+ len_indicators1D] * counts_new[j] * (counts_new[k] - t)) - (indicator_means[i+ len_indicators1D] * counts[j] * (counts[k] - t))
+                    if j==k:
+                        dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k] -= 2 * indicator_means[i + len_indicators1D] *  (counts[j]-1)
+                    elif j==aa:
+                        dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k] += indicator_means[i+ len_indicators1D] * (counts[k] - counts[j] -1)
+                    else:
+                        dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k] -= indicator_means[i + len_indicators1D] * counts[j]
+                        dphi_mean[offset + i*len_alphabet**2 + k*len_alphabet + j] -= indicator_means[i + len_indicators1D] * counts[j]
+                    
+                    if ~np.isclose(dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k],correct_answer):
+                        print(f"AA_old {aa_old}, AA {aa}, Error {i} {j} {k} {str(dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k])} {str(correct_answer)}")
+
+                    k=aa
+                    t=1 if j==k else 0
+                    correct_answer = (indicator_means[i+ len_indicators1D] * counts_new[j] * (counts_new[k] - t)) - (indicator_means[i+ len_indicators1D] * counts[j] * (counts[k] - t))
+                    if j==k:
+                        dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k] += 2 * indicator_means[i + len_indicators1D] *  counts[j]
+                    elif j==aa_old:
+                        dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k] += indicator_means[i+ len_indicators1D] * (counts[j] - counts[k] -1)
+                    else:
+                        dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k] += indicator_means[i + len_indicators1D] * counts[j]
+                        dphi_mean[offset + i*len_alphabet**2 + k*len_alphabet + j] += indicator_means[i + len_indicators1D] * counts[j]
+                    
+                    if ~np.isclose(dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k],correct_answer):
+                        print(f"AA_old {aa_old}, AA {aa}, Error {i} {j} {k} {str(dphi_mean[offset + i*len_alphabet**2 + j*len_alphabet + k])} {str(correct_answer)}")
+
+            # Calculate energy
+            denergy = 0
+            for i in range(phi_len):
+                denergy += gamma[i] * dphi_mean[i]
+            
+            return denergy
         
         self.compute_energy = compute_energy
         self.compute_denergy_mutation = denergy_mutation
@@ -612,11 +683,13 @@ if __name__ == '__main__':
     model_free = AWSEM(structure_free, distance_cutoff_contact=10, min_sequence_separation_contact=2, expose_indicator_functions=True)
     reduced_alphabet = 'ADEFHIKLMNQRSTVWY'
 
-    energy_bound = AwsemEnergy(model_bound, reduced_alphabet)
-    energy_unbound = AwsemEnergy(model_free, reduced_alphabet)
-    energy_average = AwsemEnergyAverage(model_free, reduced_alphabet)
-    energy_variance = AwsemEnergyVariance(model_free, reduced_alphabet)
+    profiler.enable()
+    energy_bound = AwsemEnergy(model_bound, alphabet=reduced_alphabet)
+    energy_unbound = AwsemEnergy(model_free, alphabet=reduced_alphabet)
+    energy_average = AwsemEnergyAverage(model_free, alphabet=reduced_alphabet)
+    energy_variance = AwsemEnergyVariance(model_free, alphabet=reduced_alphabet)
     heterogeneity = Heterogeneity(exact=False, use_numba=True)
+    profiler.disable()
 
     Ep = 10
     Ev = 10
@@ -626,11 +699,14 @@ if __name__ == '__main__':
 
     for energy_name,energy_term in energy_terms.items():
         print (f"Energy term: {energy_name}")
-        energy_term.test(seq_index=np.random.randint(0, len(reduced_alphabet), size=len(structure_free.sequence)))
         energy_term.benchmark(seq_indices=np.random.randint(0, len(reduced_alphabet), size=(1000,len(structure_free.sequence))))
+        energy_term.test(seq_index=np.random.randint(0, len(reduced_alphabet), size=len(structure_free.sequence)))
         
         monte_carlo = MonteCarlo(sequence = structure_free.sequence, energy=energy_term, alphabet=reduced_alphabet, evaluation_energies=energy_terms)
         monte_carlo.benchmark_montecarlo_steps(n_repeats=3,n_steps=10)
+
+    energy_average = AwsemEnergyAverage(model_free, alphabet=reduced_alphabet, use_numba=False)
+    energy_average.test()
 
     
 
@@ -638,7 +714,7 @@ if __name__ == '__main__':
     s = io.StringIO()
     ps = pstats.Stats(profiler, stream=s).sort_stats('cumulative')
     ps.print_stats()
-    print(s.getvalue())
+    #print(s.getvalue())
 
     ps.dump_stats('sample_profile.prof')
     #monte_carlo.annealing()
