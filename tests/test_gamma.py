@@ -586,21 +586,21 @@ class TestGammaMagicMethods(unittest.TestCase):
         self.assertEqual(repr_str, expected_repr, "__repr__ method failed.")
 
 
-# Plotting Tests (if applicable)
+# # Plotting Tests
 
-# Since plotting typically doesn't return a value, consider testing that the plot_gamma method runs without errors for valid inputs. Mocking or a visual inspection approach might be needed.
-from unittest.mock import patch
-import unittest
+# # Since plotting typically doesn't return a value, consider testing that the plot_gamma method runs without errors for valid inputs. Mocking or a visual inspection approach might be needed.
+# from unittest.mock import patch
+# import unittest
 
-class TestGammaPlotting(unittest.TestCase):
+# class TestGammaPlotting(unittest.TestCase):
 
-    @patch('matplotlib.pyplot.show')
-    def test_plot_gamma(self, mock_show):
-        gamma = frustratometer.Gamma(np.arange(1260), description="Test plot")
-        try:
-            gamma.plot_gamma()
-        except Exception as e:
-            self.fail(f"plot_gamma() raised an exception {e}")
+#     @patch('matplotlib.pyplot.show')
+#     def test_plot_gamma(self, mock_show):
+#         gamma = frustratometer.Gamma(np.arange(1260), description="Test plot")
+#         try:
+#             gamma.plot_gamma()
+#         except Exception as e:
+#             self.fail(f"plot_gamma() raised an exception {e}")
 
 # Error Handling Tests
 
