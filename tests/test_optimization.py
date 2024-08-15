@@ -198,7 +198,7 @@ def test_diff_mean_inner_product_2_by_2(n_elements = 10):
         n = m.copy()
         n[r0] -= 1
         n[r1] += 1
-        result_adjusted = diff_mean_inner_product_2_by_2(r0, r1, repetitions, region_mean)
+        result_adjusted = diff_mean_inner_product_2_by_2_v2(r0, r1, repetitions, region_mean)
         
         # Recompute the functions for new and original repetitions directly
         result_new_reps = mean_inner_product_2_by_2(n, region_mean)
