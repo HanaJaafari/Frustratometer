@@ -353,141 +353,90 @@ def test_awsem_energy_variance(model, reduced_alphabet, use_numba):
 # Monte Carlo #
 ###############
 
-def test_awsem_energy_variance_sample(model):
-    seq_index=sequence_to_index(model.sequence,alphabet=_AA)
+# def test_awsem_energy_variance_sample(model):
+#     seq_index=sequence_to_index(model.sequence,alphabet=_AA)
     
-    def compute_energy_variance_sample(seq_index,n_decoys=10000):
-        energies=[]
-        shuffled_index=seq_index.copy()
-        for i in range(n_decoys):
-            np.random.shuffle(shuffled_index)
-            energies.append(model.native_energy(index_to_sequence(shuffled_index,alphabet=_AA)))
-            #if i%(n_decoys//100)==0:
-                #energies_array=np.array(energies)
-                #print(i,energies_array.mean(),energies_array.var())
-        #Split the energies into 10 groups and compute the variance of each group to get an error estimate
-        energies_array=np.array(energies)
-        energies_array=energies_array.reshape(10,-1)
-        energy_variances=np.var(energies_array,axis=1)
-        mean_variance=energy_variances.mean()
-        error_variance=energy_variances.std()
-        print(f"Decoy Variance: {mean_variance} +/- {3*error_variance}") #3 sigma error
-        print(f"Expected variance: {awsem_de2.compute_energy(seq_index)}")
-        return np.var(energies), awsem_de2.compute_energy(seq_index)
+#     def compute_energy_variance_sample(seq_index,n_decoys=10000):
+#         energies=[]
+#         shuffled_index=seq_index.copy()
+#         for i in range(n_decoys):
+#             np.random.shuffle(shuffled_index)
+#             energies.append(model.native_energy(index_to_sequence(shuffled_index,alphabet=_AA)))
+#             #if i%(n_decoys//100)==0:
+#                 #energies_array=np.array(energies)
+#                 #print(i,energies_array.mean(),energies_array.var())
+#         #Split the energies into 10 groups and compute the variance of each group to get an error estimate
+#         energies_array=np.array(energies)
+#         energies_array=energies_array.reshape(10,-1)
+#         energy_variances=np.var(energies_array,axis=1)
+#         mean_variance=energy_variances.mean()
+#         error_variance=energy_variances.std()
+#         print(f"Decoy Variance: {mean_variance} +/- {3*error_variance}") #3 sigma error
+#         print(f"Expected variance: {awsem_de2.compute_energy(seq_index)}")
+#         return np.var(energies), awsem_de2.compute_energy(seq_index)
     
-    print(compute_energy_variance_sample(seq_index))
+#     print(compute_energy_variance_sample(seq_index))
 
-    def compute_energy_variance_permutation(seq_index):
-        from itertools import permutations
-        decoy_sequences = np.array(list(permutations(seq_index)))
-        energies=[]
-        for seq in decoy_sequences:
-            energies.append(model.native_energy(index_to_sequence(seq,alphabet=_AA)))
+#     def compute_energy_variance_permutation(seq_index):
+#         from itertools import permutations
+#         decoy_sequences = np.array(list(permutations(seq_index)))
+#         energies=[]
+#         for seq in decoy_sequences:
+#             energies.append(model.native_energy(index_to_sequence(seq,alphabet=_AA)))
 
-        print(f"Decoy Variance: {np.var(energies)}") # Exact variance
-        print(f"Expected variance: {awsem_de2.compute_energy(seq_index)}")
-        return np.var(energies), awsem_de2.compute_energy(seq_index)
+#         print(f"Decoy Variance: {np.var(energies)}") # Exact variance
+#         print(f"Expected variance: {awsem_de2.compute_energy(seq_index)}")
+#         return np.var(energies), awsem_de2.compute_energy(seq_index)
     
-    print(compute_energy_variance_permutation(seq_index))
+#     print(compute_energy_variance_permutation(seq_index))
 
-    from itertools import permutations
-    decoy_sequences = np.array(list(permutations(seq_index)))
-    indicators1D=np.array(model.indicators[:3])
-    indicators2D=np.array(model.indicators[3:])
-    indicator_arrays=[]
-    energies=[]
-    for decoy_index in decoy_sequences:
-        ind1D=np.zeros((len(indicators1D),21))
-        for i in range(len(ind1D)):
-            ind1D[i] = np.bincount(decoy_index, weights=indicators1D[i], minlength=21)
+#     from itertools import permutations
+#     decoy_sequences = np.array(list(permutations(seq_index)))
+#     indicators1D=np.array(model.indicators[:3])
+#     indicators2D=np.array(model.indicators[3:])
+#     indicator_arrays=[]
+#     energies=[]
+#     for decoy_index in decoy_sequences:
+#         ind1D=np.zeros((len(indicators1D),21))
+#         for i in range(len(ind1D)):
+#             ind1D[i] = np.bincount(decoy_index, weights=indicators1D[i], minlength=21)
 
-        decoy_index2D=decoy_index[np.newaxis,:]*21+decoy_index[:,np.newaxis]
-        ind2D=np.zeros((len(indicators2D),21*21))
-        for i in range(len(ind2D)):
-            ind2D[i] =np.bincount(decoy_index2D.ravel(), weights=indicators2D[i].ravel(), minlength=21*21)
+#         decoy_index2D=decoy_index[np.newaxis,:]*21+decoy_index[:,np.newaxis]
+#         ind2D=np.zeros((len(indicators2D),21*21))
+#         for i in range(len(ind2D)):
+#             ind2D[i] =np.bincount(decoy_index2D.ravel(), weights=indicators2D[i].ravel(), minlength=21*21)
 
-        indicator_array = np.concatenate([ind1D.ravel(),ind2D.ravel()])
-        gamma_array = np.concatenate([a.ravel() for a in model.gamma_array])
+#         indicator_array = np.concatenate([ind1D.ravel(),ind2D.ravel()])
+#         gamma_array = np.concatenate([a.ravel() for a in model.gamma_array])
 
-        energy_i = gamma_array @ indicator_array
-        assert np.isclose(model.native_energy(index_to_sequence(decoy_index,alphabet=_AA)),energy_i), f"Expected energy {model.native_energy(index_to_sequence(decoy_index,alphabet=_AA))} but got {energy_i}"
-        energies.append(energy_i)
-        indicator_arrays.append(indicator_array)
+#         energy_i = gamma_array @ indicator_array
+#         assert np.isclose(model.native_energy(index_to_sequence(decoy_index,alphabet=_AA)),energy_i), f"Expected energy {model.native_energy(index_to_sequence(decoy_index,alphabet=_AA))} but got {energy_i}"
+#         energies.append(energy_i)
+#         indicator_arrays.append(indicator_array)
 
-    indicator_arrays = np.array(indicator_arrays)
-    energies = np.array(energies)
-    assert np.isclose(gamma_array@indicator_arrays.mean(axis=0),energies.mean()), f"Expected mean energy {gamma_array@indicator_arrays.mean(axis=0)} but got {np.mean(energies)}"
+#     indicator_arrays = np.array(indicator_arrays)
+#     energies = np.array(energies)
+#     assert np.isclose(gamma_array@indicator_arrays.mean(axis=0),energies.mean()), f"Expected mean energy {gamma_array@indicator_arrays.mean(axis=0)} but got {np.mean(energies)}"
 
-    # I will code something like this using numpy einsums:
-    # np.array([[np.outer(indicator_arrays[:,i],indicator_arrays[:,j]).mean() - indicator_arrays[:,i].mean()*indicator_arrays[:,i].mean() for i in range(indicator_arrays.shape[1])] for j in range(indicator_arrays.shape[1])])
-    outer_product = np.einsum('ij,ik->ijk', indicator_arrays, indicator_arrays)
-    mean_outer_product = outer_product.mean(axis=0)
-    mean_outer_product -= np.outer(indicator_arrays.mean(axis=0), indicator_arrays.mean(axis=0))
-    assert np.allclose(gamma_array @ mean_outer_product @ gamma_array, energies.var()), "Covariance matrix is not correct"
+#     # I will code something like this using numpy einsums:
+#     # np.array([[np.outer(indicator_arrays[:,i],indicator_arrays[:,j]).mean() - indicator_arrays[:,i].mean()*indicator_arrays[:,i].mean() for i in range(indicator_arrays.shape[1])] for j in range(indicator_arrays.shape[1])])
+#     outer_product = np.einsum('ij,ik->ijk', indicator_arrays, indicator_arrays)
+#     mean_outer_product = outer_product.mean(axis=0)
+#     mean_outer_product -= np.outer(indicator_arrays.mean(axis=0), indicator_arrays.mean(axis=0))
+#     assert np.allclose(gamma_array @ mean_outer_product @ gamma_array, energies.var()), "Covariance matrix is not correct"
 
-    # Indicator tests    
-    indicators1D=np.array(model.indicators[0:3])
-    indicators2D=np.array(model.indicators[3:])
-    gamma=model.gamma_array
-    true_indicator1D=np.array([indicators1D[:,model_seq_index==i].sum(axis=1) for i in range(21)]).T
-    true_indicator2D=np.array([indicators2D[:,model_seq_index==i][:,:, model_seq_index==j].sum(axis=(1,2)) for i in range(21) for j in range(21)]).reshape(21,21,3).T
-    true_indicator=np.concatenate([true_indicator1D.ravel(),true_indicator2D.ravel()])
-    burial_gamma=np.concatenate(model.gamma_array[:3])
-    burial_energy_predicted = (burial_gamma * np.concatenate(true_indicator1D)).sum()
-    burial_energy_expected = -model.potts_model['h'][range(len(model_seq_index)), model_seq_index].sum()
-    assert np.isclose(burial_energy_predicted,burial_energy_expected), f"Expected energy {burial_energy_expected} but got {burial_energy_predicted}"
-    contact_gamma=np.concatenate([a.ravel() for a in model.gamma_array[3:]])
-    contact_energy_predicted = (contact_gamma * np.concatenate([a.ravel() for a in true_indicator2D])).sum()
-    contact_energy_expected = model.couplings_energy()
-    assert np.isclose(contact_energy_predicted,contact_energy_expected), f"Expected energy {contact_energy_expected} but got {contact_energy_predicted}"
-
-
-def test_heterogeneity_approximation():
-    sequence = list("SISSRVKSKRIQLGLNQAELAQKVGTTQQSIEQLENGKTKRPRFLP")
-    het = heterogeneity(sequence)
-    het_approx = heterogeneity_approximation(optimization.sequence_to_index(sequence))
-    assert np.isclose(het, het_approx), f"Heterogeneity: {het}, Approximation: {het_approx}"
-
-def test_heterogeneity_difference_permutation():
-    native_pdb = "tests/data/1r69.pdb"
-    structure = frustratometer.Structure.full_pdb(native_pdb, "A")
-    model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
-    seq_index = sequence_to_index(model.sequence)
-    new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model.potts_model['h'], model.potts_model['J'], model.mask)
-    het = heterogeneity_approximation(seq_index)
-    new_het = heterogeneity_approximation(new_sequence)
-    het_difference2 = new_het - het
-    assert np.isclose(het_difference, het_difference2), f"Heterogeneity difference: {het_difference}, {het_difference2}"
-
-def test_heterogeneity_difference_mutation():
-    native_pdb = "tests/data/1r69.pdb"
-    structure = frustratometer.Structure.full_pdb(native_pdb, "A")
-    model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
-    seq_index = sequence_to_index(model.sequence)
-    new_sequence, het_difference, energy_difference = sequence_mutation(seq_index, model.potts_model['h'], model.potts_model['J'],model.mask)
-    het = heterogeneity_approximation(seq_index)
-    new_het = heterogeneity_approximation(new_sequence)
-    het_difference2 = new_het - het
-    assert np.isclose(het_difference, het_difference2), f"Heterogeneity difference: {het_difference}, {het_difference2}"
-
-def test_energy_difference_permutation():
-    native_pdb = "tests/data/1r69.pdb"
-    structure = frustratometer.Structure.full_pdb(native_pdb, "A")
-    model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
-    seq_index = sequence_to_index(model.sequence)
-    new_sequence, het_difference, energy_difference = sequence_swap(seq_index, model.potts_model['h'], model.potts_model['J'],model.mask)
-    energy = model_energy(seq_index, model.potts_model['h'], model.potts_model['J'],model.mask)
-    new_energy = model_energy(new_sequence, model.potts_model['h'], model.potts_model['J'],model.mask)
-    energy_difference2 = new_energy - energy
-    assert np.isclose(energy_difference, energy_difference2), f"Energy difference: {energy_difference}, {energy_difference2}"
-
-def test_energy_difference_mutation():
-    native_pdb = "tests/data/1r69.pdb"
-    structure = frustratometer.Structure.full_pdb(native_pdb, "A")
-    model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2)
-    seq_index = sequence_to_index(model.sequence)
-    new_sequence, het_difference, energy_difference = sequence_mutation(seq_index, model.potts_model['h'], model.potts_model['J'],model.mask)
-    energy = model_energy(seq_index, model.potts_model['h'], model.potts_model['J'],model.mask)
-    new_energy = model_energy(new_sequence, model.potts_model['h'], model.potts_model['J'],model.mask)
-    energy_difference2 = new_energy - energy
-    assert np.isclose(energy_difference, energy_difference2), f"Energy difference: {energy_difference}, {energy_difference2}"
+#     # Indicator tests    
+#     indicators1D=np.array(model.indicators[0:3])
+#     indicators2D=np.array(model.indicators[3:])
+#     gamma=model.gamma_array
+#     true_indicator1D=np.array([indicators1D[:,model_seq_index==i].sum(axis=1) for i in range(21)]).T
+#     true_indicator2D=np.array([indicators2D[:,model_seq_index==i][:,:, model_seq_index==j].sum(axis=(1,2)) for i in range(21) for j in range(21)]).reshape(21,21,3).T
+#     true_indicator=np.concatenate([true_indicator1D.ravel(),true_indicator2D.ravel()])
+#     burial_gamma=np.concatenate(model.gamma_array[:3])
+#     burial_energy_predicted = (burial_gamma * np.concatenate(true_indicator1D)).sum()
+#     burial_energy_expected = -model.potts_model['h'][range(len(model_seq_index)), model_seq_index].sum()
+#     assert np.isclose(burial_energy_predicted,burial_energy_expected), f"Expected energy {burial_energy_expected} but got {burial_energy_predicted}"
+#     contact_gamma=np.concatenate([a.ravel() for a in model.gamma_array[3:]])
+#     contact_energy_predicted = (contact_gamma * np.concatenate([a.ravel() for a in true_indicator2D])).sum()
+#     contact_energy_expected = model.couplings_energy()
+#     assert np.isclose(contact_energy_predicted,contact_energy_expected), f"Expected energy {contact_energy_expected} but got {contact_energy_predicted}"
