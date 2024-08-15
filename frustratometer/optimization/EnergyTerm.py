@@ -29,7 +29,12 @@ class EnergyTerm(abc.ABC):
         Args:
             use_numba (bool): Whether to use numba for JIT compilation. Defaults to True.
         """
-        self.use_numba = use_numba and NUMBA_AVAILABLE
+        self._use_numba = use_numba
+
+    
+    def energies(self, seq_indices:np.ndarray):
+        """ Returns the energies of a list of sequences. """
+        return self.energies_function(seq_indices)
 
     def energy(self, seq_index:np.ndarray):
         """ Returns the energy of a sequence. """
@@ -50,8 +55,15 @@ class EnergyTerm(abc.ABC):
     
     @use_numba.setter
     def use_numba(self, value):
-        """ Setter for the use_numba property. """
-        self._use_numba = value
+        if self._use_numba != value:
+            self._use_numba = value
+            # self.clear_cache()
+    
+    def clear_cache(self):
+        # Clear the cache for all cached properties
+        for attr in ['energies_function', 'energy_function', 'denergy_mutation_function', 'denergy_swap_function']:
+            if hasattr(self, attr):
+                getattr(self, attr).cache_clear()
 
     @property
     def numbify(self):
@@ -67,13 +79,32 @@ class EnergyTerm(abc.ABC):
         return func
 
     @property
+    #@lru_cache(maxsize=None)
+    def energies_function(self):
+        """ Returns the energy function as a numba dispatcher. """
+        energy_function = self.energy_function
+        def compute_energies(seq_indices:np.ndarray):
+            """Compute the energies of multiple sequences."""
+            energies = np.zeros(len(seq_indices))
+            for i in numba.prange(len(seq_indices)):
+                energies[i] = energy_function(seq_indices[i])
+            return energies
+        
+        if self.use_numba:
+            return numba.njit(types.Array(types.float64, 1, 'C')(types.Array(types.int64, 2, 'A', readonly=True)), parallel=True)(compute_energies)
+        else:
+            return compute_energies
+
+    @property
+    #@lru_cache(maxsize=None)
     def energy_function(self):
         """ Returns the energy function as a numba dispatcher. """
         if self.use_numba:
             return numba.njit(types.float64(types.Array(types.int64, 1, 'A', readonly=True)))(self.compute_energy)
         return self.compute_energy
-
+    
     @property
+    #@lru_cache(maxsize=None)
     def denergy_mutation_function(self):
         """ Returns the mutation energy change function as a numba dispatcher. """
         if self.use_numba:
@@ -81,6 +112,7 @@ class EnergyTerm(abc.ABC):
         return self.compute_denergy_mutation
 
     @property
+    #@lru_cache(maxsize=None)
     def denergy_swap_function(self):
         """ Returns the swap energy change function as a numba dispatcher. """
         if self.use_numba:
@@ -264,11 +296,6 @@ class EnergyTerm(abc.ABC):
             # new_energy_term.compute_denergy_swap = lambda seq_index,pos1,pos2: other * (sr1:=s1(seq_index,pos1,pos2)) / (er1:=e1(seq_index)) / (er1 - sr1)
         return new_energy_term
 
-    def __new__(cls, *args, **kwargs):
-        new_instance = super().__new__(cls)
-        new_instance.use_numba = True
-        return new_instance
-        
     def test_energy(self,seq_index=np.array([0,1,2,3,4])):
         assert type(self.energy(seq_index)) in [float,np.float64], f"Energy function should return a float."
 
@@ -277,6 +304,9 @@ class EnergyTerm(abc.ABC):
 
     def test_denergy_swap(self,seq_index=np.array([0,1,2,3,4]) ,pos1=0, pos2=1):
         assert type(self.denergy_swap(seq_index, pos1, pos2)) in [float,np.float64], "Swap energy change function should return a float"
+
+    def test_energies(self,seq_indices=np.array([[0,1,2,3,4],[4,3,2,1,0]])):
+        assert type(self.energies(seq_indices)) is np.ndarray, "Energies function should return a numpy array"
 
     def test_numba(self):
         if self.use_numba:
@@ -302,14 +332,21 @@ class EnergyTerm(abc.ABC):
         dE_slow = self.energy(seq_index2) - self.energy(seq_index)
         assert np.allclose(dE_fast, dE_slow), f"Swap energy change is not the same as the Energy function \nFast: {dE_fast}, Slow: {dE_slow}, pos1: {pos1}, pos2: {pos2}, seq_index: {seq_index}, seq_index2: {seq_index2}, energy: {self.energy(seq_index)}, energy2: {self.energy(seq_index2)}, energy_diff: {self.energy(seq_index2) - self.energy(seq_index)}"
 
+    def test_energies_accuracy(self, seq_indices):
+        energies_fast = self.energies(seq_indices)
+        energies_slow = np.array([self.energy(seq_index) for seq_index in seq_indices])
+        assert np.allclose(energies_fast, energies_slow), f"Energies function is not the same as the Energy function \nFast: {energies_fast}, Slow: {energies_slow}"
 
     def test(self,seq_index=np.array([0,1,2,3,4,0,1,2,3,4])):
+        seq_indices = np.array([np.random.permutation(seq_index) for _ in range(5)])
         self.test_energy(seq_index)
         self.test_denergy_mutation(seq_index, np.random.randint(len(seq_index)), 1)
         self.test_denergy_swap(seq_index, np.random.randint(len(seq_index)), np.random.randint(len(seq_index)))
+        self.test_energies(seq_indices)
         self.test_numba()
         self.test_denergy_mutation_accuracy(seq_index, np.random.randint(len(seq_index)), 0)
         self.test_denergy_swap_accuracy(seq_index, np.random.randint(len(seq_index)), np.random.randint(len(seq_index)))
+        self.test_energies_accuracy(seq_indices)
         print("All tests passed!")
 
     def benchmark(self,seq_indices):
@@ -319,23 +356,14 @@ class EnergyTerm(abc.ABC):
         energy_function = self.energy_function
         denergy_mutation_function = self.denergy_mutation_function
         denergy_swap_function = self.denergy_swap_function
+        energies_function = self.energies_function
 
         energy_function(seq_indices[0])
         denergy_mutation_function(seq_indices[0], 0, 1)
         denergy_swap_function(seq_indices[0], 0, 1)
+        energies_function(seq_indices[0:1])
         
-        # energy_function_loop = self.numbify(lambda seq_indices: [(energy_function(seq_index) for seq_index in seq_indices])])
-        # denergy_mutation_function_loop = self.numbify(lambda seq_indices: [denergy_mutation_function(seq_index, 0, 1) for seq_index in seq_indices])
-        # denergy_swap_function_loop = self.numbify(lambda seq_indices: [denergy_swap_function(seq_index, 1, 0) for seq_index in seq_indices])
-
-        # energy_function_loop_instantiated=energy_function_loop
-        # denergy_mutation_function_loop_instantiated =denergy_mutation_function_loop
-        # denergy_swap_function_loop_instantiated=denergy_swap_function_loop
-
-        # energy_function_loop_instantiated(seq_indices[0:1])
-        # denergy_mutation_function_loop_instantiated(seq_indices[0:1])
-        # denergy_swap_function_loop_instantiated(seq_indices[0:1])
-        
+       
         # TODO: Implement looped functions in numba for benchmarking
         t0 = time.time()
         for seq_index in seq_indices:
@@ -354,6 +382,11 @@ class EnergyTerm(abc.ABC):
             denergy_swap_function(seq_index, 1, 0)
         t1 = time.time()
         print(f"Swap energy change function took {(t1-t0)/len(seq_indices)*1E6} microseconds per sequence")
+
+        t0 = time.time()
+        energies_function(seq_indices)
+        t1 = time.time()
+        print(f"Energies function took {(t1-t0)/len(seq_indices)*1E6} microseconds per sequence")
 
 
 if __name__ == "__main__":
@@ -375,10 +408,11 @@ if __name__ == "__main__":
     et.test()
 
     seq_index=np.array([0,1,2,3])
+    seq_indices = np.array([np.random.permutation(seq_index) for _ in range(1000)])
     print("No numba benchmark")
     et.use_numba = False
-    et.benchmark([seq_index for _ in range(1000)])
+    et.benchmark(seq_indices)
 
     print("Numba benchmark")
     et.use_numba = True
-    et.benchmark([seq_index for _ in range(1000)])
+    et.benchmark(seq_indices)

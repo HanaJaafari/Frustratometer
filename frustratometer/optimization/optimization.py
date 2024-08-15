@@ -86,7 +86,7 @@ class Heterogeneity(EnergyTerm):
         The energy is the negative logarithm of the heterogeneity.
      """
     def __init__(self, exact=False, alphabet=_AA, use_numba=True):
-        self.use_numba=use_numba
+        self._use_numba=use_numba
         self.exact=exact
         self.alphabet=alphabet
         self.alphabet_size=len(alphabet)
@@ -143,7 +143,7 @@ class AwsemEnergy(EnergyTerm):
         The energy is calculated from the fields and couplings of the Potts model.
         """
     def __init__(self, model:Frustratometer, alphabet=_AA, use_numba=True):
-        self.use_numba=use_numba
+        self._use_numba=use_numba
         self.model=model
         self.alphabet=alphabet
         self.model_h = model.potts_model['h']
@@ -240,7 +240,7 @@ class AwsemEnergy(EnergyTerm):
 
 class AwsemEnergyAverage(EnergyTerm):   
     def __init__(self, model:Frustratometer, use_numba=True, alphabet=_AA):
-        self.use_numba=use_numba
+        self._use_numba=use_numba
         self.model=model
         self.alphabet=alphabet
         self.reindex_dca=[_AA.index(aa) for aa in alphabet]
@@ -387,7 +387,7 @@ class AwsemEnergyAverage(EnergyTerm):
 
 class AwsemEnergyVariance(EnergyTerm):   
     def __init__(self, model:Frustratometer, use_numba=True, alphabet=_AA):
-        self.use_numba=use_numba
+        self._use_numba=use_numba
         self.model=model
         self.alphabet=alphabet
         self.reindex_dca=[_AA.index(aa) for aa in alphabet]
@@ -572,7 +572,7 @@ class AwsemEnergyVariance(EnergyTerm):
 
 class AwsemEnergyStd(EnergyTerm):   
     def __init__(self, model:Frustratometer, use_numba=True, alphabet=_AA):
-        self.use_numba=use_numba
+        self._use_numba=use_numba
         self.model=model
         self.alphabet=alphabet
         self.reindex_dca=[_AA.index(aa) for aa in alphabet]
@@ -817,20 +817,22 @@ class MonteCarlo:
         if seq_indices is None:
             seq_indices = self.generate_random_sequences(len(temperatures))
         
+        total_energies = self.energy.energies(seq_indices)
+        energies={key:energy_term.energies(seq_indices) for key,energy_term in self.evaluation_energies.items()}
         for i, temp in enumerate(temperatures):
             sequence_str = index_to_sequence(seq_indices[i],alphabet=self.alphabet)  # Convert sequence index back to string
-            step_data=({'Step': 0, 'Temperature': temp, 'Sequence': sequence_str, 'Total Energy': self.energy.energy(seq_indices[i])})
-            step_data.update({key: energy_term.energy_function(seq_indices[i]) for key, energy_term in self.evaluation_energies.items()})
+            step_data=({'Step': 0, 'Temperature': temp, 'Sequence': sequence_str, 'Total Energy': total_energies[i]})
+            step_data.update({key: energies[key][i] for key in self.evaluation_energies.keys()})
             csv_write(step_data)
 
         # Run the simulation and append data periodically
         for s, updated_seq_indices, total_energy in self.parallel_tempering_steps(seq_indices, temperatures, n_steps, n_steps_per_cycle):
             # Prepare data for this chunk
-        
+            energies={key:energy_term.energies(seq_indices) for key,energy_term in self.evaluation_energies.items()}
             for i, temp in enumerate(temperatures):
                 sequence_str = index_to_sequence(updated_seq_indices[i],alphabet=self.alphabet)  # Convert sequence index back to string
-                step_data=({'Step': (s+1) * n_steps_per_cycle, 'Temperature': temp, 'Sequence': sequence_str, 'Total Energy': total_energy})
-                step_data.update({key: energy_term.energy_function(seq_indices[i]) for key, energy_term in self.evaluation_energies.items()})
+                step_data=({'Step': (s+1) * n_steps_per_cycle, 'Temperature': temp, 'Sequence': sequence_str, 'Total Energy': total_energy[i]})
+                step_data.update({key: energies[key][i] for key in self.evaluation_energies.keys()})
                 csv_write(step_data)
 
     @csv_writer
@@ -890,8 +892,8 @@ class MonteCarlo:
 if __name__ == '__main__':
     
     #native_pdb = "tests/data/1bfz.pdb"
-    #native_pdb = "tests/data/1r69.pdb"
-    native_pdb = "frustratometer/optimization/10.3_model_LinkerBack_partialEGFR.pdb"
+    native_pdb = "tests/data/1r69.pdb"
+    #native_pdb = "frustratometer/optimization/10.3_model_LinkerBack_partialEGFR.pdb"
     
     structure_bound = Structure.full_pdb(native_pdb, chain=None)
     structure_free = Structure.full_pdb(native_pdb, "A")
@@ -909,14 +911,14 @@ if __name__ == '__main__':
     energy_variance = AwsemEnergyVariance(model_free, alphabet=reduced_alphabet)
     heterogeneity = Heterogeneity(exact=False, use_numba=True)
 
-    # energy_mix = energy_free - 20 * heterogeneity
+    energy_mix = energy_free - 20 * heterogeneity
     # energy_mix = (energy_free - energy_average) / energy_std
-    energy_mix = energy_bound - energy_free
+    # energy_mix = energy_bound - energy_free
     monte_carlo = MonteCarlo(sequence=model_free.sequence,  energy=energy_mix, alphabet=reduced_alphabet, 
                              evaluation_energies={"EnergyFree": energy_free, "EnergyBound": energy_bound, "Heterogeneity": heterogeneity, "EnergyAverage": energy_average, "EnergyStd": energy_std})
     
-    monte_carlo.benchmark_montecarlo_steps(n_repeats=3,n_steps=1000)
-    #monte_carlo.parallel_tempering(temperatures=np.logspace(2,-4,36), n_steps=1E5, n_steps_per_cycle=1E3)
+    monte_carlo.benchmark_montecarlo_steps(n_repeats=3, n_steps=1000)
+    #monte_carlo.parallel_tempering(temperatures=np.logspace(0,6,49), n_steps=1E8, n_steps_per_cycle=1E6)
     monte_carlo.annealing(temperatures=np.logspace(2,-4,36), n_steps=1E6)
 
 
