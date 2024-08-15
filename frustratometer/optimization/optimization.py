@@ -137,6 +137,132 @@ class Heterogeneity(EnergyTerm):
 
         self.compute_denergy_mutation=dheterogeneity
 
+class AwsemEnergySelected(EnergyTerm):
+    """ AWSEM energy term.
+        This term calculates the energy of a sequence using the AWSEM model.
+        The energy is calculated from the fields and couplings of the Potts model.
+        """
+    def __init__(self, model:Frustratometer, alphabet=_AA, use_numba=True, selection=None):
+        self._use_numba=use_numba
+        self.model=model
+        self.alphabet=alphabet
+        #Create a new alphabet with the unused aminoacids at the end
+        self.complete_alphabet=alphabet + ''.join([aa for aa in _AA if aa not in alphabet])
+        self.model_h = model.potts_model['h']
+        self.model_J = model.potts_model['J']
+        self.mask = model.mask
+        if selection is None:
+            selection = np.arange(len(model.sequence))
+        self.selection = selection
+        
+        # Get the sequence index used the complete alphabet
+        self.seq_index = sequence_to_index(model.sequence, self.complete_alphabet)
+        if alphabet!=_AA:
+            #Reindex using the complete alphabet
+            self.reindex_dca=[_AA.index(aa) for aa in self.complete_alphabet]
+            self.model_h=self.model_h[:,self.reindex_dca]
+            self.model_J=self.model_J[:,:,self.reindex_dca][:,:,:,self.reindex_dca]
+        self.initialize_functions()
+    
+    def initialize_functions(self):
+        mask=self.mask.copy()
+        model_h=self.model_h.copy()
+        model_J=self.model_J.copy()
+        selection=self.selection
+        seq_len=len(self.seq_index)
+        seq_index_native=self.seq_index
+
+        #The sequence index will need to be modified to create the complete sequence        
+        def compute_energy(seq_index: np.array) -> float:
+            seq_index_complete=seq_index_native.copy()
+            seq_index_complete[selection]=seq_index
+
+            energy_h = 0.0
+            energy_J = 0.0
+
+            for i in range(seq_len):
+                energy_h -= model_h[i, seq_index_complete[i]]
+            
+            for i in range(seq_len):
+                for j in range(seq_len):
+                    aa_i = seq_index_complete[i]
+                    aa_j = seq_index_complete[j]
+                    energy_J -= model_J[i, j, aa_i, aa_j] * mask[i, j]
+            
+            total_energy = energy_h + energy_J / 2
+            return total_energy
+
+        def compute_denergy_mutation(seq_index: np.ndarray, pos: int, aa_new: int) -> float:
+            seq_index_complete=seq_index_native.copy()
+            seq_index_complete[selection]=seq_index
+
+            pos=selection[pos]
+            aa_old=seq_index_complete[pos]
+            
+
+            energy_difference = -model_h[pos, aa_new] + model_h[pos, aa_old]
+            energy_difference = -model_h[pos, aa_new] + model_h[pos, aa_old]
+
+            # Initialize j_correction to 0
+            j_correction = 0.0
+
+            # Manually iterate over the sequence indices
+            for idx in range(seq_len):
+                aa_idx = seq_index_complete[idx]  # The amino acid at the current position
+                # Accumulate corrections for positions other than the mutated one
+                j_correction += model_J[idx, pos, aa_idx, aa_old] * mask[idx, pos]
+                j_correction -= model_J[idx, pos, aa_idx, aa_new] * mask[idx, pos]
+
+            # For self-interaction, subtract the old interaction and add the new one
+            j_correction -= model_J[pos, pos, aa_old, aa_old] * mask[pos, pos]
+            j_correction += model_J[pos, pos, aa_new, aa_new] * mask[pos, pos]
+
+            energy_difference += j_correction
+
+            return energy_difference
+
+        def compute_denergy_swap(seq_index, pos1, pos2):
+            seq_index_complete=seq_index_native.copy()
+            seq_index_complete[selection]=seq_index
+
+            pos1=selection[pos1]
+            pos2=selection[pos2]
+            
+            aa2 , aa1 = seq_index_complete[pos1],seq_index_complete[pos2]
+            
+            #Compute fields
+            energy_difference = 0
+            energy_difference -= (model_h[pos1, aa1] - model_h[pos1, seq_index_complete[pos1]])  # h correction aa1
+            energy_difference -= (model_h[pos2, aa2] - model_h[pos2, seq_index_complete[pos2]])  # h correction aa2
+            
+            #Compute couplings
+            j_correction = 0.0
+            for pos in range(seq_len):
+                aa = seq_index_complete[pos]
+                # Corrections for interactions with pos1 and pos2
+                j_correction += model_J[pos, pos1, aa, seq_index_complete[pos1]] * mask[pos, pos1]
+                j_correction -= model_J[pos, pos1, aa, aa1] * mask[pos, pos1]
+                j_correction += model_J[pos, pos2, aa, seq_index_complete[pos2]] * mask[pos, pos2]
+                j_correction -= model_J[pos, pos2, aa, aa2] * mask[pos, pos2]
+
+            # J correction, interaction with self aminoacids
+            j_correction -= model_J[pos1, pos2, seq_index_complete[pos1], seq_index_complete[pos2]] * mask[pos1, pos2]  # Taken two times
+            j_correction += model_J[pos1, pos2, aa1, seq_index_complete[pos2]] * mask[pos1, pos2]  # Correction for incorrect addition in the for loop
+            j_correction += model_J[pos1, pos2, seq_index_complete[pos1], aa2] * mask[pos1, pos2]  # Correction for incorrect addition in the for loop
+            j_correction -= model_J[pos1, pos2, aa1, aa2] * mask[pos1, pos2]  # Correct combination
+            energy_difference += j_correction
+            return energy_difference
+        
+        self.compute_energy=compute_energy
+        self.compute_denergy_mutation=compute_denergy_mutation
+        self.compute_denergy_swap=compute_denergy_swap
+
+    def regression_test(self):
+        expected_energy=self.model.native_energy()
+        native_seq_index = np.array([self.seq_index[a] for a in self.selection])
+        computed_energy=self.energy(native_seq_index)
+        assert np.isclose(expected_energy,computed_energy), f"Expected energy {expected_energy} but got {computed_energy}"
+
 class AwsemEnergy(EnergyTerm):
     """ AWSEM energy term.
         This term calculates the energy of a sequence using the AWSEM model.
@@ -904,7 +1030,7 @@ if __name__ == '__main__':
     print(model_bound.sequence)
     print(model_free.sequence)
 
-    energy_bound = AwsemEnergy(model_bound, alphabet=reduced_alphabet)
+    energy_bound = AwsemEnergySelected(model_bound, alphabet=reduced_alphabet,selection=np.array(range(len(model_free.sequence))))
     energy_free = AwsemEnergy(model_free, alphabet=reduced_alphabet)
     energy_average = AwsemEnergyAverage(model_free, alphabet=reduced_alphabet)
     energy_std = AwsemEnergyStd(model_free, alphabet=reduced_alphabet)
@@ -918,8 +1044,17 @@ if __name__ == '__main__':
                              evaluation_energies={"EnergyFree": energy_free, "EnergyBound": energy_bound, "Heterogeneity": heterogeneity, "EnergyAverage": energy_average, "EnergyStd": energy_std})
     
     monte_carlo.benchmark_montecarlo_steps(n_repeats=3, n_steps=1000)
-    #monte_carlo.parallel_tempering(temperatures=np.logspace(0,6,49), n_steps=1E8, n_steps_per_cycle=1E6)
-    monte_carlo.annealing(temperatures=np.logspace(2,-4,36), n_steps=1E6)
+
+    # monte_carlo.parallel_tempering(temperatures=np.logspace(0,6,49), n_steps=1E8, n_steps_per_cycle=1E6)
+    # monte_carlo.annealing(temperatures=np.logspace(2,-4,36), n_steps=1E6)
+
+    self = AwsemEnergySelected(model_free, alphabet=reduced_alphabet,selection=np.array([1,4]))
+    assert np.isclose(self.energy(np.array([self.seq_index[1],self.seq_index[4]])),model_free.native_energy()), "Selected energy does not match native energy"
+    self.test(np.array([0,0]))
+
+    energy_bound.test(seq_index=np.random.randint(0, len(reduced_alphabet), size=len(structure_free.sequence)))
+    energy_bound.regression_test()
+
 
 
     if False:
