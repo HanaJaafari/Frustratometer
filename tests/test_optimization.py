@@ -223,6 +223,44 @@ def test_diff_mean_inner_product_2_by_2(n_elements = 10):
     if failed:
         raise AssertionError("Results differ!")
 
+def test_diff_mean_inner_product_2_by_2_edge_case(n_elements = 10):
+    failed=False
+    matrix2d_0 = np.random.rand(n_elements, n_elements)
+    matrix2d_1 = np.random.rand(n_elements, n_elements)
+    repetitions = np.array([1,1,0,0,0,0,1,0,2,0])
+    r0=8;r1=0
+    region_mean = compute_region_means_2_by_2(matrix2d_0, matrix2d_1)
+    
+    # Original function with adjusted repetitions
+    m = repetitions.copy()
+    n = m.copy()
+    n[r0] -= 1
+    n[r1] += 1
+    result_adjusted = diff_mean_inner_product_2_by_2_v2(r0, r1, repetitions, region_mean)
+    
+    # Recompute the functions for new and original repetitions directly
+    result_new_reps = mean_inner_product_2_by_2(n, region_mean)
+    result_original_reps = mean_inner_product_2_by_2(repetitions, region_mean)
+
+    # Check if the results are equivalent
+    if np.allclose(result_adjusted, result_new_reps - result_original_reps):
+        pass
+    else:
+        failed=True
+        # Optionally, show where they differ
+        result_diff=result_adjusted.reshape(n_elements,n_elements,n_elements,n_elements)
+        result_main=(result_new_reps - result_original_reps).reshape(n_elements,n_elements,n_elements,n_elements)
+        for i in range(n_elements):
+            for j in range(n_elements):
+                for k in range(n_elements):
+                    for l in range(n_elements):
+                        if not np.allclose(result_diff[i,j,k,l],result_main[i,j,k,l]):
+                            print(f"i={i},j={j},k={k},l={l},result_diff={result_diff[i,j,k,l]},result_main={result_main[i,j,k,l]}")
+                            break
+
+    if failed:
+        raise AssertionError("Results differ!")
+
 def test_diff_mean_inner_product_1_by_2(n_elements = 10):
     failed=False
     for i in range(10):

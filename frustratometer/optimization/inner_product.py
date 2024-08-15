@@ -554,7 +554,7 @@ def diff_mean_inner_product_2_by_2_v2(r0, r1, repetitions, region_mean):
                         mean_inner_product[l * n_elements_3 + k * n_elements_2 + i * n_elements + j] = value_ijkl
                         mean_inner_product[l * n_elements_3 + k * n_elements_2 + j * n_elements + i] = value_ijkl
 
-                if nijk!=mijk:
+                if n[i]!=m[i] or n[j]!=m[j] or n[k]!=m[k]:
                     #Diferences
                     dijk = nijk - mijk
                     dijki = nijk * (n[i] - 1) - mijk * (m[i] - 1)
@@ -622,7 +622,7 @@ def diff_mean_inner_product_2_by_2_v2(r0, r1, repetitions, region_mean):
                 continue
             nij=n[i] * n[j]
             mij=m[i] * m[j]
-            if nij!=mij:
+            if n[i]!=m[i] or n[j]!=m[j]:
                 dij = nij - mij
 
                 mean_inner_product[i * n_elements_3 + i * n_elements_2 + j * n_elements + j] = (
