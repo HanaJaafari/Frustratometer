@@ -1,23 +1,35 @@
-import numpy as np
-import numba
-import numba.core.registry
 import abc
-from numba import types
+import numpy as np
+# from typing import Callable
+# from functools import lru_cache  #TODO: Implement lru_cache for memoization of energy functions
+
+try:
+    import numba
+    import numba.core.registry
+    from numba import types
+    NUMBA_AVAILABLE = True
+except ImportError:
+    NUMBA_AVAILABLE = False
 
 class EnergyTerm(abc.ABC):
-    """ Abstract class for Energy terms for sequence optimization.
-        The class provides method templates for calculating the energy of a sequence, 
-        the energy difference of a mutation and the energy difference of swapping two amino acids.
+    """
+    Abstract base class for Energy terms in sequence optimization.
 
-        This class aims to leverage the numba library for just-in-time compilation of the energy functions.
-        The energy, denergy_mutation and denergy_swap methods should be numba compatible.
-        
-        The class can be inherited to create custom energy terms.
-        The energy, denergy_mutation and denergy_swap methods should be implemented in the child class.
-        
-        """
+    This class provides a template for calculating the energy of a sequence,
+    the energy difference of a mutation, and the energy difference of swapping two amino acids.
+    It aims to leverage the numba library for just-in-time compilation of energy functions when available.
+    The energy, denergy_mutation and denergy_swap methods should be numba compatible.
+
+    To create custom energy terms, inherit from this class and implement the abstract methods.
+    """
     def __init__(self, use_numba=True):
-        self.use_numba = use_numba
+        """
+        Initialize the EnergyTerm.
+
+        Args:
+            use_numba (bool): Whether to use numba for JIT compilation. Defaults to True.
+        """
+        self.use_numba = use_numba and NUMBA_AVAILABLE
 
     def energy(self, seq_index:np.ndarray):
         """ Returns the energy of a sequence. """
