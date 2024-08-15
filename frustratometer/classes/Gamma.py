@@ -130,8 +130,8 @@ class Gamma:
     #AWSEM files support
     @classmethod
     def from_awsem_files(cls, 
-                         burial_gamma_filepath='/home/cb/Development/awsemml/awsemml/data/awsem_parameters/burial_gamma.dat', 
-                         gamma_dat_filepath='/home/cb/Development/awsemml/awsemml/data/awsem_parameters/gamma.dat'):
+                         burial_gamma_filepath:str, 
+                         gamma_dat_filepath:str):
 
         # Transpose burial gamma data to align with the convention (3 rows by 20 columns)
         burial_gamma = np.loadtxt(burial_gamma_filepath).T

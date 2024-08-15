@@ -82,7 +82,7 @@ class TestGammaAWSEMFiles(unittest.TestCase):
     def test_load_from_awsem_files(self):
        
         # Load from AWSEM files
-        gamma_loaded = frustratometer.Gamma.from_awsem_files()
+        gamma_loaded = frustratometer.Gamma.from_awsem_files(burial_gamma_filepath='tests/data/gamma/burial_gamma.dat', gamma_dat_filepath='tests/data/gamma/gamma.dat')
         
         # Perform checks to verify loading was successful
         self.assertIsNotNone(gamma_loaded.gamma_array)
