@@ -315,7 +315,7 @@ class AwsemEnergyAverage(EnergyTerm):
                 counts[val] += 1
             aa_old=seq_index[pos]
             if aa_old==aa:
-                return 0
+                return 0.
             
             # Calculate phi_mean
 
@@ -465,7 +465,7 @@ class AwsemEnergyVariance(EnergyTerm):
                 counts[val] += 1
             aa_old=seq_index[pos]
             if aa_old==aa:
-                return 0
+                return 0.
             
             counts_new=counts.copy()
             counts_new[aa]+=1
