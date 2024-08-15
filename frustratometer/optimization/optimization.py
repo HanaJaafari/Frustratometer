@@ -1,18 +1,17 @@
 import numpy as np
-from frustratometer.classes import Frustratometer
-from frustratometer.classes import Structure
-from frustratometer.classes import AWSEM
-import pandas as pd  # Import pandas for data manipulation
 import numba
-from pathlib import Path
-from frustratometer.optimization.EnergyTerm import EnergyTerm
 import math
-from frustratometer.optimization.inner_product import compute_all_region_means
-from frustratometer.optimization.inner_product import build_mean_inner_product_matrix
-from frustratometer.optimization.inner_product import diff_mean_inner_product_matrix
 import csv
 from functools import wraps
 from datetime import datetime
+
+from frustratometer.classes import Frustratometer
+from frustratometer.classes import Structure
+from frustratometer.classes import AWSEM
+from frustratometer.optimization.EnergyTerm import EnergyTerm
+from frustratometer.optimization.inner_product import compute_all_region_means
+from frustratometer.optimization.inner_product import build_mean_inner_product_matrix
+from frustratometer.optimization.inner_product import diff_mean_inner_product_matrix
 
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
