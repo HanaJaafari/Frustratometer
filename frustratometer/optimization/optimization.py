@@ -890,8 +890,8 @@ class MonteCarlo:
 if __name__ == '__main__':
     
     #native_pdb = "tests/data/1bfz.pdb"
-    native_pdb = "tests/data/1r69.pdb"
-    #native_pdb = "frustratometer/optimization/10.3_model_LinkerBack_partialEGFR.pdb"
+    #native_pdb = "tests/data/1r69.pdb"
+    native_pdb = "frustratometer/optimization/10.3_model_LinkerBack_partialEGFR.pdb"
     
     structure_bound = Structure.full_pdb(native_pdb, chain=None)
     structure_free = Structure.full_pdb(native_pdb, "A")
@@ -909,10 +909,11 @@ if __name__ == '__main__':
     energy_variance = AwsemEnergyVariance(model_free, alphabet=reduced_alphabet)
     heterogeneity = Heterogeneity(exact=False, use_numba=True)
 
-    energy_mix = energy_free - 20 * heterogeneity
+    # energy_mix = energy_free - 20 * heterogeneity
     # energy_mix = (energy_free - energy_average) / energy_std
+    energy_mix = energy_bound - energy_free
     monte_carlo = MonteCarlo(sequence=model_free.sequence,  energy=energy_mix, alphabet=reduced_alphabet, 
-                             evaluation_energies={"Energy": energy_free, "Heterogeneity": heterogeneity, "EnergyAverage": energy_average, "EnergyVariance": energy_variance, "EnergyStd": energy_std})
+                             evaluation_energies={"EnergyFree": energy_free, "EnergyBound": energy_bound, "Heterogeneity": heterogeneity, "EnergyAverage": energy_average, "EnergyStd": energy_std})
     
     monte_carlo.benchmark_montecarlo_steps(n_repeats=3,n_steps=1000)
     #monte_carlo.parallel_tempering(temperatures=np.logspace(2,-4,36), n_steps=1E5, n_steps_per_cycle=1E3)
