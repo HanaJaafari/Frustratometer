@@ -809,6 +809,38 @@ class AwsemEnergyStd(EnergyTerm):
         energy=self.compute_energy(seq_index)
         assert np.isclose(energy,expected_energy), f"Expected energy {expected_energy} but got {energy}"
 
+class Similarity(EnergyTerm):
+    """ Computes the energy of a sequence based on the similarity to a target sequence. 
+        The similarity is calculated as the number of positions that are the same in the two sequences.
+        The similarity is then normalized by the length of the sequence. """
+    def __init__(self, target_sequence, use_numba=True, alphabet=_AA):
+        self.target_sequence = target_sequence
+        self._use_numba = use_numba
+        self.alphabet = alphabet
+        self.target_index = sequence_to_index(target_sequence, alphabet=alphabet)
+        self.initialize_functions()
+
+    def initialize_functions(self):
+        target_index=self.target_index
+        len_seq=float(len(target_index))
+        
+        def compute_energy(seq_index):
+            similarity = 0
+            for i in range(len(seq_index)):
+                similarity += seq_index[i] == target_index[i]
+            return similarity / len_seq
+
+        def denergy_mutation(seq_index, pos, aa):
+            return ((seq_index[pos] == target_index[pos]) - (aa == target_index[pos]))/len_seq
+        
+        def denergy_swap(seq_index, pos1, pos2):
+            return ((seq_index[pos1] == target_index[pos1]) + (seq_index[pos2] == target_index[pos2]) - (seq_index[pos1] == target_index[pos1]) - (seq_index[pos2] == target_index[pos2]))/len_seq
+
+        self.compute_energy = compute_energy
+        self.compute_denergy_mutation = denergy_mutation
+        self.compute_denergy_swap = denergy_swap
+
+
 
 class MonteCarlo:
     def __init__(self, sequence: str, energy: EnergyTerm, alphabet:str=_AA, use_numba:bool=True, evaluation_energies:dict={}):
@@ -1018,42 +1050,89 @@ class MonteCarlo:
 if __name__ == '__main__':
     
     #native_pdb = "tests/data/1bfz.pdb"
-    native_pdb = "tests/data/1r69.pdb"
-    #native_pdb = "frustratometer/optimization/10.3_model_LinkerBack_partialEGFR.pdb"
+    #native_pdb = "tests/data/1r69.pdb"
     
-    structure_bound = Structure.full_pdb(native_pdb, chain=None)
-    structure_free = Structure.full_pdb(native_pdb, "A")
-    model_bound = AWSEM(structure_bound, distance_cutoff_contact=10, min_sequence_separation_contact=2, expose_indicator_functions=True)
-    model_free = AWSEM(structure_free, distance_cutoff_contact=10, min_sequence_separation_contact=2, expose_indicator_functions=True)
-    reduced_alphabet = 'ADEFHIKLMNQRSTVWY'
+    pdbs = {"LinkerBack": "frustratometer/optimization/10.3_model_LinkerBack_partialEGFR.pdb", "Swap": "frustratometer/optimization/swap_EGFR.pdb"}
+    #pdbs = {"Swap": "frustratometer/optimization/swap_EGFR.pdb"}
+    #pdbs={"1bfz": "tests/data/1bfz.pdb"}
+    gammas = {"original":"frustratometer/data/AWSEM_2015.json", "ddG":"frustratometer/data/AWSEM_ddG_trained.json"}
 
-    print(model_bound.sequence)
-    print(model_free.sequence)
+    for pdb_name in pdbs:
+        native_pdb = pdbs[pdb_name]
+        print(f"Native PDB: {pdb_name}")
+        structure_bound = Structure.full_pdb(native_pdb, chain=None)
+        structure_free = Structure.full_pdb(native_pdb, "A")
 
-    energy_bound = AwsemEnergySelected(model_bound, alphabet=reduced_alphabet,selection=np.array(range(len(model_free.sequence))))
-    energy_free = AwsemEnergy(model_free, alphabet=reduced_alphabet)
-    energy_average = AwsemEnergyAverage(model_free, alphabet=reduced_alphabet)
-    energy_std = AwsemEnergyStd(model_free, alphabet=reduced_alphabet)
-    energy_variance = AwsemEnergyVariance(model_free, alphabet=reduced_alphabet)
-    heterogeneity = Heterogeneity(exact=False, use_numba=True)
 
-    energy_mix = energy_free - 20 * heterogeneity
-    # energy_mix = (energy_free - energy_average) / energy_std
-    # energy_mix = energy_bound - energy_free
-    monte_carlo = MonteCarlo(sequence=model_free.sequence,  energy=energy_mix, alphabet=reduced_alphabet, 
-                             evaluation_energies={"EnergyFree": energy_free, "EnergyBound": energy_bound, "Heterogeneity": heterogeneity, "EnergyAverage": energy_average, "EnergyStd": energy_std})
-    
-    monte_carlo.benchmark_montecarlo_steps(n_repeats=3, n_steps=1000)
+
+        for gamma_name in gammas:
+            
+            gamma = gammas[gamma_name]
+            print(f"Gamma file: {gamma_name}")
+
+            model_bound = AWSEM(structure_bound, distance_cutoff_contact=10, min_sequence_separation_contact=2, expose_indicator_functions=True, gamma=gamma)
+            model_free = AWSEM(structure_free, distance_cutoff_contact=10, min_sequence_separation_contact=2, expose_indicator_functions=True, gamma=gamma)
+            reduced_alphabet = 'ADEFHIKLMNQRSTVWY'
+
+            print(model_bound.sequence)
+            print(model_free.sequence)
+
+            energy_bound = AwsemEnergySelected(model_bound, alphabet=reduced_alphabet,selection=np.array(range(len(model_free.sequence))))
+            energy_free = AwsemEnergy(model_free, alphabet=reduced_alphabet)
+            energy_average = AwsemEnergyAverage(model_free, alphabet=reduced_alphabet)
+            energy_std = AwsemEnergyStd(model_free, alphabet=reduced_alphabet)
+            energy_variance = AwsemEnergyVariance(model_free, alphabet=reduced_alphabet)
+            heterogeneity = Heterogeneity(exact=False, use_numba=True)
+            similarity = Similarity(model_free.sequence, use_numba=True)
+
+            # energy_mix = energy_free - 20 * heterogeneity
+            energy_mix = (energy_free - energy_average) / energy_std + (energy_bound - energy_free)
+            # energy_mix = energy_bound - energy_free
+            
+            energy_mixes = {"Ivan":energy_bound - 40 * heterogeneity, 
+                            "Takada": (energy_bound - energy_average) / energy_std, 
+                            "Ivan_binding":(energy_bound - energy_free) - 40 * heterogeneity,
+                            "Takada_binding":(energy_free - energy_average) / energy_std + (energy_bound - energy_free),
+                            "Ivan_Takada_binding": (energy_free - energy_average) / energy_std + (energy_bound - energy_free) - 40 * heterogeneity,
+                            "Corrected_Takada": (energy_bound - energy_average) / (energy_std+5), 
+                            "Corrected_Takada_binding":(energy_free - energy_average) / (energy_std+5) + (energy_bound - energy_free),
+                            "Ivan_Corrected_Takada_binding": (energy_free - energy_average) / (energy_std+5) + (energy_bound - energy_free) - 40 * heterogeneity,
+                            "Ivan_bindidng similarity": (energy_bound - energy_free) - 40 * heterogeneity - 100*similarity,
+                            "Corrected_Takada_binding_similarity":(energy_free - energy_average) / (energy_std+5) + (energy_bound - energy_free) - 100*similarity}
+
+            for energy_mix_name in energy_mixes:
+                energy_mix = energy_mixes[energy_mix_name]
+                monte_carlo = MonteCarlo(sequence=model_free.sequence,  energy=energy_mix, alphabet=reduced_alphabet, 
+                                        evaluation_energies={"EnergyFree": energy_free, "EnergyBound": energy_bound, "Heterogeneity": heterogeneity, "EnergyAverage": energy_average, "EnergyStd": energy_std, "Binding": (energy_bound - energy_free), "Similarity": similarity, "Zscore":(energy_free - energy_average) / energy_std})
+                
+                monte_carlo.benchmark_montecarlo_steps(n_repeats=3, n_steps=1000)
+                csv_filename = f"Montecarlov2_{energy_mix_name}_pdb_{pdb_name}_gamma_{gamma_name}_1E5.csv"
+                monte_carlo.annealing(temperatures=np.logspace(2,-4,36), n_steps=1E5, csv_filename=csv_filename)
+
+
+    #energy_terms={"energy_bound": energy_bound, "energy_free": energy_free, "energy_free2": energy_free2, "heterogeneity": heterogeneity, "energy_average": energy_average, "energy_variance":energy_variance, "energy_mix":energy_mix}
+
+    # for energy_name,energy_term in energy_terms.items():
+    #     print (f"Energy term: {energy_name}")
+    #     energy_term.benchmark(seq_indices=np.random.randint(0, len(reduced_alphabet), size=(100,len(structure_free.sequence))))
+    #     energy_term.test(seq_index=np.random.randint(0, len(reduced_alphabet), size=len(structure_free.sequence)))
+        
+    #     monte_carlo = MonteCarlo(sequence = structure_free.sequence, energy=energy_term, alphabet=reduced_alphabet, evaluation_energies=energy_terms)
+    #     monte_carlo.benchmark_montecarlo_steps(n_repeats=3,n_steps=100)
+
 
     # monte_carlo.parallel_tempering(temperatures=np.logspace(0,6,49), n_steps=1E8, n_steps_per_cycle=1E6)
     # monte_carlo.annealing(temperatures=np.logspace(2,-4,36), n_steps=1E6)
 
-    self = AwsemEnergySelected(model_free, alphabet=reduced_alphabet,selection=np.array([1,4]))
-    assert np.isclose(self.energy(np.array([self.seq_index[1],self.seq_index[4]])),model_free.native_energy()), "Selected energy does not match native energy"
-    self.test(np.array([0,0]))
+    # self = AwsemEnergySelected(model_free, alphabet=reduced_alphabet,selection=np.array([1,4]))
+    # assert np.isclose(self.energy(np.array([self.seq_index[1],self.seq_index[4]])),model_free.native_energy()), "Selected energy does not match native energy"
+    # self.test(np.array([0,0]))
 
-    energy_bound.test(seq_index=np.random.randint(0, len(reduced_alphabet), size=len(structure_free.sequence)))
-    energy_bound.regression_test()
+    # energy_bound.test(seq_index=np.random.randint(0, len(reduced_alphabet), size=len(structure_free.sequence)))
+    # energy_bound.regression_test()
+
+    # energy_mix = energy_bound - energy_free
+    # monte_carlo.annealing(temperatures=np.logspace(2,-4,36), n_steps=1E6)
 
 
 
