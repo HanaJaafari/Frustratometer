@@ -1,8 +1,10 @@
+python>=3.7 #pydantic requirement
 numpy
 scipy
 pandas
 biopython
 prody
+pyparsing<=3.1.1
 pydantic
 numba
 #importlib-metadata; python_version < '3.9'
