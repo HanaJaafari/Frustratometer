@@ -1,4 +1,4 @@
-from Bio.PDB import PDBParser
+from Bio.PDB import PDBParser,MMCIFParser
 import prody
 import scipy.spatial.distance as sdist
 import pandas as pd
@@ -62,7 +62,10 @@ def get_sequence(pdb_file: str,
     :return: protein sequence
     """
 
-    parser = PDBParser()
+    if ".cif" in str(pdb_file):
+        parser = MMCIFParser()
+    else:
+        parser = PDBParser()
     structure = parser.get_structure('name', pdb_file)
     if chain==None:
         all_chains=[i.get_id() for i in structure.get_chains()]

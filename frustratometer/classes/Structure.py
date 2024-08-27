@@ -37,7 +37,8 @@ class Structure:
             Directory where repaired pdb will be downloaded
 
         repair_pdb: bool
-            If False, provided pdb file will be repaired with missing residues inserted and heteroatoms removed.
+            If True, provided pdb file will be repaired with missing residues inserted and heteroatoms removed.
+            Note that a pdb file will be produced, regardless of input file format.
 
         Returns
         -------
@@ -70,17 +71,10 @@ class Structure:
         
         if repair_pdb:
             fixer=pdb.repair_pdb(pdb_file, chain, pdb_directory)
-            if ".cif" in str(pdb_file):
-                extension="cif"
-            else:
-                extension="pdb"
-            self.pdb_file=str(pdb_directory/f"{self.pdbID}_cleaned.{extension}")
+            self.pdb_file=str(pdb_directory/f"{self.pdbID}_cleaned.pdb")
 
-        if chain is None:
-            if ".cif" in str(pdb_file):
-                self.structure=prody.parseMMCIF(str(self.pdb_file)).select('protein')
-            else:
-                self.structure = prody.parsePDB(str(self.pdb_file)).select('protein')
+        if repair_pdb:
+            self.structure = prody.parsePDB(str(self.pdb_file), chain=self.chain).select('protein')
         else:
             if ".cif" in str(pdb_file):
                 self.structure=prody.parseMMCIF(str(self.pdb_file),chain=self.chain).select('protein')
@@ -148,6 +142,7 @@ class Structure:
 
         repair_pdb: bool
             If True, provided pdb file will be repaired with missing residues inserted and heteroatoms removed.
+            Note that a pdb file will be produced, regardless of input file format.
 
         Returns
         -------
@@ -215,36 +210,25 @@ class Structure:
             self.fin_index_shift=self.fin_index-self.pdb_init_index+1
             if repair_pdb:
                 fixer=pdb.repair_pdb(pdb_file, chain, pdb_directory)
-                self.pdb_file=f"{pdb_directory}/{self.pdbID}_cleaned.{extension}"
+                self.pdb_file=f"{pdb_directory}/{self.pdbID}_cleaned.pdb"
                 self.select_gap_indices=[i for i in gap_indices if self.init_index<=i<=self.fin_index]
                 self.fin_index_shift-=len(self.select_gap_indices)
                 self.seq_selection=f"resnum `{self.init_index_shift+1}to{self.fin_index_shift}`"
-                #Account for missing residues in beginning of PDB
-                # keys = fixer.missingResidues.keys()
-                # miss_init_residues=[i for i in keys if i[1]==0]
-                # self.init_index=init_index+len(miss_init_residues)-self.pdb_init_index+1
-                # self.fin_index=fin_index+len(miss_init_residues)-self.pdb_init_index+1
-                # self.init_index_shift=self.init_index-1
-                # self.fin_index_shift=self.fin_index
         elif "resindex" in self.seq_selection:
             self.init_index_shift=self.init_index
             self.fin_index_shift=self.fin_index+1
             if repair_pdb:
                 fixer=pdb.repair_pdb(pdb_file, chain, pdb_directory)
-                self.pdb_file=f"{pdb_directory}/{self.pdbID}_cleaned.{extension}"
+                self.pdb_file=f"{pdb_directory}/{self.pdbID}_cleaned.pdb"
                 self.chain="A"
-                # #Account for missing residues in beginning of PDB
-                # keys = fixer.missingResidues.keys()
-                # miss_init_residues=[i for i in keys if i[1]==0]
-                # self.init_index=init_index+len(miss_init_residues)
-                # self.fin_index=fin_index+len(miss_init_residues)
-                # self.init_index_shift=self.init_index
-                # self.fin_index_shift=self.fin_index+1  
     
-        if ".cif" in str(pdb_file):
-            self.structure=prody.parseMMCIF(str(self.pdb_file), chain=self.chain).select(f"protein and {self.seq_selection}")
-        else:
+        if repair_pdb:
             self.structure = prody.parsePDB(str(self.pdb_file), chain=self.chain).select(f"protein and {self.seq_selection}")
+        else:
+            if ".cif" in str(pdb_file):
+                self.structure=prody.parsePDB(str(self.pdb_file), chain=self.chain).select(f"protein and {self.seq_selection}")
+            else:
+                self.structure = prody.parsePDB(str(self.pdb_file), chain=self.chain).select(f"protein and {self.seq_selection}")
         self.sequence=pdb.get_sequence(self.pdb_file,self.chain)
 
         self.distance_matrix=pdb.get_distance_matrix(pdb_file=self.pdb_file,chain=self.chain,

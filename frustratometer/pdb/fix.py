@@ -6,7 +6,7 @@ PDBFixer = pdbfixer.PDBFixer
 
 def repair_pdb(pdb_file: str, chain: str, pdb_directory: Path= Path.cwd()) -> PDBFixer:
     """
-    Repairs a pdb file using pdbfixer
+    Repairs a pdb or cif file using pdbfixer. Note that a pdb file will be produced, regardless of input file format
 
     Parameters
     ----------
@@ -51,9 +51,5 @@ def repair_pdb(pdb_file: str, chain: str, pdb_directory: Path= Path.cwd()) -> PD
         print("Unable to add missing atoms")
 
     fixer.addMissingHydrogens(7.0)
-    if ".cif" in str(pdb_file):
-        extension="cif"
-    else:
-        extension="pdb"
-    PDBFile.writeFile(fixer.topology, fixer.positions, open(f"{pdb_directory}/{pdbID}_cleaned.{extension}", 'w'))
+    PDBFile.writeFile(fixer.topology, fixer.positions, open(f"{pdb_directory}/{pdbID}_cleaned.pdb", 'w'))
     return fixer
