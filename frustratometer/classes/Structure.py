@@ -112,7 +112,7 @@ class Structure:
                     filtered_aligned_sequence: str = None, distance_matrix_method:str = 'CB',repair_pdb:bool = True, 
                     pdb_directory: str = os.getcwd())->object:
         """
-        Generates substructure object 
+        Generates substructure object. Both PDB and CIF format files are accepted as input.
 
         Parameters
         ----------
@@ -167,7 +167,7 @@ class Structure:
                 print(f"Downloading {self.pdbID} from the PDB")
                 pdb_file=pdb.download(self.pdbID, pdb_directory)
             else:
-                raise FileNotFoundError(f"Provided pdb file {pdb_file} does not exist")
+                raise FileNotFoundError(f"Provided file {pdb_file} does not exist")
 
         
         self.pdbID=pdb_file.stem
@@ -187,16 +187,24 @@ class Structure:
 
         #Account for pdbs that have starting indices greater than one and find any gaps in the pdb.
         gap_indices=[]; atom_line_count=0
+
+        if ".cif" in str(pdb_file):
+            extension="cif"
+            shift=2;index_shift=3 
+        else:
+            extension="pdb"
+            shift=0;index_shift=0
+
         with open(pdb_file,"r") as f:
             for line in f:
-                if line.split()[0]=="ATOM" and line.split()[4]==self.chain:
+                if line.split()[0]=="ATOM" and line.split()[4+shift]==self.chain:
                     try:
-                        res_index=''.join(i for i in line.split()[5] if i.isdigit())
-                        next_res_index=''.join(i for i in next(f).split()[5] if i.isdigit())
+                        res_index=''.join(i for i in line.split()[5+index_shift] if i.isdigit())
+                        next_res_index=''.join(i for i in next(f).split()[5+index_shift] if i.isdigit())
                         if int(next_res_index)-int(res_index)>1:
                             gap_indices.extend(list(range(int(res_index)+1,int(next_res_index))))
-                        if atom_line_count==0 and poly.is_aa(line.split()[3]):
-                            self.pdb_init_index=int(line.split()[5])
+                        if atom_line_count==0 and poly.is_aa(line.split()[3+shift]):
+                            self.pdb_init_index=int(line.split()[5+index_shift])
                         atom_line_count+=1
                     except:
                         continue
@@ -207,7 +215,7 @@ class Structure:
             self.fin_index_shift=self.fin_index-self.pdb_init_index+1
             if repair_pdb:
                 fixer=pdb.repair_pdb(pdb_file, chain, pdb_directory)
-                self.pdb_file=f"{pdb_directory}/{self.pdbID}_cleaned.pdb"
+                self.pdb_file=f"{pdb_directory}/{self.pdbID}_cleaned.{extension}"
                 self.select_gap_indices=[i for i in gap_indices if self.init_index<=i<=self.fin_index]
                 self.fin_index_shift-=len(self.select_gap_indices)
                 self.seq_selection=f"resnum `{self.init_index_shift+1}to{self.fin_index_shift}`"
@@ -223,7 +231,7 @@ class Structure:
             self.fin_index_shift=self.fin_index+1
             if repair_pdb:
                 fixer=pdb.repair_pdb(pdb_file, chain, pdb_directory)
-                self.pdb_file=f"{pdb_directory}/{self.pdbID}_cleaned.pdb"
+                self.pdb_file=f"{pdb_directory}/{self.pdbID}_cleaned.{extension}"
                 self.chain="A"
                 # #Account for missing residues in beginning of PDB
                 # keys = fixer.missingResidues.keys()
@@ -233,8 +241,10 @@ class Structure:
                 # self.init_index_shift=self.init_index
                 # self.fin_index_shift=self.fin_index+1  
     
-
-        self.structure = prody.parsePDB(str(self.pdb_file), chain=self.chain).select(f"protein and {self.seq_selection}")
+        if ".cif" in str(pdb_file):
+            self.structure=prody.parseMMCIF(str(self.pdb_file), chain=self.chain).select(f"protein and {self.seq_selection}")
+        else:
+            self.structure = prody.parsePDB(str(self.pdb_file), chain=self.chain).select(f"protein and {self.seq_selection}")
         self.sequence=pdb.get_sequence(self.pdb_file,self.chain)
 
         self.distance_matrix=pdb.get_distance_matrix(pdb_file=self.pdb_file,chain=self.chain,
