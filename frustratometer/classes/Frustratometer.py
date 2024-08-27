@@ -69,6 +69,7 @@ class Frustratometer:
     def sequences_energies(self, sequences:np.array, split_couplings_and_fields:bool = False):
         """
         Computes the energy of multiple protein sequences.
+
         .. math::
             E = \\sum_i h_i + \\frac{1}{2} \\sum_{i,j} J_{ij} \\Theta_{ij}
 
@@ -240,9 +241,9 @@ class Frustratometer:
             frustration_values=frustration.compute_single_frustration(decoy_fluctuation, aa_freq, correction)
             return frustration_values
         elif kind in ['mutational', 'configurational', 'contact']:
-            if kind == 'configurational' and 'configurational_frustration' in dir(self):
-                frustration_values=self.configurational_frustration(self.aa_freq, correction)
-                return frustration_values
+            #if kind == 'configurational' and 'configurational_frustration' in dir(self):
+            #    frustration_values=self.configurational_frustration(self.aa_freq, correction)
+            #    return frustration_values
             if aa_freq is None:
                 aa_freq = self.contact_freq
             frustration_values=frustration.compute_pair_frustration(decoy_fluctuation, aa_freq, correction)
@@ -412,6 +413,10 @@ class Frustratometer:
     def generate_frustration_pair_distribution(self,sequence: str =None, kind:str ="singleresidue",bins: int =30,maximum_shell_radius: int=20):
         """
         Calculates frustration pair distributions. This helps identify spatial proximity of similarly frustrated residues or contacts from one another.
+        
+        For mutational, configurational, and contact frustration pair distributions, the distances between midpoints of Cb-Cb (or Ca in the case of glycine) 
+        atom pairs are measured. 
+        For single residue frustration, the distances of Cb (or Ca in the case of glycine) atoms are measured.  
 
         Parameters
         ----------
