@@ -17,7 +17,7 @@ class Structure:
                 distance_matrix_method:str = 'CB', pdb_directory: Path = Path.cwd(), repair_pdb:bool = False)->object:
 
         """
-        Generates structure object 
+        Generates structure object. Both PDB and CIF format files are accepted as input.
 
         Parameters
         ----------
@@ -57,7 +57,7 @@ class Structure:
                 print(f"Downloading {self.pdbID} from the PDB")
                 pdb_file=pdb.download(self.pdbID, pdb_directory)
             else:
-                raise FileNotFoundError(f"Provided pdb file {pdb_file} does not exist")
+                raise FileNotFoundError(f"Provided file {pdb_file} does not exist")
 
         
         self.pdbID=pdb_file.stem
@@ -70,12 +70,23 @@ class Structure:
         
         if repair_pdb:
             fixer=pdb.repair_pdb(pdb_file, chain, pdb_directory)
-            self.pdb_file=str(pdb_directory/f"{self.pdbID}_cleaned.pdb")
+            if ".cif" in str(pdb_file):
+                extension="cif"
+            else:
+                extension="pdb"
+            self.pdb_file=str(pdb_directory/f"{self.pdbID}_cleaned.{extension}")
 
         if chain is None:
-            self.structure = prody.parsePDB(str(self.pdb_file)).select('protein')
+            if ".cif" in str(pdb_file):
+                self.structure=prody.parseMMCIF(str(self.pdb_file)).select('protein')
+            else:
+                self.structure = prody.parsePDB(str(self.pdb_file)).select('protein')
         else:
-            self.structure = prody.parsePDB(str(self.pdb_file), chain=self.chain).select('protein')
+            if ".cif" in str(pdb_file):
+                self.structure=prody.parseMMCIF(str(self.pdb_file),chain=self.chain).select('protein')
+            else:
+                self.structure = prody.parsePDB(str(self.pdb_file), chain=self.chain).select('protein')
+
         self.sequence=pdb.get_sequence(self.pdb_file,self.chain)
         self.distance_matrix=pdb.get_distance_matrix(pdb_file=self.pdb_file,chain=self.chain,
                                                      method=self.distance_matrix_method)

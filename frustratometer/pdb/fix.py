@@ -51,5 +51,9 @@ def repair_pdb(pdb_file: str, chain: str, pdb_directory: Path= Path.cwd()) -> PD
         print("Unable to add missing atoms")
 
     fixer.addMissingHydrogens(7.0)
-    PDBFile.writeFile(fixer.topology, fixer.positions, open(f"{pdb_directory}/{pdbID}_cleaned.pdb", 'w'))
+    if ".cif" in str(pdb_file):
+        extension="cif"
+    else:
+        extension="pdb"
+    PDBFile.writeFile(fixer.topology, fixer.positions, open(f"{pdb_directory}/{pdbID}_cleaned.{extension}", 'w'))
     return fixer
