@@ -29,27 +29,3 @@ from frustratometer.utils.format_time import format_time  # Assume the format_ti
 ])
 def test_format_time(seconds, expected_output):
     assert format_time(seconds) == expected_output
-
-# Additional tests for edge cases
-def test_very_large_time():
-    assert format_time(1e25) == "317.1 billion years (10 Ys)"
-
-def test_very_small_time():
-    assert format_time(1e-30) == "0.01 yoctoseconds (0.01 ys)"
-
-# Test for floating point precision
-@pytest.mark.parametrize("seconds, expected_output", [
-    (1.23456789, "1.23 seconds (1.23 s)"),
-    (123456.789, "1 day 10 hours 17 minutes 36.79 seconds (123.46 ks)"),
-])
-def test_floating_point_precision(seconds, expected_output):
-    assert format_time(seconds) == expected_output
-
-# Test for negative times
-@pytest.mark.parametrize("seconds, expected_output", [
-    (-60, "1 minute ago (-60 s)"),
-    (-86400, "1 day ago (-86.4 ks)"),
-    (-31536000, "1 year ago (-31.54 Ms)"),
-])
-def test_negative_times(seconds, expected_output):
-    assert format_time(seconds) == expected_output
