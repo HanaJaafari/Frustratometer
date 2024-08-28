@@ -317,7 +317,7 @@ def mean_inner_product_1_by_1(repetitions,region_mean):
                  types.Array(types.float64, 2, 'A', readonly=True), 
                  types.Array(types.float64, 3, 'A', readonly=True),
                  types.Array(types.float64, 3, 'A', readonly=True)),
-      nopython=True, parallel=True, cache=True)
+      nopython=True, parallel=False, cache=True)
 def build_mean_inner_product_matrix(repetitions, indicators1d, indicators2d, region_means):
     num_matrices1d = len(indicators1d)
     num_matrices2d = len(indicators2d)
@@ -949,7 +949,7 @@ def compute_region_means(indicator_0,indicator_1,parallel=True, use_numba=True):
             result=compute_region_means_1_by_2(indicator_1, indicator_0)
         elif d0==d1==2:
             if parallel and d0>100:
-                result=compute_region_means_2_by_2(indicator_0, indicator_1)
+                result=compute_region_means_2_by_2_parallel(indicator_0, indicator_1)
             else:    
                 result=compute_region_means_2_by_2(indicator_0, indicator_1)
         else:
