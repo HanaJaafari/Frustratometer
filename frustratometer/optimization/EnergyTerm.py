@@ -1,5 +1,6 @@
 import abc
 import numpy as np
+from frustratometer.utils.format_time import format_time
 # from typing import Callable
 # from functools import lru_cache  #TODO: Implement lru_cache for memoization of energy functions
 
@@ -369,24 +370,24 @@ class EnergyTerm(abc.ABC):
         for seq_index in seq_indices:
             energy_function(seq_index)
         t1 = time.time()
-        print(f"Energy function took {(t1-t0)/len(seq_indices)*1E6} microseconds per sequence")
+        print(f"Energy function took {format_time((t1-t0)/len(seq_indices))} per sequence")
 
         t0 = time.time()
         for seq_index in seq_indices:
             denergy_mutation_function(seq_index, 0, 1)
         t1 = time.time()
-        print(f"Mutation energy change function took {(t1-t0)/len(seq_indices)*1E6} microseconds per sequence")
+        print(f"Mutation energy change function took {format_time((t1-t0)/len(seq_indices))} per sequence")
 
         t0 = time.time()
         for seq_index in seq_indices:
             denergy_swap_function(seq_index, 1, 0)
         t1 = time.time()
-        print(f"Swap energy change function took {(t1-t0)/len(seq_indices)*1E6} microseconds per sequence")
+        print(f"Swap energy change function took {format_time((t1-t0)/len(seq_indices))} per sequence")
 
         t0 = time.time()
         energies_function(seq_indices)
         t1 = time.time()
-        print(f"Energies function took {(t1-t0)/len(seq_indices)*1E6} microseconds per sequence")
+        print(f"Energies function took {format_time((t1-t0)/len(seq_indices))} per sequence")
 
 
 if __name__ == "__main__":
