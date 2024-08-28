@@ -854,7 +854,7 @@ def plot_singleresidue_decoy_energy(decoy_energy, native_energy, method='cluster
 
 
 def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, single_frustration, pair_frustration, tcl_script='frustration.tcl',
-                     max_connections=None, movie_name=None):
+                     max_connections=None, movie_name=None, still_image_name=None):
     fo = open(tcl_script, 'w+')
     single_frustration = np.nan_to_num(single_frustration,nan=0,posinf=0,neginf=0)
     pair_frustration = np.nan_to_num(pair_frustration,nan=0,posinf=0,neginf=0)
@@ -987,6 +987,11 @@ def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, si
                 set output [format "%s/$basename.%05d.tga" $workdir $i]
                 exec rm $output
             }
+            exit
+        ''')
+    elif still_image_name:
+        fo.write(f'set output "{still_image_name}"' + '''
+            render snapshot $output
             exit
         ''')
     fo.close()
