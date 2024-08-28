@@ -103,7 +103,8 @@ jobs:
     - name: Install pydca
       run: |
         cd pydca_dir
-        pip install -r requirements.txt
+        echo "numpy<2" > constraints.txt
+        pip install -r requirements.txt -c constraints.txt
         python -m pip install . --no-deps
         conda list
         cd ..
