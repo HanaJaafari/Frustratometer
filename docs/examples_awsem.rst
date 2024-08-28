@@ -4,7 +4,7 @@ AWSEM Frustratometer examples
 Loading Protein Structures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The AWSEM frustratometer package includes a prody-based Structure class to load the structure and calculate the properties needed for the AWSEM and DCA Frustratometers.
+The Frustratometer package includes a prody-based Structure class to load the structure and calculate the properties needed for the AWSEM and DCA Frustratometers.
 
 .. code-block:: python
 
@@ -67,9 +67,9 @@ The frustratometer package also allows the quick calculation of the energies of 
 
 .. code-block:: python
 
-    # Calculate mutational frustration
-    mutational_frustration = model_singleresidue.decoy_fluctuation(kind='singleresidue')
-    print(mutational_frustration)
+    # Calculate single residue decoy energy fluctuations
+    decoy_fluctuation = model_singleresidue.decoy_fluctuation(kind='singleresidue')
+    print(decoy_fluctuation)
 
 Mutational Frustration
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -83,7 +83,7 @@ Mutational Frustration
 Energy Calculations
 ~~~~~~~~~~~~~~~~~~~
 
-You can calculate different energy contributions, including fields energy (pseudo one-body terms like burial), couplings energy (pseudo two-body terms like contact and electrostatics), and their combination to determine the native energy of the protein structure.
+You can calculate different energy contributions, including fields energy (pseudo one-body terms like burial), couplings energy (pseudo two-body terms like contact and electrostatics), and their combination to determine the native energy of the protein structure. The fields, couplings, and native energies of other threaded sequences can be calculated like below by simply changing the "sequence" variable in the functions' arguments.
 
 Fields Energy
 ~~~~~~~~~~~~~

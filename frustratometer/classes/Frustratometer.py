@@ -42,29 +42,124 @@ class Frustratometer:
     #     self._native_energy = None
     #     self._decoy_fluctuation = {}
 
-    def native_energy(self,sequence:str = None,ignore_couplings_of_gaps:bool=False,ignore_fields_of_gaps:bool = False):
+    def native_energy(self,sequence:str = None,ignore_couplings_of_gaps:bool=False,ignore_fields_of_gaps:bool = False) -> float:
+        """
+        Calculates the native energy of the protein sequence.
+
+        Parameters
+        ----------
+        sequence : str
+            The amino acid sequence of the protein. If no sequence is provided as input, the original protein sequence of the protein structure object is used for the energy calculation.
+        ignore_couplings_of_gaps: bool
+            If set to True, the couplings terms of any gaps in the protein sequence are ignored in energy calculations.
+        ignore_fields_of_gaps: bool
+            If set to True, the fields terms of any gaps in the protein sequence are ignored in energy calculations.
+        Returns
+        -------
+        energy_value : float
+            Native energy of sequence
+        """
         if sequence is None:
             sequence=self.sequence
         else:
             return frustration.compute_native_energy(sequence, self.potts_model, self.mask,ignore_couplings_of_gaps,ignore_fields_of_gaps)
         if not self._native_energy:
             self._native_energy=frustration.compute_native_energy(sequence, self.potts_model, self.mask,ignore_couplings_of_gaps,ignore_fields_of_gaps)
-        return self._native_energy
+        energy_value=self._native_energy
+        return energy_value
 
     def sequences_energies(self, sequences:np.array, split_couplings_and_fields:bool = False):
-        return frustration.compute_sequences_energy(sequences, self.potts_model, self.mask, split_couplings_and_fields)
+        """
+        Computes the energy of multiple protein sequences.
+        .. math::
+            E = \\sum_i h_i + \\frac{1}{2} \\sum_{i,j} J_{ij} \\Theta_{ij}
 
-    def fields_energy(self, sequence:str = None, ignore_fields_of_gaps:bool = False):
-        if sequence is None:
-            sequence=self.sequence
-        return frustration.compute_fields_energy(sequence, self.potts_model,ignore_fields_of_gaps)
+        Parameters
+        ----------
+        sequences : list
+            List of amino acid sequences in string format, separated by commas. The sequences are assumed to be in one-letter code. Gaps are represented as '-'. The length of each sequence (L) should all match the dimensions of the Potts model.
+        split_couplings_and_fields : bool
+            If True, two lists of the sequences' couplings and fields energies are returned.
+            Default is False.
 
-    def couplings_energy(self, sequence:str = None,ignore_couplings_of_gaps:bool = False):
-        if sequence is None:
-            sequence=self.sequence
-        return frustration.compute_couplings_energy(sequence, self.potts_model, self.mask,ignore_couplings_of_gaps)
+        Returns
+        -------
+        output (if split_couplings_and_fields==False): float
+            The computed energies of the protein sequences
+        output (if split_couplings_and_fields==True): np.array
+            Array containing computed fields and couplings energies of the protein sequences. 
+        """
+        output=frustration.compute_sequences_energy(sequences, self.potts_model, self.mask, split_couplings_and_fields)
+        return output
+
+    def fields_energy(self, sequence:str = None, ignore_fields_of_gaps:bool = False) -> float:
+        """
+        Computes the fields energy of a protein sequence.
         
-    def decoy_fluctuation(self, sequence:str = None,kind:str = 'singleresidue',mask:np.array = None):
+        .. math::
+            E = \\sum_i h_i
+            
+        Parameters
+        ----------
+        sequence : str
+            The amino acid sequence of the protein. If no sequence is provided as input, the original protein sequence of the protein structure object is used for the energy calculation.
+        ignore_fields_of_gaps : bool
+            If True, fields corresponding to gaps ('-') in the sequence are set to 0 in the energy calculation.
+            Default is False.
+
+        Returns
+        -------
+        fields_energy : float
+            The computed fields energy of the protein sequence.
+        """
+        if sequence is None:
+            sequence=self.sequence
+        fields_energy=frustration.compute_fields_energy(sequence, self.potts_model,ignore_fields_of_gaps)
+        return fields_energy
+
+    def couplings_energy(self, sequence:str = None,ignore_couplings_of_gaps:bool = False) -> float:
+        """
+        Computes the couplings energy of a protein sequence based on a given Potts model and an interaction mask.
+        
+        .. math::
+            E = \\frac{1}{2} \\sum_{i,j} J_{ij} \\Theta_{ij}
+            
+        Parameters
+        ----------
+        sequence : str
+            The amino acid sequence of the protein. If no sequence is provided as input, the original protein sequence of the protein structure object is used for the energy calculation.
+        ignore_couplings_of_gaps : bool
+            If True, couplings involving gaps ('-') in the sequence are set to 0 in the energy calculation.
+            Default is False.
+
+        Returns
+        -------
+        couplings_energy : float
+            The computed couplings energy of the protein sequence.
+        """
+        if sequence is None:
+            sequence=self.sequence
+        couplings_energy=frustration.compute_couplings_energy(sequence, self.potts_model, self.mask,ignore_couplings_of_gaps)
+        return couplings_energy
+        
+    def decoy_fluctuation(self, sequence:str = None,kind:str = 'singleresidue',mask:np.array = None) -> np.array:
+        """
+        Computes a matrix for a sequence of length L that describes all possible changes in energy upon mutating a single or pair of residues (depending on "kind" entry used) simultaneously.
+            
+        Parameters
+        ----------
+        sequence : str
+            The amino acid sequence of the protein. If no sequence is provided as input, the original protein sequence of the protein structure object is used for the energy calculation.
+        kind : str
+            Kind of decoys generated. Options: "singleresidue," "mutational," "configurational," and "contact." 
+        mask : np.array
+            A 2D Boolean array that determines which residue pairs should be considered in the energy computation. The mask should have dimensions (L, L), where L is the length of the sequence.
+
+        Returns
+        -------
+        fluctuation : np.array
+            The computed couplings energy of the protein sequence.
+        """
         if sequence is None:
             sequence=self.sequence
             if kind in self._decoy_fluctuation:
@@ -82,12 +177,27 @@ class Frustratometer:
         else:
             raise Exception("Wrong kind of decoy generation selected")
         self._decoy_fluctuation[kind] = fluctuation
-        return self._decoy_fluctuation[kind]
+        return fluctuation
 
-    def decoy_energy(self, kind:str = 'singleresidue',sequence: str =None):
+    def decoy_energy(self, kind:str = 'singleresidue',sequence: str =None) ->np.array:
+        """
+        Computes all possible decoy energies.
+        
+        Parameters
+        ----------
+        sequence : str
+            The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+        kind : str
+            Kind of decoys generated. Options: "singleresidue," "mutational," "configurational," and "contact." 
+        Returns
+        -------
+        decoy_energy: np.array
+            Matrix describing all possible decoy energies.
+        """
         if sequence is None:
             sequence=self.sequence
-        return self.native_energy(sequence=sequence) + self.decoy_fluctuation(kind=kind,sequence=sequence)
+        decoy_energy=self.native_energy(sequence=sequence) + self.decoy_fluctuation(kind=kind,sequence=sequence)
+        return decoy_energy
 
     def scores(self):
         return frustration.compute_scores(self.potts_model)
@@ -146,7 +256,7 @@ class Frustratometer:
                                       max_connections=max_connections, movie_name=movie_name)
         frustration.call_vmd(self.pdb_file, tcl_script)
 
-    def view_frustration(self, sequence:str = None, single:str = 'singleresidue', pair:str = 'mutational', aa_freq:np.array = None, correction:int = 0):
+    def view_pair_frustration(self, sequence:str = None, pair:str = 'mutational', aa_freq:np.array = None, correction:int = 0):
         import py3Dmol
 
         if sequence is None:
@@ -181,41 +291,39 @@ class Frustratometer:
 
         return view
 
-    # def view_single_frustration(self,  aa_freq:np.array = None, correction:int = 0, max_connections:int = 100, only_frustrated_contacts:bool=False):
-    #     import py3Dmol
-    #     pdb_filename = self.pdb_file
-    #     shift=self.init_index_shift+1
-    #     single_frustration=self.frustration(kind="singleresidue")
-    #     # residues=np.arange(len(self.sequence))
-    #     r1, r2 = np.meshgrid(np.array(list(self.full_to_aligned_index_dict.keys())), np.array(list(self.full_to_aligned_index_dict.keys())), indexing='ij')
-    #     mod_r1, mod_r2 = np.meshgrid(list(self.full_to_aligned_index_dict.values()), list(self.full_to_aligned_index_dict.values()), 
-    #                     indexing='ij', sparse=True)
+    def view_single_frustration(self,  aa_freq:np.array = None, correction:int = 0, max_connections:int = 100, only_frustrated_contacts:bool=False):
+        import py3Dmol
+        pdb_filename = self.pdb_file
+        shift=self.init_index_shift+1
+        single_frustration=self.frustration(kind="singleresidue")
+        residues=np.arange(len(self.sequence))
 
-    #     modified_pair_frustration=pair_frustration[mod_r1,mod_r2]
-    #     sel_frustration = np.array([(r1.ravel()), (r2.ravel()), modified_pair_frustration.ravel()]).T
-    #     minimally_frustrated = sel_frustration[sel_frustration[:, -1] > self.minimally_frustrated_threshold]
-    #     frustrated = sel_frustration[sel_frustration[:, -1] < -1]
+        sel_frustration = np.array([residues,single_frustration]).T
+        minimally_frustrated = sel_frustration[sel_frustration[:, -1] > self.minimally_frustrated_threshold]
+        frustrated = sel_frustration[sel_frustration[:, -1] < -1]
         
-    #     view = py3Dmol.view(js='https://3dmol.org/build/3Dmol.js')
-    #     view.addModel(open(pdb_filename,'r').read(),'pdb')
+        view = py3Dmol.view(js='https://3dmol.org/build/3Dmol.js')
+        view.addModel(open(pdb_filename,'r').read(),'pdb')
 
-    #     view.setBackgroundColor('white')
-    #     view.setStyle({'cartoon':{'color':'white'}})
+        view.setBackgroundColor('white')
+        view.setStyle({'cartoon':{'color':'white'}})
         
-    #     for i,j,f in frustrated:
-    #         view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':self.chain,'resi':[str(j+shift)]},
-    #                     'color':'red', 'dashed':False,'linewidth':3})
+        for i,f in frustrated:
+            view.setStyle({'model': -1, 'resi': i+1}, {"cartoon": {'color': 'red'}})
+            # view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':self.chain,'resi':[str(j+shift)]},
+            #             'color':'red', 'dashed':False,'linewidth':3})
 
-    #     if only_frustrated_contacts==False:
-    #         for i,j,f in minimally_frustrated:
-    #             view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':self.chain,'resi':[str(j+shift)]},
-    #                         'color':'green', 'dashed':False,'linewidth':3})
+        if only_frustrated_contacts==False:
+            for i,f in minimally_frustrated:
+                view.setStyle({'model': -1, 'resi': i+1}, {"cartoon": {'color': 'green'}})
+                # view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':self.chain,'resi':[str(j+shift)]},
+                #             'color':'green', 'dashed':False,'linewidth':3})
 
-    #     view.zoomTo(viewer=(0,0))
+        view.zoomTo(viewer=(0,0))
 
-    #     return view
+        return view
 
-    def generate_frustration_pair_distribution(self,sequence: str =None, kind:str ="singleresidue"):
+    def generate_frustration_pair_distribution(self,sequence: str =None, kind:str ="singleresidue",bins=30,maximum_shell_radius=20):
         if sequence==None:
             sequence=self.sequence
         frustration_values=self.frustration(sequence=sequence,kind=kind)
@@ -226,47 +334,44 @@ class Frustratometer:
             original_residue_ca_coordinates=residue_ca_coordinates
             mapped_residues=list(self.structure.full_to_aligned_index_dict.values())
             residue_ca_coordinates=original_residue_ca_coordinates[mapped_residues,:]
-            print(len(residue_ca_coordinates))
 
         if kind=="singleresidue":
             sel_frustration = np.column_stack((residue_ca_coordinates,np.expand_dims(frustration_values, axis=1)))
-
+            
         elif kind in ["configurational","mutational"]:
-            #Avoid double counting of frustration values
-            frustration_values=np.triu(frustration_values)
-            frustration_values[np.tril_indices(frustration_values.shape[0])] = np.nan
-
             i,j=np.meshgrid(range(0,len(self.sequence)),range(0,len(self.sequence)))
             midpoint_coordinates=(residue_ca_coordinates[i.flatten(),:]+ residue_ca_coordinates[j.flatten(),:])/2
             sel_frustration = np.column_stack((midpoint_coordinates, frustration_values.ravel()))
-            sel_frustration=sel_frustration[~np.isnan(sel_frustration[:,-1])]
 
-        bins=20
-        maximum_shell_radius=20
-        maximum_shell_volume=4/3 * np.pi * (maximum_shell_radius**3)
-        r=np.arange(0,maximum_shell_radius,1)
+        r=np.linspace(1,maximum_shell_radius,bins)
         r_m=(r[1:]+r[:-1])/2
-        shell_vol = 4/3 * np.pi * (r[1:]**3-r[:-1]**3)
 
-        minimally_frustrated_contacts=(sdist.pdist(sel_frustration[sel_frustration[:, -1] >self.minimally_frustrated_threshold][:,:-1]))
+        maximum_shell_volume=4/3 * np.pi * (maximum_shell_radius**3)
+        shell_vol = 4 * np.pi * (r[1:]-r[:-1]) * (r[1:]**2)
+        ###
+        #Calculate contact number densities
+        minimally_frustrated_count=len(sel_frustration[sel_frustration[:, -1] > self.minimally_frustrated_threshold])
+        frustrated_count=len(sel_frustration[sel_frustration[:, -1] < -1])
+        neutral_count=len(sel_frustration[(sel_frustration[:, -1] > -1) & (sel_frustration[:, -1] < self.minimally_frustrated_threshold)])
+
+        minimally_frustrated_density=(minimally_frustrated_count*(minimally_frustrated_count-1))/(2*maximum_shell_volume)
+        frustrated_density=(frustrated_count*(frustrated_count-1))/(2*maximum_shell_volume)
+        neutral_density=(neutral_count*(neutral_count-1))/(2*maximum_shell_volume)
+        ###
+        #Calculate relative distances of contacts
+        minimally_frustrated_contacts=(sdist.pdist(sel_frustration[sel_frustration[:, -1] > self.minimally_frustrated_threshold][:,:-1]))
         frustrated_contacts=(sdist.pdist(sel_frustration[sel_frustration[:, -1] <-1][:,:-1]))
         neutral_contacts=(sdist.pdist(sel_frustration[(sel_frustration[:, -1] > -1) & (sel_frustration[:, -1] < self.minimally_frustrated_threshold)][:,:-1]))
-        # total_contacts_count=len(sel_frustration)
-
+        ###
+        #Calculate contact histograms
         minimally_frustrated_hist,_ = np.histogram(minimally_frustrated_contacts,bins=r)
-        minimally_frustrated_gr=np.divide(minimally_frustrated_hist,shell_vol)
-        # minimally_frustrated_gr*=minimally_frustrated_gr*maximum_shell_volume
-        minimally_frustrated_gr=np.divide(minimally_frustrated_gr,(len(minimally_frustrated_contacts)))
+        minimally_frustrated_gr=np.divide(minimally_frustrated_hist,(shell_vol*minimally_frustrated_density))
 
         frustrated_hist,_= np.histogram(frustrated_contacts,bins=r)
-        frustrated_gr=np.divide(frustrated_hist,shell_vol)
-        # frustrated_gr*=frustrated_gr*maximum_shell_volume
-        frustrated_gr=np.divide(frustrated_gr,(len(frustrated_contacts)))
+        frustrated_gr=np.divide(frustrated_hist,(shell_vol*frustrated_density))
 
         neutral_hist,_=np.histogram(neutral_contacts,bins=r)
-        neutral_gr=np.divide(neutral_hist,shell_vol)
-        # neutral_gr*=neutral_gr*maximum_shell_volume
-        neutral_gr=np.divide(neutral_gr,(len(neutral_contacts)))
+        neutral_gr=np.divide(neutral_hist,(shell_vol*neutral_density))
 
         return minimally_frustrated_gr,frustrated_gr,neutral_gr,r_m
 
