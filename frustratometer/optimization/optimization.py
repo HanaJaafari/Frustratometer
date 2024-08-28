@@ -180,7 +180,9 @@ def replica_exchanges(energies, temperatures, kb=0.008314, exchange_id=0):
         exponent = delta / kb # Sign is correct, as we want to swap when the system with higher temperature has lower energy
         prob = np.exp(min(0., exponent)) 
 
-        if 1 <= prob:
+        #if 1 <= prob:
+        acceptance_probability = np.exp(min(0, exponent))
+        if np.random.random() < acceptance_probability:
             order[i]=i+1
             order[i+1]=i
     return order
@@ -307,8 +309,8 @@ if __name__ == '__main__':
 
     native_pdb = "tests/data/1r69.pdb"
     structure = frustratometer.Structure.full_pdb(native_pdb, "A")
-    #model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2) # intial local sequence term
-    model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=5) # peter's recommendation
+    model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=2) # intial local sequence term
+    #model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=5) # peter's recommendation
     #model = frustratometer.AWSEM(structure, distance_cutoff_contact=10, min_sequence_separation_contact=10) # like the usual awsem force field
 
 
@@ -321,4 +323,4 @@ if __name__ == '__main__':
     for i,aa in enumerate(_AA):
         if aa in excluded:
             seq_indices[seq_indices>=i] += 1
-    parallel_tempering(model.potts_model['h'], model.potts_model['J'], model.mask, seq_indices, temperatures, n_steps=int(1E10), n_steps_per_cycle=int(1E4), Ep=10,valid_indices=valid_indices)
+    parallel_tempering(model.potts_model['h'], model.potts_model['J'], model.mask, seq_indices, temperatures, n_steps=int(1E10), n_steps_per_cycle=int(1E4), Ep=30,valid_indices=valid_indices,filename="ivan_test.csv")

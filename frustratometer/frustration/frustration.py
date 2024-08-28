@@ -854,7 +854,7 @@ def plot_singleresidue_decoy_energy(decoy_energy, native_energy, method='cluster
 
 
 def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, single_frustration, pair_frustration, tcl_script='frustration.tcl',
-                     max_connections=None, movie_name=None):
+                     max_connections=None, movie_name=None, still_image_name=None):
     fo = open(tcl_script, 'w+')
     single_frustration = np.nan_to_num(single_frustration,nan=0,posinf=0,neginf=0)
     pair_frustration = np.nan_to_num(pair_frustration,nan=0,posinf=0,neginf=0)
@@ -881,6 +881,7 @@ def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, si
     sel_frustration = sel_frustration[mask_dist & (sel_frustration[:, -1] > 0)]
     
     minimally_frustrated = sel_frustration[sel_frustration[:, 2] < -0.78]
+    #minimally_frustrated = sel_frustration[sel_frustration[:, 2] < -1.78]
     sort_index = np.argsort(minimally_frustrated[:, 2])
     minimally_frustrated = minimally_frustrated[sort_index]
     if max_connections:
@@ -891,6 +892,8 @@ def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, si
     for (r1, r2, f, d ,m) in minimally_frustrated:
         r1=int(r1)
         r2=int(r2)
+        if abs(r1-r2) == 1: # don't draw interactions between residues adjacent in sequence
+            continue
         pos1 = selection.select(f'resid {r1} and chain {chain} and (name CB or (resname GLY and name CA))').getCoords()[0]
         pos2 = selection.select(f'resid {r2} and chain {chain} and (name CB or (resname GLY and name CA))').getCoords()[0]
         distance = np.linalg.norm(pos1 - pos2)
@@ -904,6 +907,7 @@ def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, si
             fo.write(f'draw line $pos1 $pos2 style dashed width 2\n')
 
     frustrated = sel_frustration[sel_frustration[:, 2] > 1]
+    #frustrated = sel_frustration[sel_frustration[:, 2] > 0]
     sort_index = np.argsort(frustrated[:, 2])[::-1]
     frustrated = frustrated[sort_index]
     if max_connections:
@@ -983,6 +987,11 @@ def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, si
                 set output [format "%s/$basename.%05d.tga" $workdir $i]
                 exec rm $output
             }
+            exit
+        ''')
+    elif still_image_name:
+        fo.write(f'set output "{still_image_name}"' + '''
+            render snapshot $output
             exit
         ''')
     fo.close()
