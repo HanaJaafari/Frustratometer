@@ -46,13 +46,12 @@ class AWSEMParameters(BaseModel):
     k_electrostatics: float = Field(17.3636, description="Coefficient for electrostatic interactions. (kJ/mol)")
     electrostatics_screening_length: float = Field(10, description="Screening length for electrostatic interactions. (Angstrom)")
 
-
 class AWSEM(Frustratometer):
     #Mapping to DCA
     q = 20
     aa_map_awsem_list = [0, 0, 4, 3, 6, 13, 7, 8, 9, 11, 10, 12, 2, 14, 5, 1, 15, 16, 19, 17, 18] #A gap has no energy
     aa_map_awsem_x, aa_map_awsem_y = np.meshgrid(aa_map_awsem_list, aa_map_awsem_list, indexing='ij')
-
+    
     def __init__(self, 
                  pdb_structure,
                  sequence=None,
