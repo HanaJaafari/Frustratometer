@@ -133,6 +133,37 @@ def compute_native_energy(seq: str,
 def compute_fields_energy(seq: str,
                           potts_model: dict,
                           ignore_fields_of_gaps: bool = False) -> float:
+    """
+    Computes the fields energy of a protein sequence based on a given Potts model.
+    
+    .. math::
+        E = \\sum_i h_i
+        
+    Parameters
+    ----------
+    seq : str
+        The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+    potts_model : dict
+        A dictionary containing the Potts model parameters 'h' (fields) and 'J' (couplings). The fields are a 2D array of shape (L, 20), where L is the length of the sequence and 20 is the number of amino acids. The couplings are a 4D array of shape (L, L, 20, 20). The fields and couplings are assumed to be in units of energy.
+    ignore_fields_of_gaps : bool, optional
+        If True, fields corresponding to gaps ('-') in the sequence are set to 0 in the energy calculation.
+        Default is False.
+
+    Returns
+    -------
+    fields_energy : float
+        The computed fields energy of the protein sequence based on the Potts model
+
+    Examples
+    --------
+    >>> seq = "ACDEFGHIKLMNPQRSTVWY"
+    >>> potts_model = {
+        'h': np.random.rand(20, 20),  # Random fields
+        'J': np.random.rand(20, 20, 20, 20)  # Random couplings
+    }
+    >>> fields_energy = compute_fields_energy(seq, potts_model)
+    >>> print(f"Computed fields energy: {fields_energy:.2f}")
+    """
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
 
@@ -142,13 +173,55 @@ def compute_fields_energy(seq: str,
         gap_indices=[int(i) for i,j in enumerate(seq) if j=="-"]
         if len(gap_indices)>0:
             h[gap_indices]=False
-
-    return h.sum()
+    fields_energy=h.sum()
+    return fields_energy
 
 def compute_couplings_energy(seq: str,
                       potts_model: dict,
                       mask: np.array,
                       ignore_couplings_of_gaps: bool = False) -> float:
+    """
+    Computes the couplings energy of a protein sequence based on a given Potts model and an interaction mask.
+    
+    .. math::
+        E = \\frac{1}{2} \\sum_{i,j} J_{ij} \\Theta_{ij}
+        
+    Parameters
+    ----------
+    seq : str
+        The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+    potts_model : dict
+        A dictionary containing the Potts model parameters 'h' (fields) and 'J' (couplings). The fields are a 2D array of shape (L, 20), where L is the length of the sequence and 20 is the number of amino acids. The couplings are a 4D array of shape (L, L, 20, 20). The fields and couplings are assumed to be in units of energy.
+    mask : np.array
+        A 2D Boolean array that determines which residue pairs should be considered in the energy computation. The mask should have dimensions (L, L), where L is the length of the sequence.
+    ignore_couplings_of_gaps : bool, optional
+        If True, couplings involving gaps ('-') in the sequence are set to 0 in the energy calculation.
+        Default is False.
+
+    Returns
+    -------
+    couplings_energy : float
+        The computed couplings energy of the protein sequence based on the Potts model and the interaction mask.
+
+    Examples
+    --------
+    >>> seq = "ACDEFGHIKLMNPQRSTVWY"
+    >>> potts_model = {
+        'h': np.random.rand(20, 20),  # Random fields
+        'J': np.random.rand(20, 20, 20, 20)  # Random couplings
+    }
+    >>> mask = np.ones((len(seq), len(seq)), dtype=bool) # Include all pairs
+    >>> couplings_energy = compute_couplings_energy(seq, potts_model, mask)
+    >>> print(f"Computed couplings energy: {couplings_energy:.2f}")
+
+    Notes
+    -----
+    The couplings energy is computed as the half-sum of the couplings for all pairs of residues
+    where the mask is True. The division by 2 for the couplings accounts for double-counting in symmetric
+    matrices.
+
+    .. todo:: Optimize the computation.
+    """
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
     pos1, pos2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), indexing='ij', sparse=True)
@@ -161,13 +234,58 @@ def compute_couplings_energy(seq: str,
         if len(gap_indices)>0:
             j_prime[:,gap_indices]=False
             j_prime[gap_indices,:]=False
-    energy = j_prime.sum() / 2
-    return energy
+    couplings_energy = j_prime.sum() / 2
+    return couplings_energy
 
 def compute_sequences_energy(seqs: list,
                              potts_model: dict,
                              mask: np.array,
                              split_couplings_and_fields = False) -> np.array:
+    """
+    Computes the energy of multiple protein sequences based on a given Potts model and an interaction mask.
+    
+    .. math::
+        E = \\sum_i h_i + \\frac{1}{2} \\sum_{i,j} J_{ij} \\Theta_{ij}
+        
+    Parameters
+    ----------
+    seqs : list
+        List of amino acid sequences in string format, separated by commas. The sequences are assumed to be in one-letter code. Gaps are represented as '-'. The length of each sequence (L) should all match the dimensions of the Potts model.
+    potts_model : dict
+        A dictionary containing the Potts model parameters 'h' (fields) and 'J' (couplings). The fields are a 2D array of shape (L, 20), where L is the length of the sequences and 20 is the number of amino acids. The couplings are a 4D array of shape (L, L, 20, 20). The fields and couplings are assumed to be in units of energy.
+    mask : np.array
+        A 2D Boolean array that determines which residue pairs should be considered in the energy computation. The mask should have dimensions (L, L), where L is the length of the sequences.
+    split_couplings_and_fields : bool, optional
+        If True, two lists of the sequences' couplings and fields energies are returned.
+        Default is False.
+
+    Returns
+    -------
+    energy (if split_couplings_and_fields==False): float
+        The computed energies of the protein sequences based on the Potts model and the interaction mask.
+    fields_couplings_energy (if split_couplings_and_fields==True): np.array
+        Array containing computed fields and couplings energies of the protein sequences based on the Potts model and the interaction mask. 
+
+    Examples
+    --------
+    >>> seq_list = ["ACDEFGHIKLMNPQRSTVWY","AKLWYMNPQRSTCDEFGHIV"]
+    >>> potts_model = {
+        'h': np.random.rand(20, 20),  # Random fields
+        'J': np.random.rand(20, 20, 20, 20)  # Random couplings
+    }
+    >>> mask = np.ones((len(seq_list[0]), len(seq_list[0])), dtype=bool) # Include all pairs
+    >>> energies = compute_sequences_energy(seq_list, potts_model, mask)
+    >>> print(f"Sequence 1 energy: {energies[0]:.2f}")
+    >>> print(f"Sequence 2 energy: {energies[1]:.2f}")
+
+    Notes
+    -----
+    The couplings energy is computed as the half-sum of the couplings for all pairs of residues
+    where the mask is True. The division by 2 for the couplings accounts for double-counting in symmetric
+    matrices.
+
+    .. todo:: Optimize the computation.
+    """
 
     seq_index = np.array([[_AA.find(aa) for aa in seq] for seq in seqs])
     N_seqs, seq_len = seq_index.shape
@@ -184,7 +302,8 @@ def compute_sequences_energy(seqs: list,
     j_prime = j * mask
 
     if split_couplings_and_fields:
-        return np.array([h.sum(axis=-1),j_prime.sum(axis=-1).sum(axis=-1) / 2])
+        fields_couplings_energy=np.array([h.sum(axis=-1),j_prime.sum(axis=-1).sum(axis=-1) / 2])
+        return fields_couplings_energy
     else:
         energy = h.sum(axis=-1) + j_prime.sum(axis=-1).sum(axis=-1) / 2
         return energy
@@ -193,13 +312,46 @@ def compute_sequences_energy(seqs: list,
 def compute_singleresidue_decoy_energy_fluctuation(seq: str,
                                                    potts_model: dict,
                                                    mask: np.array) -> np.array:
-    r"""
-    $ \Delta H_i = \Delta h_i + \sum_k\Delta j_{ik} $
 
-    :param seq:
-    :param potts_model:
-    :param mask:
-    :return:
+    """
+    Computes a (Lx21) matrix for a sequence of length L. Row i contains all possible changes in energy upon mutating residue i.
+    
+    .. math::
+        \\Delta H_i = \\Delta h_i + \\sum_k \\Delta j_{ik}
+        
+    Parameters
+    ----------
+    seq : str
+        The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+    potts_model : dict
+        A dictionary containing the Potts model parameters 'h' (fields) and 'J' (couplings). The fields are a 2D array of shape (L, 20), where L is the length of the sequence and 20 is the number of amino acids. The couplings are a 4D array of shape (L, L, 20, 20). The fields and couplings are assumed to be in units of energy.
+    mask : np.array
+        A 2D Boolean array that determines which residue pairs should be considered in the energy computation. The mask should have dimensions (L, L), where L is the length of the sequence.
+
+    Returns
+    -------
+    decoy_energy: np.array
+        (Lx21) matrix describing the energetic changes upon mutating a single residue.
+
+    Examples
+    --------
+    >>> seq = "ACDEFGHIKLMNPQRSTVWY"
+    >>> potts_model = {
+        'h': np.random.rand(20, 20),  # Random fields
+        'J': np.random.rand(20, 20, 20, 20)  # Random couplings
+    }
+    >>> mask = np.ones((len(seq), len(seq)), dtype=bool) # Include all pairs
+    >>> decoy_energy = compute_singleresidue_decoy_energy_fluctuation(seq, potts_model, mask)
+    >>> print(f"Matrix of Residue Decoy Energy Fluctuations: "); print(decoy_energy)
+    >>> print(f"Matrix Size: "); print(shape(decoy_energy))
+
+    Notes
+    -----
+    The couplings energy is computed as the half-sum of the couplings for all pairs of residues
+    where the mask is True. The division by 2 for the couplings accounts for double-counting in symmetric
+    matrices.
+
+    .. todo:: Optimize the computation.
     """
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
@@ -225,15 +377,45 @@ def compute_singleresidue_decoy_energy_fluctuation(seq: str,
 def compute_mutational_decoy_energy_fluctuation(seq: str,
                                                 potts_model: dict,
                                                 mask: np.array, ) -> np.array:
-    r"""
-    $$ \Delta DCA_{ij} = H_i - H_{i'} + H_{j}-H_{j'}
-    + J_{ij} -J_{ij'} + J_{i'j'} - J_{i'j}
-    + \sum_k {J_{ik} - J_{i'k} + J_{jk} -J_{j'k}}
-    $$
-    :param seq:
-    :param potts_model:
-    :param mask:
-    :return:
+    """
+    Computes a (LxLx21x21) matrix for a sequence of length L. Matrix[i,j] describes all possible changes in energy upon mutating residue i and j simultaneously.
+    
+    .. math::
+        \Delta H_{ij} = H_i - H_{i'} + H_{j}-H_{j'} + J_{ij} -J_{ij'} + J_{i'j'} - J_{i'j} + \\sum_k {J_{ik} - J_{i'k} + J_{jk} -J_{j'k}}
+        
+    Parameters
+    ----------
+    seq : str
+        The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+    potts_model : dict
+        A dictionary containing the Potts model parameters 'h' (fields) and 'J' (couplings). The fields are a 2D array of shape (L, 20), where L is the length of the sequence and 20 is the number of amino acids. The couplings are a 4D array of shape (L, L, 20, 20). The fields and couplings are assumed to be in units of energy.
+    mask : np.array
+        A 2D Boolean array that determines which residue pairs should be considered in the energy computation. The mask should have dimensions (L, L), where L is the length of the sequence.
+
+    Returns
+    -------
+    decoy_energy2: np.array
+        (LxLx21x21) matrix describing the energetic changes upon mutating two residues simultaneously.
+
+    Examples
+    --------
+    >>> seq = "ACDEFGHIKLMNPQRSTVWY"
+    >>> potts_model = {
+        'h': np.random.rand(20, 20),  # Random fields
+        'J': np.random.rand(20, 20, 20, 20)  # Random couplings
+    }
+    >>> mask = np.ones((len(seq), len(seq)), dtype=bool) # Include all pairs
+    >>> decoy_energy2 = compute_mutational_decoy_energy_fluctuation(seq, potts_model, mask)
+    >>> print(f"Matrix of Contact Mutational Decoy Energy Fluctuations: "); print(decoy_energy2)
+    >>> print(f"Matrix Size: "); print(shape(decoy_energy2))
+
+    Notes
+    -----
+    The couplings energy is computed as the half-sum of the couplings for all pairs of residues
+    where the mask is True. The division by 2 for the couplings accounts for double-counting in symmetric
+    matrices.
+
+    .. todo:: Optimize the computation.
     """
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
@@ -274,15 +456,46 @@ def compute_mutational_decoy_energy_fluctuation(seq: str,
 def compute_configurational_decoy_energy_fluctuation(seq: str,
                                                      potts_model: dict,
                                                      mask: np.array, ) -> np.array:
-    r"""
-    $$ \Delta DCA_{ij} = H_i - H_{i'} + H_{j}-H_{j'}
-    + J_{ij} -J_{ij'} + J_{i'j'} - J_{i'j}
-    + \sum_k {J_{ik} - J_{i'k} + J_{jk} -J_{j'k}}
-    $$
-    :param seq:
-    :param potts_model:
-    :param mask:
-    :return:
+    """
+    Computes a (LxLx21x21) matrix for a sequence of length L. Matrix[i,j] describes all possible changes in energy upon mutating and altering the 
+    local densities of residue i and j simultaneously.
+    
+    .. math::
+        \Delta H_{ij} = H_i - H_{i'} + H_{j}-H_{j'} + J_{ij} -J_{ij'} + J_{i'j'} - J_{i'j} + \\sum_k {J_{ik} - J_{i'k} + J_{jk} -J_{j'k}}
+        
+    Parameters
+    ----------
+    seq : str
+        The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+    potts_model : dict
+        A dictionary containing the Potts model parameters 'h' (fields) and 'J' (couplings). The fields are a 2D array of shape (L, 20), where L is the length of the sequence and 20 is the number of amino acids. The couplings are a 4D array of shape (L, L, 20, 20). The fields and couplings are assumed to be in units of energy.
+    mask : np.array
+        A 2D Boolean array that determines which residue pairs should be considered in the energy computation. The mask should have dimensions (L, L), where L is the length of the sequence.
+
+    Returns
+    -------
+    decoy_energy2: np.array
+        (LxLx21x21) matrix describing the energetic changes upon mutating and altering the local densities of two residues simultaneously.
+
+    Examples
+    --------
+    >>> seq = "ACDEFGHIKLMNPQRSTVWY"
+    >>> potts_model = {
+        'h': np.random.rand(20, 20),  # Random fields
+        'J': np.random.rand(20, 20, 20, 20)  # Random couplings
+    }
+    >>> mask = np.ones((len(seq), len(seq)), dtype=bool) # Include all pairs
+    >>> decoy_energy2 = compute_configurational_decoy_energy_fluctuation(seq, potts_model, mask)
+    >>> print(f"Matrix of Contact Configurational Decoy Energy Fluctuations: "); print(decoy_energy2)
+    >>> print(f"Matrix Size: "); print(shape(decoy_energy2))
+
+    Notes
+    -----
+    The couplings energy is computed as the half-sum of the couplings for all pairs of residues
+    where the mask is True. The division by 2 for the couplings accounts for double-counting in symmetric
+    matrices.
+
+    .. todo:: Optimize the computation.
     """
     seq_index = np.array([_AA.find(aa) for aa in seq])
     seq_len = len(seq_index)
@@ -345,37 +558,98 @@ def compute_contact_decoy_energy_fluctuation(seq: str,
     return decoy_energy
 
 
-def compute_decoy_energy(seq: str, potts_model: dict, mask: np.array, kind='singleresidue'):
+def compute_decoy_energy(seq: str, potts_model: dict, mask: np.array, kind='singleresidue') -> np.array:
     """
-    Calculates the decoy energy (Obsolete)
-    :param seq:
-    :param potts_model:
-    :param mask:
-    :param kind:
-    :return:
+    Computes all possible decoy energies.
+    
+    Parameters
+    ----------
+    seq : str
+        The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'. The length of the sequence (L) should match the dimensions of the Potts model.
+    potts_model : dict
+        A dictionary containing the Potts model parameters 'h' (fields) and 'J' (couplings). The fields are a 2D array of shape (L, 20), where L is the length of the sequence and 20 is the number of amino acids. The couplings are a 4D array of shape (L, L, 20, 20). The fields and couplings are assumed to be in units of energy.
+    mask : np.array
+        A 2D Boolean array that determines which residue pairs should be considered in the energy computation. The mask should have dimensions (L, L), where L is the length of the sequence.
+    kind : str
+        Kind of decoys generated. Options: "singleresidue," "mutational," "configurational," and "contact." 
+    Returns
+    -------
+    decoy_energy: np.array
+        Matrix describing all possible decoy energies.
+
+    Examples
+    --------
+    >>> seq = "ACDEFGHIKLMNPQRSTVWY"
+    >>> potts_model = {
+        'h': np.random.rand(20, 20),  # Random fields
+        'J': np.random.rand(20, 20, 20, 20)  # Random couplings
+    }
+    >>> mask = np.ones((len(seq), len(seq)), dtype=bool) # Include all pairs
+    >>> kind = "singleresidue"
+    >>> decoy_energy = compute_decoy_energy(seq, potts_model, mask, kind)
+    >>> print(f"Matrix of Single Residue Decoy Energo: "); print(decoy_energy2)
+    >>> print(f"Matrix Size: "); print(shape(decoy_energy2))
+
+    Notes
+    -----
+    The couplings energy is computed as the half-sum of the couplings for all pairs of residues
+    where the mask is True. The division by 2 for the couplings accounts for double-counting in symmetric
+    matrices.
+
+    .. todo:: Optimize the computation.
     """
 
     native_energy = compute_native_energy(seq, potts_model, mask)
     if kind == 'singleresidue':
-        return native_energy + compute_singleresidue_decoy_energy_fluctuation(seq, potts_model, mask)
+        decoy_energy=native_energy + compute_singleresidue_decoy_energy_fluctuation(seq, potts_model, mask)
     elif kind == 'mutational':
-        return native_energy + compute_mutational_decoy_energy_fluctuation(seq, potts_model, mask)
+        decoy_energy=native_energy + compute_mutational_decoy_energy_fluctuation(seq, potts_model, mask)
     elif kind == 'configurational':
-        return native_energy + compute_configurational_decoy_energy_fluctuation(seq, potts_model, mask)
+        decoy_energy=native_energy + compute_configurational_decoy_energy_fluctuation(seq, potts_model, mask)
     elif kind == 'contact':
-        return native_energy + compute_contact_decoy_energy_fluctuation(seq, potts_model, mask)
+        decoy_energy=native_energy + compute_contact_decoy_energy_fluctuation(seq, potts_model, mask)
+    return decoy_energy
 
+def compute_aa_freq(seq, include_gaps=True):
+    """
+    Calculates amino acid frequencies in given sequence
 
-def compute_aa_freq(sequence, include_gaps=True):
-    seq_index = np.array([_AA.find(aa) for aa in sequence])
+    Parameters
+    ----------
+    seq :  str
+        The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'.
+    include_gaps: bool
+        If True, frequencies of gaps ('-') in the sequence are set to 0.
+        Default is True.
+        
+
+    Returns
+    -------
+    aa_freq: np.array
+        Array of frequencies of all 21 possible amino acids within sequence
+    """
+    seq_index = np.array([_AA.find(aa) for aa in seq])
     aa_freq = np.array([(seq_index == i).sum() for i in range(21)])
     if not include_gaps:
         aa_freq[0] = 0
     return aa_freq
 
 
-def compute_contact_freq(sequence):
-    seq_index = np.array([_AA.find(aa) for aa in sequence])
+def compute_contact_freq(seq):
+    """
+    Calculates contact frequencies in given sequence
+
+    Parameters
+    ----------
+    seq :  str
+        The amino acid sequence of the protein. The sequence is assumed to be in one-letter code. Gaps are represented as '-'.
+        
+    Returns
+    -------
+    contact_freq: np.array
+        21x21 array of frequencies of all possible contacts within sequence.
+    """
+    seq_index = np.array([_AA.find(aa) for aa in seq])
     aa_freq = np.array([(seq_index == i).sum() for i in range(21)], dtype=np.float64)
     aa_freq /= aa_freq.sum()
     contact_freq = (aa_freq[:, np.newaxis] * aa_freq[np.newaxis, :])
@@ -385,18 +659,50 @@ def compute_contact_freq(sequence):
 def compute_single_frustration(decoy_fluctuation,
                                aa_freq=None,
                                correction=0):
+    """
+    Calculates single residue frustration indices
+
+    Parameters
+    ----------
+    decoy_fluctuation: np.array
+        (Lx21) matrix for a sequence of length L, describing the energetic changes upon mutating a single residue. 
+    aa_freq: np.array
+        Array of frequencies of all 21 possible amino acids within sequence
+        
+    Returns
+    -------
+    frustration: np.array
+        Array of length L featuring single residue frustration indices.
+    """
     if aa_freq is None:
         aa_freq = np.ones(21)
     mean_energy = (aa_freq * decoy_fluctuation).sum(axis=1) / aa_freq.sum()
     std_energy = np.sqrt(
         ((aa_freq * (decoy_fluctuation - mean_energy[:, np.newaxis]) ** 2) / aa_freq.sum()).sum(axis=1))
     frustration = -mean_energy / (std_energy + correction)
-    return -frustration
+    frustration *= -1
+    return frustration
 
 
 def compute_pair_frustration(decoy_fluctuation,
                              contact_freq: typing.Union[None, np.array],
                              correction=0) -> np.array:
+    """
+    Calculates pair residue frustration indices
+
+    Parameters
+    ----------
+    decoy_fluctuation: np.array
+        (LxLx21x21) matrix for a sequence of length L, describing the energetic changes upon mutating two residues simultaneously. 
+    contact_freq: np.array
+        21x21 array of frequencies of all possible contacts within sequence.
+        
+    Returns
+    -------
+    contact_frustration: np.array
+        LxL array featuring pair frustration indices (mutational or configurational frustration, depending on 
+        decoy_fluctuation matrix provided)
+    """
     if contact_freq is None:
         contact_freq = np.ones([21, 21])
     decoy_energy = decoy_fluctuation
@@ -407,14 +713,16 @@ def compute_pair_frustration(decoy_fluctuation,
     mean_energy = average.reshape(seq_len, seq_len)
     std_energy = np.sqrt(variance).reshape(seq_len, seq_len)
     contact_frustration = -mean_energy / (std_energy + correction)
-    return -contact_frustration
+    contact_frustration *= -1
+    return contact_frustration
 
 
 def compute_scores(potts_model: dict) -> np.array:
     """
     Computes contact scores based on the Frobenius norm
-
-    CN[i,j] = F[i,j] - F[i,:] * F[:,j] / F[:,:]
+    
+    .. math::
+        CN[i,j] = \\frac{F[i,j] - F[i,:] * F[:,j}{F[:,:]}
 
     Parameters
     ----------
@@ -423,8 +731,8 @@ def compute_scores(potts_model: dict) -> np.array:
 
     Returns
     -------
-    scores : np.array
-        Score matrix (N x N)
+    corr_norm : np.array
+        Contact score matrix (N x N)
     """
     j = potts_model['J']
     n, _, __, q = j.shape
@@ -438,6 +746,26 @@ def compute_scores(potts_model: dict) -> np.array:
 
 
 def compute_roc(scores, distance_matrix, cutoff):
+
+    """
+    Computes Receiver Operating Characteristic (ROC) curve of 
+    predicted and true contacts (identified from the distance matrix).
+
+    Parameters
+    ----------
+    scores :  np.array
+        Contact score matrix (N x N)
+    distance_matrix : np.array
+        LxL array for sequence of length L, describing distances between contacts
+    cutoff : float
+        Distance cutoff for contacts
+
+    Returns
+    -------
+    roc_score : np.array
+        Array containing lists of false and true positive rates 
+    """
+
     scores = sdist.squareform(scores)
     distance = sdist.squareform(distance_matrix)
     results = np.array([np.array(scores), np.array(distance)])
@@ -449,16 +777,38 @@ def compute_roc(scores, distance_matrix, cutoff):
     not_contacts = ~contacts
     tpr = np.concatenate([[0], contacts.cumsum() / contacts.sum()])
     fpr = np.concatenate([[0], not_contacts.cumsum() / not_contacts.sum()])
-    return np.array([fpr, tpr])
+    roc_score=np.array([fpr, tpr])
+    return roc_score
 
 
-def compute_auc(roc):
+def compute_auc(roc_score):
+    """
+    Computes Area Under Curve (AUC) of calculated ROC distribution
+
+    Parameters
+    ----------
+    roc_score : np.array
+        Array containing lists of false and true positive rates 
+
+    Returns
+    -------
+    auc : float
+        AUC value
+    """
     fpr, tpr = roc
     auc = np.sum(tpr[:-1] * (fpr[1:] - fpr[:-1]))
     return auc
 
 
-def plot_roc(roc):
+def plot_roc(roc_score):
+    """
+    Plot ROC distribution
+
+    Parameters
+    ----------
+    roc_score : np.array
+        Array containing lists of false and true positive rates 
+    """
     import matplotlib.pyplot as plt
     plt.plot(roc[0], roc[1])
     plt.xlabel('False positive rate (1-specificity)')
@@ -470,6 +820,18 @@ def plot_roc(roc):
 
 
 def plot_singleresidue_decoy_energy(decoy_energy, native_energy, method='clustermap'):
+    """
+    Plot comparison of single residue decoy energies, relative to the native energy
+
+    Parameters
+    ----------
+    decoy_energy : np.array
+        Lx21 array of decoy energies
+    native_energy : float
+        Native energy value
+    method : str
+        Options: "clustermap", "heatmap"
+    """
     import seaborn as sns
     if method=='clustermap':
         f=sns.clustermap
