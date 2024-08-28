@@ -12,6 +12,7 @@ from frustratometer.optimization.EnergyTerm import EnergyTerm
 from frustratometer.optimization.inner_product import compute_all_region_means
 from frustratometer.optimization.inner_product import build_mean_inner_product_matrix
 from frustratometer.optimization.inner_product import diff_mean_inner_product_matrix
+from frustratometer.utils.format_time import format_time
 
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
@@ -697,11 +698,13 @@ class AwsemEnergyVariance(EnergyTerm):
         assert np.isclose(energy,expected_energy), f"Expected energy {expected_energy} but got {energy}"
 
 class AwsemEnergyStd(EnergyTerm):   
-    def __init__(self, model:Frustratometer, use_numba=True, alphabet=_AA):
+    def __init__(self, model:Frustratometer, use_numba=True, alphabet=_AA, n_decoys=None):
         self._use_numba=use_numba
         self.model=model
         self.alphabet=alphabet
         self.reindex_dca=[_AA.index(aa) for aa in alphabet]
+
+        self.n_decoys=n_decoys
         
         assert "indicators" in model.__dict__.keys(), "Indicator functions were not exposed. Initialize AWSEM function with `expose_indicator_functions=True` first."
         self.indicators = model.indicators
@@ -739,39 +742,51 @@ class AwsemEnergyStd(EnergyTerm):
         
         region_means=compute_all_region_means(indicators1D,indicators2D)
         # indicator_means*=0 # Set indicator means to zero to check if the problem is with the mean phi or the inner product matrix
-        
-        def compute_energy(seq_index):
-            counts = np.zeros(len_alphabet, dtype=np.int64)
-            for val in seq_index:
-                counts[val] += 1
-            
-            # Calculate phi_mean
-            phi_mean = np.zeros(len_alphabet*len_indicators1D + len_alphabet**2*len_indicators2D)
-            
-            # 1D indicators
-            c=0
-            for i in range(len_indicators1D):
-                for j in range(len_alphabet):
-                    phi_mean[c] = indicator_means[i] * counts[j]
-                    c += 1
+        awsem_energy = AwsemEnergy(use_numba=self.use_numba, model=self.model, alphabet=self.alphabet).energy_function
 
-            # 2D indicators
-            for i in range(len_indicators2D):
-                for j in range(len_alphabet):
-                    for k in range(len_alphabet):
-                        t=1 if j==k else 0
-                        phi_mean[c] = indicator_means[i+ len_indicators1D] * counts[j] * (counts[k] - t)
+        if self.n_decoys:
+            n_decoys=self.n_decoys
+            def compute_energy(seq_index):
+                """ Function to compute the variance of the energy of permutations of a sequence using random shuffling.
+                    This function is much faster than compute_energy_permutation but is an approximation"""
+                energies=np.zeros(n_decoys)
+                shuffled_index=seq_index.copy()
+                for i in numba.prange(n_decoys):
+                    energies[i]=awsem_energy(shuffled_index[np.random.permutation(len(shuffled_index))])
+                return np.var(energies)
+        else:
+            def compute_energy(seq_index):
+                counts = np.zeros(len_alphabet, dtype=np.int64)
+                for val in seq_index:
+                    counts[val] += 1
+                
+                # Calculate phi_mean
+                phi_mean = np.zeros(len_alphabet*len_indicators1D + len_alphabet**2*len_indicators2D)
+                
+                # 1D indicators
+                c=0
+                for i in range(len_indicators1D):
+                    for j in range(len_alphabet):
+                        phi_mean[c] = indicator_means[i] * counts[j]
                         c += 1
 
-            B = build_mean_inner_product_matrix(counts,indicators1D,indicators2D,region_means)
-            energy=0
-            for i in range(phi_len):
-                for j in range(phi_len):
-                    energy += gamma[i] * (B[i,j] - phi_mean[i]*phi_mean[j]) * gamma[j]
-            return energy**.5
-        
-        compute_energy_numba=self.numbify(compute_energy, cache=True)
-        
+                # 2D indicators
+                for i in range(len_indicators2D):
+                    for j in range(len_alphabet):
+                        for k in range(len_alphabet):
+                            t=1 if j==k else 0
+                            phi_mean[c] = indicator_means[i+ len_indicators1D] * counts[j] * (counts[k] - t)
+                            c += 1
+
+                B = build_mean_inner_product_matrix(counts,indicators1D,indicators2D,region_means)
+                energy=0
+                for i in range(phi_len):
+                    for j in range(phi_len):
+                        energy += gamma[i] * (B[i,j] - phi_mean[i]*phi_mean[j]) * gamma[j]
+                return energy**.5
+            
+        compute_energy_numba=self.numbify(compute_energy)
+            
         def denergy_mutation(seq_index, pos, aa):
             seq_index_new = seq_index.copy()
             seq_index_new[pos] = aa
@@ -779,17 +794,6 @@ class AwsemEnergyStd(EnergyTerm):
         
         self.compute_energy = compute_energy
         self.compute_denergy_mutation = denergy_mutation
-
-        awsem_energy = AwsemEnergy(use_numba=self.use_numba, model=self.model, alphabet=self.alphabet).energy_function
-
-        def compute_energy_sample(seq_index,n_decoys=100000):
-            """ Function to compute the variance of the energy of permutations of a sequence using random shuffling.
-                This function is much faster than compute_energy_permutation but is an approximation"""
-            energies=np.zeros(n_decoys)
-            shuffled_index=seq_index.copy()
-            for i in numba.prange(n_decoys):
-                energies[i]=awsem_energy(shuffled_index[np.random.permutation(len(shuffled_index))])
-            return np.var(energies)
 
         def compute_energy_permutation(seq_index):
             """ Function to compute the variance of the energy of all permutations of a sequence 
@@ -801,7 +805,6 @@ class AwsemEnergyStd(EnergyTerm):
                 energies[i]=awsem_energy(decoy_sequences[i])
             return np.var(energies)
         
-        self.compute_energy_sample=self.numbify(compute_energy_sample,parallel=True)
         self.compute_energy_permutation=compute_energy_permutation
 
     def regression_test(self, seq_index):
@@ -831,10 +834,10 @@ class Similarity(EnergyTerm):
             return similarity / len_seq
 
         def denergy_mutation(seq_index, pos, aa):
-            return ((seq_index[pos] == target_index[pos]) - (aa == target_index[pos]))/len_seq
+            return ((aa == target_index[pos]) - (seq_index[pos] == target_index[pos]))/len_seq
         
         def denergy_swap(seq_index, pos1, pos2):
-            return ((seq_index[pos1] == target_index[pos1]) + (seq_index[pos2] == target_index[pos2]) - (seq_index[pos1] == target_index[pos1]) - (seq_index[pos2] == target_index[pos2]))/len_seq
+            return ((seq_index[pos1] == target_index[pos2]) + (seq_index[pos2] == target_index[pos1]) - (seq_index[pos1] == target_index[pos1]) - (seq_index[pos2] == target_index[pos2]))/len_seq
 
         self.compute_energy = compute_energy
         self.compute_denergy_mutation = denergy_mutation
@@ -937,28 +940,25 @@ class MonteCarlo:
 
         def parallel_montecarlo_step(seq_indices, temperatures, n_steps_per_cycle):
             n_replicas = len(temperatures)
-            energies = np.zeros(n_replicas)
 
             for i in numba.prange(n_replicas):
                 temp_seq_index = seq_indices[i]
                 seq_indices[i] = montecarlo_steps(temperatures[i], seq_index=temp_seq_index, n_steps=n_steps_per_cycle)
-                energy = compute_energy(seq_indices[i])
                 # Compute energy for the new sequence
-                energies[i] = energy
 
-            return seq_indices, energies
+            return seq_indices
         parallel_montecarlo_step=self.numbify(parallel_montecarlo_step, parallel=True)
 
         def parallel_tempering_steps(seq_indices, temperatures, n_steps, n_steps_per_cycle):
             for s in range(n_steps//n_steps_per_cycle):
-                seq_indices, total_energies = parallel_montecarlo_step(seq_indices, temperatures, n_steps_per_cycle)
-
+                seq_indices = parallel_montecarlo_step(seq_indices, temperatures, n_steps_per_cycle)
+                energies = self.energy.energies(seq_indices)
                 # Yield data every 10 exchanges
                 if s % 10 == 9:
-                    yield s, seq_indices, total_energies
+                    yield s, seq_indices, energies
 
                 # Perform replica exchanges
-                order = replica_exchange(total_energies, temperatures, exchange_id=s)
+                order = replica_exchange(energies, temperatures, exchange_id=s)
                 seq_indices = seq_indices[order]
 
         parallel_tempering_steps=self.numbify(parallel_tempering_steps)
@@ -1016,6 +1016,7 @@ class MonteCarlo:
             step_data={'Step': done_steps, 'Temperature': temp, 'Sequence': index_to_sequence(seq_index,alphabet=self.alphabet), 'TotalEnergy': total_energy}
             step_data.update({key: energy_term.energy_function(seq_index) for key, energy_term in self.evaluation_energies.items()})
             csv_write(step_data)
+        return seq_index
 
     def benchmark_montecarlo_steps(self, n_repeats=10, n_steps=20000):
         import time
@@ -1035,31 +1036,200 @@ class MonteCarlo:
             end_time = time.time()
             times.append(end_time - start_time)
         
-        average_time_per_step_s = sum(times) / len(times) / n_steps
-        std_time_per_step_us = np.std(times) / len(times) / n_steps * 1000000
-        average_time_per_step_us = average_time_per_step_s * 1000000
+        average_time_per_step = sum(times) / len(times) / n_steps
+        std_time_per_step = np.std(times) / len(times) / n_steps
+        
+        steps_per_hour = 3600 / average_time_per_step
+        time_needed = 1E10 * average_time_per_step / 8  # 8 processes in parallel
+
+        print(f"Time needed to explore 10 billion sequences assumming 8 process in parallel: {format_time(time_needed)}")
+        print(f"Number of sequences explored per hour: {steps_per_hour:.2e}")
+        print(f"Average execution time per step: {format_time(average_time_per_step)} +- {format_time(3*std_time_per_step)}")
+
+    def benchmark_parallel_montecarlo_steps(self, n_repeats=10, n_steps=20000, n_replicas=8):
+        import time
+        times = []
+
+        # Add one step for numba compilation time
+        seq_indices = self.generate_random_sequences(n_replicas)
+        temperatures = np.logspace(0, 6, n_replicas)
+        self.parallel_montecarlo_step(seq_indices, temperatures, n_steps_per_cycle=1)
+
+        for _ in range(n_repeats):
+            seq_indices = self.generate_random_sequences(n_replicas)
+            start_time = time.time()
+            self.parallel_montecarlo_step(seq_indices, temperatures, n_steps_per_cycle=n_steps)
+            end_time = time.time()
+            times.append(end_time - start_time)
+        
+        average_time_per_step_s = np.mean(times) / n_steps / n_replicas
+        std_time_per_step_s = np.std(times) / n_steps / n_replicas
         
         steps_per_hour = 3600 / average_time_per_step_s
-        minutes_needed = 1E10 / steps_per_hour / 8 * 60  # 8 processes in parallel
+        time_needed = 1E10 * average_time_per_step_s
 
-        print(f"Time needed to explore 10^10 sequences with 8 process in parallel: {minutes_needed:.2e} minutes")
-        print(f"Number of sequences explored per hour: {steps_per_hour:.2e}")
-        print(f"Average execution time per step: {average_time_per_step_us:.5f} +- {3*std_time_per_step_us:.5f} microseconds")
+        print(f"Time needed for 10 billion steps with {n_replicas} in parallel: {format_time(time_needed)}")
+        print(f"Number of sequences explored per hour with {n_replicas}: {steps_per_hour:.2e}")
+        print(f"Average time per step with {n_replicas}: {format_time(average_time_per_step_s)} ± {format_time(std_time_per_step_s)}")
+        
+
+    def find_optimal_replicas(self, max_replicas=32, n_repeats=5, n_steps=10000):
+        import time
+        results = []
+
+        for n_replicas in range(1, max_replicas + 1):
+            times = []
+            seq_indices = self.generate_random_sequences(n_replicas)
+            temperatures = np.logspace(0, 6, n_replicas)
+
+            # Warm-up run
+            self.parallel_montecarlo_step(seq_indices, temperatures, n_steps_per_cycle=1)
+
+            for _ in range(n_repeats):
+                seq_indices = self.generate_random_sequences(n_replicas)
+                start_time = time.time()
+                self.parallel_montecarlo_step(seq_indices, temperatures, n_steps_per_cycle=n_steps)
+                end_time = time.time()
+                times.append(end_time - start_time)
+
+            avg_time = np.mean(times)
+            steps_per_second = n_steps * n_replicas / avg_time
+            results.append((n_replicas, steps_per_second))
+
+        optimal_replicas, max_steps_per_second = max(results, key=lambda x: x[1])
+        
+        print(f"Optimal number of replicas: {optimal_replicas}")
+        print(f"Maximum steps per second: {max_steps_per_second:.2f}")
+        print(f"Time needed for 10 billion steps: {format_time(1E10 / max_steps_per_second)}")
+
+        return results
+
 
 
 if __name__ == '__main__':
+
+    native_pdb = "tests/data/1r69.pdb"
+    
+    structure_bound = Structure.full_pdb(native_pdb, chain=None)
+    structure_free = Structure.full_pdb(native_pdb, "A")
+
+    model_bound = AWSEM(structure_bound, distance_cutoff_contact=10, min_sequence_separation_contact=2, expose_indicator_functions=True)
+    model_free = AWSEM(structure_free, distance_cutoff_contact=10, min_sequence_separation_contact=2, expose_indicator_functions=True)
+    reduced_alphabet = 'ADEFHIKLMNQRSTVWY'
+
+    print(model_bound.sequence)
+    print(model_free.sequence)
+
+    # binding_region=np.array([1, 2, 3, 4, 26, 27, 28, 29, 30, 31, 32, 33, 49, 50, 51, 52, 53, 54, 55, 56, 57, 68, 69, 70, 90, 91, 92, 93, 94, 95, 96, 97, 109, 110, 111, 112, 113, 114, 115, 116, 117, 127, 128, 129, 130, 131, 132, 133, 134, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 190, 191, 192, 193, 194, 195, 196, 197])-1
+    energy_bound = AwsemEnergySelected(model_bound, alphabet=reduced_alphabet, selection=np.array(range(len(model_free.sequence))))
+    energy_free = AwsemEnergySelected(model_free, alphabet=reduced_alphabet)
+    energy_average = AwsemEnergyAverage(model_free, alphabet=reduced_alphabet)
+    energy_std = AwsemEnergyStd(model_free, alphabet=reduced_alphabet)
+    energy_std_100 = AwsemEnergyStd(model_free, alphabet=reduced_alphabet, n_decoys=100)
+    energy_std_1000 = AwsemEnergyStd(model_free, alphabet=reduced_alphabet, n_decoys=1000)
+    energy_std_10000 = AwsemEnergyStd(model_free, alphabet=reduced_alphabet, n_decoys=10000)
+    energy_variance = AwsemEnergyVariance(model_free, alphabet=reduced_alphabet)
+    heterogeneity = Heterogeneity(exact=False, use_numba=True)
+    similarity = Similarity(model_free.sequence, use_numba=True)
+
+    # energy_mix = energy_free - 20 * heterogeneity
+    energy_mix = (energy_free - energy_average) / energy_std
+    # energy_mix = energy_bound - energy_free
+
+    energy_mixes = {"EnergyFree": energy_free,
+                    "EnergyBound": energy_bound,
+                    "Heterogeneity": heterogeneity,
+                    "EnergyAverage": energy_average, 
+                    "EnergyStd_ndecoys100": energy_std_100,
+                    "EnergyStd_ndecoys1000": energy_std_1000,
+                    "EnergyStd_ndecoys10000": energy_std_10000,
+                    "EnergyStd": energy_std,
+                    "Zscore_ndecoys10000":(energy_free - energy_average) / energy_std_10000,
+                    "Zscore":(energy_free - energy_average) / energy_std,
+                    "EnergyVariance": energy_variance,
+                    "Binding": (energy_bound - energy_free),
+                    "Similarity": similarity, 
+                    "Ivan":energy_bound - 40 * heterogeneity, 
+                    "Takada": (energy_bound - energy_average) / energy_std, 
+                    "Ivan_binding":(energy_bound - energy_free) - 40 * heterogeneity,
+                    "Takada_binding":(energy_free - energy_average) / energy_std + (energy_bound - energy_free),
+                    "Ivan_Takada_binding": (energy_free - energy_average) / energy_std + (energy_bound - energy_free) - 40 * heterogeneity,
+                    "Corrected_Takada": (energy_bound - energy_average) / (energy_std+5), 
+                    "Corrected_Takada_binding":(energy_free - energy_average) / (energy_std+5) + (energy_bound - energy_free),
+                    "Ivan_Corrected_Takada_binding": (energy_free - energy_average) / (energy_std+5) + (energy_bound - energy_free) - 40 * heterogeneity,
+                    "Ivan_bindidng similarity": (energy_bound - energy_free) - 40 * heterogeneity - 100*similarity,
+                    "Corrected_Takada_binding_similarity":(energy_free - energy_average) / (energy_std+5) + (energy_bound - energy_free) - 100*similarity,
+                    "Ivan_bindidng_similarityv2": (energy_bound - energy_free) - 40 * heterogeneity}
+    
+    for energy_name,energy_term in energy_mixes.items():
+        print (f"Energy term: {energy_name}")
+        energy_term.benchmark(seq_indices=np.random.randint(0, len(reduced_alphabet), size=(100,len(structure_free.sequence))))
+        if "ndecoys" not in energy_name:
+            energy_term.test(seq_index=np.random.randint(0, len(reduced_alphabet), size=len(structure_free.sequence)))
+        
+        monte_carlo = MonteCarlo(sequence = structure_free.sequence, energy=energy_term, alphabet=reduced_alphabet)
+        monte_carlo.benchmark_montecarlo_steps(n_repeats=3,n_steps=10000)
+        monte_carlo.benchmark_parallel_montecarlo_steps(n_repeats=3, n_steps=10000, n_replicas=8)
+
+
+
+    # Profiling of the parallel tempering
+    import cProfile
+    import pstats
+    import io
+
+    monte_carlo = MonteCarlo(sequence=model_free.sequence,  energy=energy_mix, alphabet=reduced_alphabet)
+                                    # evaluation_energies={"EnergyFree": energy_free, "Heterogeneity": heterogeneity, 
+                                    #                     "EnergyAverage": energy_average, "EnergyStd": energy_std,
+                                    #                     "Similarity": similarity, "Zscore":(energy_free - energy_average) / energy_std})
+            
+    monte_carlo.benchmark_montecarlo_steps(n_repeats=3, n_steps=100)
+    for n_replicas in [1, 2, 4, 8, 16]:
+        print(f"Running parallel tempering with {n_replicas} replicas")
+        monte_carlo.benchmark_parallel_montecarlo_steps(n_repeats=3, n_steps=100, n_replicas=n_replicas)
+
+    for n_replicas in [1, 2, 4, 8, 16]:
+        print(f"Running parallel tempering with {n_replicas} replicas")
+        monte_carlo.benchmark_parallel_montecarlo_steps(n_repeats=3, n_steps=1000, n_replicas=n_replicas)
+
+    monte_carlo.find_optimal_replicas(max_replicas=32, n_repeats=5, n_steps=1000)
+    monte_carlo.find_optimal_replicas(max_replicas=8, n_repeats=5, n_steps=10000)
+    monte_carlo.find_optimal_replicas(max_replicas=8, n_repeats=5, n_steps=100000)
+
+    # # Run the profiler
+    # profiler = cProfile.Profile()
+    # profiler.enable()
+
+    # monte_carlo.parallel_tempering(temperatures=np.logspace(3,-4,8), n_steps=1E4, n_steps_per_cycle=1E2)
+    # profiler.disable()
+    
+    # # Print the stats
+    # s = io.StringIO()
+    # ps = pstats.Stats(profiler, stream=s).sort_stats('cumulative')
+    # ps.print_stats()
+    # ps.dump_stats('parallel_temperingv2.prof')
+    
+    
+    
+    
+    
+    
+    
+    
+if False:    
     
     #native_pdb = "tests/data/1bfz.pdb"
     #native_pdb = "tests/data/1r69.pdb"
     
-    pdbs = {"LinkerBack": "frustratometer/optimization/10.3_model_LinkerBack_partialEGFR.pdb", "Swap": "frustratometer/optimization/swap_EGFR.pdb"}
+    #pdbs = {"Swap": "frustratometer/optimization/swap_EGFR.pdb", "LinkerBack": "frustratometer/optimization/10.3_model_LinkerBack_partialEGFR.pdb", }
     #pdbs = {"Swap": "frustratometer/optimization/swap_EGFR.pdb"}
-    #pdbs={"1bfz": "tests/data/1bfz.pdb"}
-    gammas = {"original":"frustratometer/data/AWSEM_2015.json", "ddG":"frustratometer/data/AWSEM_ddG_trained.json"}
+    pdbs={"1bfz": "tests/data/1bfz.pdb"}
+    #gammas = {"original":"frustratometer/data/AWSEM_2015.json", "ddG":"frustratometer/data/AWSEM_ddG_trained.json"}
+    gammas = {"original":"frustratometer/data/AWSEM_2015.json"}
 
     for pdb_name in pdbs:
         native_pdb = pdbs[pdb_name]
-        print(f"Native PDB: {pdb_name}")
+        
         structure_bound = Structure.full_pdb(native_pdb, chain=None)
         structure_free = Structure.full_pdb(native_pdb, "A")
 
@@ -1068,7 +1238,7 @@ if __name__ == '__main__':
         for gamma_name in gammas:
             
             gamma = gammas[gamma_name]
-            print(f"Gamma file: {gamma_name}")
+            
 
             model_bound = AWSEM(structure_bound, distance_cutoff_contact=10, min_sequence_separation_contact=2, expose_indicator_functions=True, gamma=gamma)
             model_free = AWSEM(structure_free, distance_cutoff_contact=10, min_sequence_separation_contact=2, expose_indicator_functions=True, gamma=gamma)
@@ -1077,8 +1247,9 @@ if __name__ == '__main__':
             print(model_bound.sequence)
             print(model_free.sequence)
 
-            energy_bound = AwsemEnergySelected(model_bound, alphabet=reduced_alphabet,selection=np.array(range(len(model_free.sequence))))
-            energy_free = AwsemEnergy(model_free, alphabet=reduced_alphabet)
+            binding_region=np.array([1, 2, 3, 4, 26, 27, 28, 29, 30, 31, 32, 33, 49, 50, 51, 52, 53, 54, 55, 56, 57, 68, 69, 70, 90, 91, 92, 93, 94, 95, 96, 97, 109, 110, 111, 112, 113, 114, 115, 116, 117, 127, 128, 129, 130, 131, 132, 133, 134, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 190, 191, 192, 193, 194, 195, 196, 197])-1
+            energy_bound = AwsemEnergySelected(model_bound, alphabet=reduced_alphabet, selection = binding_region) #selection=np.array(range(len(model_free.sequence)))
+            energy_free = AwsemEnergySelected(model_free, alphabet=reduced_alphabet, selection = binding_region)
             energy_average = AwsemEnergyAverage(model_free, alphabet=reduced_alphabet)
             energy_std = AwsemEnergyStd(model_free, alphabet=reduced_alphabet)
             energy_variance = AwsemEnergyVariance(model_free, alphabet=reduced_alphabet)
@@ -1086,28 +1257,73 @@ if __name__ == '__main__':
             similarity = Similarity(model_free.sequence, use_numba=True)
 
             # energy_mix = energy_free - 20 * heterogeneity
-            energy_mix = (energy_free - energy_average) / energy_std + (energy_bound - energy_free)
+            energy_mix = (energy_free - energy_average) / energy_std
             # energy_mix = energy_bound - energy_free
             
-            energy_mixes = {"Ivan":energy_bound - 40 * heterogeneity, 
-                            "Takada": (energy_bound - energy_average) / energy_std, 
-                            "Ivan_binding":(energy_bound - energy_free) - 40 * heterogeneity,
-                            "Takada_binding":(energy_free - energy_average) / energy_std + (energy_bound - energy_free),
-                            "Ivan_Takada_binding": (energy_free - energy_average) / energy_std + (energy_bound - energy_free) - 40 * heterogeneity,
-                            "Corrected_Takada": (energy_bound - energy_average) / (energy_std+5), 
-                            "Corrected_Takada_binding":(energy_free - energy_average) / (energy_std+5) + (energy_bound - energy_free),
-                            "Ivan_Corrected_Takada_binding": (energy_free - energy_average) / (energy_std+5) + (energy_bound - energy_free) - 40 * heterogeneity,
-                            "Ivan_bindidng similarity": (energy_bound - energy_free) - 40 * heterogeneity - 100*similarity,
-                            "Corrected_Takada_binding_similarity":(energy_free - energy_average) / (energy_std+5) + (energy_bound - energy_free) - 100*similarity}
+            if False:
+                    # Profiling of the parallel tempering
+                import cProfile
+                import pstats
+                import io
 
-            for energy_mix_name in energy_mixes:
-                energy_mix = energy_mixes[energy_mix_name]
-                monte_carlo = MonteCarlo(sequence=model_free.sequence,  energy=energy_mix, alphabet=reduced_alphabet, 
-                                        evaluation_energies={"EnergyFree": energy_free, "EnergyBound": energy_bound, "Heterogeneity": heterogeneity, "EnergyAverage": energy_average, "EnergyStd": energy_std, "Binding": (energy_bound - energy_free), "Similarity": similarity, "Zscore":(energy_free - energy_average) / energy_std})
-                
+                monte_carlo = MonteCarlo(sequence='A'*len(binding_region),  energy=energy_mix, alphabet=reduced_alphabet, 
+                                                evaluation_energies={"EnergyFree": energy_free, "EnergyBound": energy_bound, "Heterogeneity": heterogeneity, 
+                                                                    "EnergyAverage": energy_average, "EnergyStd": energy_std, "Binding": (energy_bound - energy_free), 
+                                                                    "Similarity": similarity, "Zscore":(energy_free - energy_average) / energy_std})
+                        
                 monte_carlo.benchmark_montecarlo_steps(n_repeats=3, n_steps=1000)
-                csv_filename = f"Montecarlov2_{energy_mix_name}_pdb_{pdb_name}_gamma_{gamma_name}_1E5.csv"
-                monte_carlo.annealing(temperatures=np.logspace(2,-4,36), n_steps=1E5, csv_filename=csv_filename)
+
+                # Run the profiler
+                profiler = cProfile.Profile()
+                profiler.enable()
+
+                monte_carlo.parallel_tempering(temperatures=np.logspace(3,-4,8), n_steps=1E5, n_steps_per_cycle=1E3)
+                profiler.disable()
+                
+                # Print the stats
+                s = io.StringIO()
+                ps = pstats.Stats(profiler, stream=s).sort_stats('cumulative')
+                ps.print_stats()
+                ps.dump_stats('parallel_temperingv2.prof')
+
+
+            if False:
+                energy_mixes = {"Ivan":energy_bound - 40 * heterogeneity, 
+                                "Takada": (energy_bound - energy_average) / energy_std, 
+                                "Ivan_binding":(energy_bound - energy_free) - 40 * heterogeneity,
+                                "Takada_binding":(energy_free - energy_average) / energy_std + (energy_bound - energy_free),
+                                "Ivan_Takada_binding": (energy_free - energy_average) / energy_std + (energy_bound - energy_free) - 40 * heterogeneity,
+                                "Corrected_Takada": (energy_bound - energy_average) / (energy_std+5), 
+                                "Corrected_Takada_binding":(energy_free - energy_average) / (energy_std+5) + (energy_bound - energy_free),
+                                "Ivan_Corrected_Takada_binding": (energy_free - energy_average) / (energy_std+5) + (energy_bound - energy_free) - 40 * heterogeneity,
+                                "Ivan_bindidng similarity": (energy_bound - energy_free) - 40 * heterogeneity - 100*similarity,
+                                "Corrected_Takada_binding_similarity":(energy_free - energy_average) / (energy_std+5) + (energy_bound - energy_free) - 100*similarity,
+                                "Ivan_bindidng_similarityv2": (energy_bound - energy_free) - 40 * heterogeneity,
+                }
+
+                for energy_mix_name in energy_mixes:
+                    print(f"Native PDB: {pdb_name}")
+                    print(f"Gamma file: {gamma_name}")
+                    print(f"Energy mix: {energy_mix_name}")
+                    energy_mix = energy_mixes[energy_mix_name]
+                    monte_carlo = MonteCarlo(sequence='A'*len(binding_region),  energy=energy_mix, alphabet=reduced_alphabet, 
+                                            evaluation_energies={"EnergyFree": energy_free, "EnergyBound": energy_bound, "Heterogeneity": heterogeneity, "EnergyAverage": energy_average, "EnergyStd": energy_std, "Binding": (energy_bound - energy_free), "Similarity": similarity, "Zscore":(energy_free - energy_average) / energy_std})
+                    
+                    monte_carlo.benchmark_montecarlo_steps(n_repeats=3, n_steps=1000)
+                    csv_filename = f"Montecarlov2_{energy_mix_name}_pdb_{pdb_name}_gamma_{gamma_name}_1E5.csv"
+                    seq_index = monte_carlo.annealing(temperatures=np.logspace(2,-4,36), n_steps=1E5, csv_filename=csv_filename)
+                    seq = index_to_sequence(seq_index, alphabet=reduced_alphabet)
+                    complete_seq = ""
+                    c=0
+                    for i,x in enumerate(model_free.sequence):
+                        if i in binding_region:
+                            complete_seq+=seq[c]
+                            c+=1
+                        else:
+                            complete_seq+=x
+                    print("Complete sequence ",complete_seq)
+                    
+                    
 
 
     #energy_terms={"energy_bound": energy_bound, "energy_free": energy_free, "energy_free2": energy_free2, "heterogeneity": heterogeneity, "energy_average": energy_average, "energy_variance":energy_variance, "energy_mix":energy_mix}
@@ -1136,7 +1352,7 @@ if __name__ == '__main__':
 
 
 
-    if False:
+    if True:
         # Benchmarking of terms    
         energy_terms={"energy_bound": energy_bound, "energy_free": energy_free, "heterogeneity": heterogeneity, "energy_average": energy_average, "energy_variance":energy_variance, "energy_mix":energy_mix}
 
