@@ -373,23 +373,23 @@ class DCA(Frustratometer):
         return self
 
 
-    @classmethod
-    def from_alignment(cls,
-                       alignment: str,
-                       pdb_file: str,
-                       chain: str,
-                       sequence_cutoff: Union[float, None] = None,
-                       distance_cutoff: Union[float, None] = None,
-                       distance_matrix_method='minimum')->object:
+    # @classmethod
+    # def from_alignment(cls,
+    #                    alignment: str,
+    #                    pdb_file: str,
+    #                    chain: str,
+    #                    sequence_cutoff: Union[float, None] = None,
+    #                    distance_cutoff: Union[float, None] = None,
+    #                    distance_matrix_method='minimum')->object:
         
-        # Compute dca
-        potts_model = dca.pydca.plmdca(alignment)
-        return cls.from_pottsmodel(potts_model, 
-                                   pdb_file=pdb_file, 
-                                   chain=chain, 
-                                   sequence_cutoff=sequence_cutoff, 
-                                   distance_cutoff=distance_cutoff, 
-                                   distance_matrix_method=distance_matrix_method)
+    #     # Compute dca
+    #     potts_model = dca.pydca.plmdca(alignment)
+    #     return cls.from_pottsmodel(potts_model, 
+    #                                pdb_file=pdb_file, 
+    #                                chain=chain, 
+    #                                sequence_cutoff=sequence_cutoff, 
+    #                                distance_cutoff=distance_cutoff, 
+    #                                distance_matrix_method=distance_matrix_method)
 
 
 
