@@ -114,7 +114,7 @@ def download_aligment(pfamid: str, output_file: Union[Path,str],
     Returns
     -------
     output_file : Path
-        location of alignment
+        Output file (in stockholm format)
     
     """
     url = f'https://www.ebi.ac.uk/interpro/api/entry/pfam/{pfamid}/?annotation=alignment:{alignment_type}'
