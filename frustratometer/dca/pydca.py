@@ -1,15 +1,17 @@
 import numpy as np
 import pydca
+from typing import Union
+from pathlib import Path
 
-def plmdca(filtered_alignment_file,
-            sequence_type='protein',
-            seqid=0.8, 
-            lambda_h=1.0,
-            lambda_J=20.0,
-            num_threads=10,
-            max_iterations=500,
-            verbose=False,
-            msa_file_format='fasta'):
+def plmdca(filtered_alignment_file : Union[Path,str],
+            sequence_type : str='protein',
+            seqid : float =0.8, 
+            lambda_h : float=1.0,
+            lambda_J : float=20.0,
+            num_threads : int =10,
+            max_iterations : int=500,
+            verbose : bool=False,
+            msa_file_format : str='fasta')-> dict:
     plmdca_inst = pydca.plmdca.PlmDCA(msa_file=filtered_alignment_file,
                                         biomolecule=sequence_type, 
                                         seqid = seqid,
