@@ -1,12 +1,13 @@
 from Bio import AlignIO
 import numpy as np
 from pathlib import Path
+from typing import Union
 
 import logging
 logger = logging.getLogger(__name__)
 
-def filter_alignment(alignment_file:str, 
-                     output_file:str = None,
+def filter_alignment(alignment_file: Union[Path,str], 
+                     output_file:str,
                      alignment_format:str = "stockholm")->Path:
     """
     Filter stockholm alignment by removing unaligned sections.
@@ -14,10 +15,10 @@ def filter_alignment(alignment_file:str,
 
     Parameters
     ----------
-    alignment_file : str
-        location of file
+    alignment_file : Path or str
+        Alignment file name
     output_file : str
-        location of the output_file
+        Output file name
     alignment_format : str
         Biopython alignment format (Default: stockholm)
     Returns
