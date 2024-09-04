@@ -446,7 +446,19 @@ def test_initialize_from_pdb():
 
 
 def test_from_potts_model_file():
-    pass
+    pdb_file = f'{data_path}/6JXX_A.pdb'
+    chain = 'A'
+    distance_matrix_method='CB'
+    potts_model_file = f"{data_path}/PF11976_PFAM_27_dca_gap_threshold_0.2.mat"
+    filtered_aligned_sequence="INLKVAGQDGSVVQFKIKRHTPLSKLMKAYCERQGLSM-RQIRFRFDGQPINETDTPAQLEMEDEDTIDV--"
+    aligned_sequence=subprocess.check_output(["sed","-n",""'/>%s$/,/>/p'"" % "6JXX_A",f'{data_path}/PF11976_all_pseudogene_parent_sequences_aligned_PFAM_27.fasta'])
+    aligned_sequence="".join(aligned_sequence.decode().split("\n")[1:-2])
+
+    structure=frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence,aligned_sequence=aligned_sequence)
+    model = frustratometer.DCA.from_potts_model_file(structure, potts_model_file, distance_cutoff=16,
+                                                                sequence_cutoff=1,reformat_potts_model=True)
+    assert model.potts_model["J"].shape==(len(filtered_aligned_sequence),len(filtered_aligned_sequence),21,21)
+    assert model.potts_model["h"].shape==(len(filtered_aligned_sequence),21)
 
 def from_pfam_alignment():
     pass
