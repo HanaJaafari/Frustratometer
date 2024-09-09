@@ -140,8 +140,6 @@ def test_mean_inner_product():
 def test_diff_inner_product(n_elements=20):
     
     #Check that the difference of two build_mean_inner_product_matrix is the same as diff_build_mean_inner_product_matrix
-    matrix1d=np.random.rand(n_elements)
-    matrix2d=np.random.rand(n_elements,n_elements)
     seq_len=50
     repetitions=np.random.randint(0,n_elements,size=seq_len)
     r0=np.random.randint(0,n_elements)
@@ -198,7 +196,7 @@ def test_diff_mean_inner_product_2_by_2(n_elements = 10):
         n = m.copy()
         n[r0] -= 1
         n[r1] += 1
-        result_adjusted = diff_mean_inner_product_2_by_2_v2(r0, r1, repetitions, region_mean)
+        result_adjusted = diff_mean_inner_product_2_by_2(r0, r1, repetitions, region_mean)
         
         # Recompute the functions for new and original repetitions directly
         result_new_reps = mean_inner_product_2_by_2(n, region_mean)
@@ -236,7 +234,7 @@ def test_diff_mean_inner_product_2_by_2_edge_case(n_elements = 10):
     n = m.copy()
     n[r0] -= 1
     n[r1] += 1
-    result_adjusted = diff_mean_inner_product_2_by_2_v2(r0, r1, repetitions, region_mean)
+    result_adjusted = diff_mean_inner_product_2_by_2(r0, r1, repetitions, region_mean)
     
     # Recompute the functions for new and original repetitions directly
     result_new_reps = mean_inner_product_2_by_2(n, region_mean)
