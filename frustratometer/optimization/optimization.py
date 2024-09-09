@@ -879,6 +879,7 @@ class MonteCarlo:
         compute_energy=self.energy.energy_function
         mutation_energy=self.energy.denergy_mutation_function
         swap_energy=self.energy.denergy_swap_function
+        compute_energies=self.energy.energies_function
 
         def sequence_swap(seq_index):
             seq_index_new = seq_index.copy()
@@ -952,7 +953,7 @@ class MonteCarlo:
         def parallel_tempering_steps(seq_indices, temperatures, n_steps, n_steps_per_cycle):
             for s in range(n_steps//n_steps_per_cycle):
                 seq_indices = parallel_montecarlo_step(seq_indices, temperatures, n_steps_per_cycle)
-                energies = self.energy.energies(seq_indices)
+                energies = compute_energies(seq_indices)
                 # Yield data every 10 exchanges
                 if s % 10 == 9:
                     yield s, seq_indices, energies
