@@ -457,6 +457,9 @@ def test_from_potts_model_file():
     structure=frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence,aligned_sequence=aligned_sequence)
     model = frustratometer.DCA.from_potts_model_file(structure, potts_model_file, distance_cutoff=16,
                                                                 sequence_cutoff=1,reformat_potts_model=True)
+
+    e = model.native_energy(sequence=filtered_aligned_sequence)
+    assert np.round(e, 4) == -523.2471
     assert model.potts_model["J"].shape==(len(filtered_aligned_sequence),len(filtered_aligned_sequence),21,21)
     assert model.potts_model["h"].shape==(len(filtered_aligned_sequence),21)
 
