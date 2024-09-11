@@ -330,7 +330,7 @@ class DCA(Frustratometer):
         query_sequence_database_file : Path or str
             File name of sequence database.
         DCA_format : str
-            Current option is "plmDCA"
+            Options are "plmDCA" and "mfDCA"
         sequence_cutoff : float
             Sequence seperation cutoff; the couplings terms of contacts that are separated by more than this cutoff will be ignored.
         distance_cutoff : float
@@ -346,16 +346,15 @@ class DCA(Frustratometer):
         self._chain=pdb_structure.chain
         self._sequence=pdb_structure.sequence
         self._pdb_file=pdb_structure.pdb_file
-        self._potts_model=potts_model
         self._sequence_cutoff=sequence_cutoff
         self._distance_cutoff=distance_cutoff
         self._distance_matrix_method=None
 
-        self._alignment_output_file_name = alignment_output_file_name
-        self._filtered_alignment_output_file_name = filtered_alignment_output_file_name
-        self._query_sequence_database_file=query_sequence_database_file
+        self.alignment_output_file_name = alignment_output_file_name
+        self.filtered_alignment_output_file_name = filtered_alignment_output_file_name
+        self.query_sequence_database_file=query_sequence_database_file
 
-        self._DCA_format=DCA_format
+        self.DCA_format=DCA_format
         
         self.mapped_distance_matrix=pdb_structure.mapped_distance_matrix
         self.distance_matrix=self.mapped_distance_matrix
@@ -363,10 +362,13 @@ class DCA(Frustratometer):
 
         self.minimally_frustrated_threshold=1
 
-        self._alignment_file=align.jackhmmer(self.sequence,self.alignment_file)
-        self._filtered_alignment_file=filter.filter_alignment(self.alignment_output_file_name,self.filtered_alignment_output_file_name,self.query_sequence_database_file)
+        self.alignment_file=align.jackhmmer(self.sequence,self.alignment_output_file_name,self.query_sequence_database_file)
+        self.filtered_alignment_file=filter.filter_alignment(self.alignment_output_file_name,self.filtered_alignment_output_file_name)
 
-        self._potts_model=dca.pydca.plmdca(self.filtered_alignment_file)
+        if self.DCA_format=="plmDCA":
+            self.potts_model=dca.pydca.plmdca(str(self.filtered_alignment_file))
+        else:
+            self.potts_model=dca.pydca.mfdca(str(self.filtered_alignment_file))
 
         self.aa_freq = None
         self.contact_freq = None 
