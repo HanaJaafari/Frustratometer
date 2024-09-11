@@ -432,9 +432,6 @@ def test_compute_mutational_DCA_decoy_energy():
     assert (decoy_energy[pos_x, pos_y, aa_x, aa_y] - test_energy) ** 2 < 1E-16
 
 
-
-
-
 @pytest.mark.xfail
 def test_initialize_from_pdb():
     PFAM_id='PFxxxxx'
@@ -443,6 +440,10 @@ def test_initialize_from_pdb():
     potts_model=frustratometer.DCA.from_PFAM(PFAM_id)
     potts_model.set_structure(pdb)
     assert potts_model.compute_native_energy()==expected_energy
+
+#####
+#Test DCA Class Methods
+#####
 
 
 def test_from_potts_model_file():
@@ -463,8 +464,26 @@ def test_from_potts_model_file():
     assert model.potts_model["J"].shape==(len(filtered_aligned_sequence),len(filtered_aligned_sequence),21,21)
     assert model.potts_model["h"].shape==(len(filtered_aligned_sequence),21)
 
-def from_pfam_alignment():
-    pass
+def test_from_pfam_alignment():
+    pdb_file = f'{data_path}/6JXX_A.pdb'
+    chain = 'A'
+    distance_matrix_method='CB'
+    potts_model_file = f"{data_path}/PF11976_PFAM_27_dca_gap_threshold_0.2.mat"
+    alignment_output_file_name=f"{data_path}/PF11976_test_alignment.sto"
+    filtered_alignment_output_file_name=f"{data_path}/PF11976_test_filtered_alignment.sto"
+    PFAM_ID="PF11976"
+    
+    filtered_aligned_sequence="INLKVAGQDGSVVQFKIKRHTPLSKLMKAYCERQGLSM-RQIRFRFDGQPINETDTPAQLEMEDEDTIDV--"
+    aligned_sequence=subprocess.check_output(["sed","-n",""'/>%s$/,/>/p'"" % "6JXX_A",f'{data_path}/PF11976_all_pseudogene_parent_sequences_aligned_PFAM_27.fasta'])
+    aligned_sequence="".join(aligned_sequence.decode().split("\n")[1:-2])
+
+    structure=frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence,aligned_sequence=aligned_sequence)
+    model = frustratometer.DCA.from_pfam_alignment(structure, alignment_output_file_name=alignment_output_file_name,filtered_alignment_output_file_name=filtered_alignment_output_file_name,PFAM_ID=PFAM_ID,distance_cutoff=16,sequence_cutoff=1)
+
+    e = model.native_energy(sequence=filtered_aligned_sequence)
+    # assert np.round(e, 4) == -523.2471
+    assert model.potts_model["J"].shape==(len(filtered_aligned_sequence),len(filtered_aligned_sequence),21,21)
+    assert model.potts_model["h"].shape==(len(filtered_aligned_sequence),21)
 
 def from_hmmer_alignment():
     pass
