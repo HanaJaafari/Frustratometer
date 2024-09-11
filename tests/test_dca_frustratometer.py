@@ -464,21 +464,42 @@ def test_from_potts_model_file():
     assert model.potts_model["J"].shape==(len(filtered_aligned_sequence),len(filtered_aligned_sequence),21,21)
     assert model.potts_model["h"].shape==(len(filtered_aligned_sequence),21)
 
-def test_from_pfam_alignment():
+def test_from_pfam_alignment_mfDCA_calculation():
     pdb_file = f'{data_path}/6JXX_A.pdb'
     chain = 'A'
     distance_matrix_method='CB'
-    potts_model_file = f"{data_path}/PF11976_PFAM_27_dca_gap_threshold_0.2.mat"
     alignment_output_file_name=f"{data_path}/PF11976_test_alignment.sto"
     filtered_alignment_output_file_name=f"{data_path}/PF11976_test_filtered_alignment.sto"
     PFAM_ID="PF11976"
+    DCA_format="mfDCA"
     
     filtered_aligned_sequence="INLKVAGQDGSVVQFKIKRHTPLSKLMKAYCERQGLSM-RQIRFRFDGQPINETDTPAQLEMEDEDTIDV--"
     aligned_sequence=subprocess.check_output(["sed","-n",""'/>%s$/,/>/p'"" % "6JXX_A",f'{data_path}/PF11976_all_pseudogene_parent_sequences_aligned_PFAM_27.fasta'])
     aligned_sequence="".join(aligned_sequence.decode().split("\n")[1:-2])
 
     structure=frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence,aligned_sequence=aligned_sequence)
-    model = frustratometer.DCA.from_pfam_alignment(structure, alignment_output_file_name=alignment_output_file_name,filtered_alignment_output_file_name=filtered_alignment_output_file_name,PFAM_ID=PFAM_ID,distance_cutoff=16,sequence_cutoff=1)
+    model = frustratometer.DCA.from_pfam_alignment(structure, alignment_output_file_name=alignment_output_file_name,filtered_alignment_output_file_name=filtered_alignment_output_file_name,PFAM_ID=PFAM_ID,distance_cutoff=16,sequence_cutoff=1,DCA_format=DCA_format)
+
+    e = model.native_energy(sequence=filtered_aligned_sequence)
+    # assert np.round(e, 4) == -523.2471
+    assert model.potts_model["J"].shape==(len(filtered_aligned_sequence),len(filtered_aligned_sequence),21,21)
+    assert model.potts_model["h"].shape==(len(filtered_aligned_sequence),21)
+
+def test_from_pfam_alignment_plmDCA_calculation():
+    pdb_file = f'{data_path}/6JXX_A.pdb'
+    chain = 'A'
+    distance_matrix_method='CB'
+    alignment_output_file_name=f"{data_path}/PF11976_test_alignment.sto"
+    filtered_alignment_output_file_name=f"{data_path}/PF11976_test_filtered_alignment.sto"
+    PFAM_ID="PF11976"
+    DCA_format="plmDCA"
+    
+    filtered_aligned_sequence="INLKVAGQDGSVVQFKIKRHTPLSKLMKAYCERQGLSM-RQIRFRFDGQPINETDTPAQLEMEDEDTIDV--"
+    aligned_sequence=subprocess.check_output(["sed","-n",""'/>%s$/,/>/p'"" % "6JXX_A",f'{data_path}/PF11976_all_pseudogene_parent_sequences_aligned_PFAM_27.fasta'])
+    aligned_sequence="".join(aligned_sequence.decode().split("\n")[1:-2])
+
+    structure=frustratometer.Structure.full_pdb(pdb_file,chain,distance_matrix_method=distance_matrix_method,filtered_aligned_sequence=filtered_aligned_sequence,aligned_sequence=aligned_sequence)
+    model = frustratometer.DCA.from_pfam_alignment(structure, alignment_output_file_name=alignment_output_file_name,filtered_alignment_output_file_name=filtered_alignment_output_file_name,PFAM_ID=PFAM_ID,distance_cutoff=16,sequence_cutoff=1,DCA_format=DCA_format)
 
     e = model.native_energy(sequence=filtered_aligned_sequence)
     # assert np.round(e, 4) == -523.2471
