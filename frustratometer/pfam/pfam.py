@@ -4,12 +4,13 @@ import logging
 import gzip
 from ..utils import create_directory
 import glob
+from typing import Union
 
 
 #Download whole database
-def download_database(path,
-             name='PFAM_current',
-             url="https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.full.uniprot.gz"):
+def download_database(path: Union[Path,str],
+             name: str ='PFAM_current',
+             url: Union[Path,str] ="https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.full.uniprot.gz")->Path:
     """
     Downloads and creates a pfam database in the Database folder
 
@@ -22,7 +23,7 @@ def download_database(path,
 
     Returns
     -------
-    alignments_path: str
+    alignments_path: Path
         Path of the local database of alignments
     """
 
@@ -69,13 +70,13 @@ def download_database(path,
     return alignments_path
 
 # Get a single alignment
-def get_alignment(pfamid, database_path):
+def get_alignment(pfamid: str, database_path: Union[Path,str])->Path:
     """
     Retrieves a pfam family alignment from local database
 
     Parameters
     ----------
-    pfamid : str,
+    pfamid : str
         ID of PFAM family. ex: PF00001
     database_path: str
         Address of local database
@@ -96,9 +97,8 @@ def get_alignment(pfamid, database_path):
         raise(IOError, 'Multiple files found')
     return Path(files[0])
 
-def download_aligment(pfamid,
-              output_file,
-              alignment_type='full'):
+def download_aligment(pfamid: str, output_file: Union[Path,str],
+              alignment_type: str ='full')->bytes:
     """
     Retrieves a pfam family alignment from interpro
 
