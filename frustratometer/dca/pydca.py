@@ -3,7 +3,7 @@ import pydca
 from typing import Union
 from pathlib import Path
 
-def plmdca(filtered_alignment_file : Union[Path,str],
+def plmdca(filtered_alignment_file : str,
             sequence_type : str='protein',
             seqid : float =0.8, 
             lambda_h : float=1.0,
@@ -30,7 +30,7 @@ def plmdca(filtered_alignment_file : Union[Path,str],
     potts_model['L'] = plmdca_inst.num_sequences
     return potts_model
 
-def mfdca(filtered_alignment_file):
+def mfdca(filtered_alignment_file : str)->dict:
     mfdca_inst = pydca.meanfield_dca.MeanFieldDCA(filtered_alignment_file,'protein')
     N = mfdca_inst.sequences_len
     q = mfdca_inst.num_site_states
