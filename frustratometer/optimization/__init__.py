@@ -1,1 +1,2 @@
 from .optimization import *
+from .inner_product import build_mean_inner_product_matrix, permutation_numpy_inner_product

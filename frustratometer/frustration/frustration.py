@@ -855,7 +855,7 @@ def plot_singleresidue_decoy_energy(decoy_energy, native_energy, method='cluster
 
 
 def write_tcl_script(pdb_file: Union[Path,str], chain: str, mask: np.array, distance_matrix: np.array, distance_cutoff: float, single_frustration: np.array,
-                    pair_frustration: np.array, tcl_script: Union[Path, str] ='frustration.tcl',max_connections: int =None, movie_name: Union[Path, str] =None)->Union[Path, str]:
+                    pair_frustration: np.array, tcl_script: Union[Path, str] ='frustration.tcl',max_connections: int =None, movie_name: Union[Path, str] =None, still_image_name: Union[Path, str] =None) -> Union[Path, str]:
     """
     Writes a tcl script that can be run with VMD to superimpose the frustration patterns onto the corresponding PDB structure. 
 
@@ -880,7 +880,9 @@ def write_tcl_script(pdb_file: Union[Path,str], chain: str, mask: np.array, dist
     max_connections : int
         Maximum number of pair frustration values visualized in tcl file
     movie_name : Path or str
-        Output tcl script file with rotating structure
+        Output movie file with rotating structure
+    still_image_name : Path or str
+        Output image file with still image
     
 
     Returns
@@ -914,6 +916,7 @@ def write_tcl_script(pdb_file: Union[Path,str], chain: str, mask: np.array, dist
     sel_frustration = sel_frustration[mask_dist & (sel_frustration[:, -1] > 0)]
     
     minimally_frustrated = sel_frustration[sel_frustration[:, 2] < -0.78]
+    #minimally_frustrated = sel_frustration[sel_frustration[:, 2] < -1.78]
     sort_index = np.argsort(minimally_frustrated[:, 2])
     minimally_frustrated = minimally_frustrated[sort_index]
     if max_connections:
@@ -924,6 +927,8 @@ def write_tcl_script(pdb_file: Union[Path,str], chain: str, mask: np.array, dist
     for (r1, r2, f, d ,m) in minimally_frustrated:
         r1=int(r1)
         r2=int(r2)
+        if abs(r1-r2) == 1: # don't draw interactions between residues adjacent in sequence
+            continue
         pos1 = selection.select(f'resid {r1} and chain {chain} and (name CB or (resname GLY and name CA))').getCoords()[0]
         pos2 = selection.select(f'resid {r2} and chain {chain} and (name CB or (resname GLY and name CA))').getCoords()[0]
         distance = np.linalg.norm(pos1 - pos2)
@@ -937,6 +942,7 @@ def write_tcl_script(pdb_file: Union[Path,str], chain: str, mask: np.array, dist
             fo.write(f'draw line $pos1 $pos2 style dashed width 2\n')
 
     frustrated = sel_frustration[sel_frustration[:, 2] > 1]
+    #frustrated = sel_frustration[sel_frustration[:, 2] > 0]
     sort_index = np.argsort(frustrated[:, 2])[::-1]
     frustrated = frustrated[sort_index]
     if max_connections:
@@ -1016,6 +1022,11 @@ def write_tcl_script(pdb_file: Union[Path,str], chain: str, mask: np.array, dist
                 set output [format "%s/$basename.%05d.tga" $workdir $i]
                 exec rm $output
             }
+            exit
+        ''')
+    elif still_image_name:
+        fo.write(f'set output "{still_image_name}"' + '''
+            render snapshot $output
             exit
         ''')
     fo.close()

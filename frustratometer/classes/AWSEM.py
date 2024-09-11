@@ -2,14 +2,15 @@ import numpy as np
 from ..utils import _path
 from .. import frustration
 from .Frustratometer import Frustratometer
+from .Gamma import Gamma
 from pydantic import BaseModel, Field, ConfigDict
 from pydantic.types import Path
-from typing import List,Optional
+from typing import List,Optional,Union
 
 __all__ = ['AWSEM']
 
 class AWSEMParameters(BaseModel):
-    model_config = ConfigDict(extra='ignore')
+    model_config = ConfigDict(extra='ignore', arbitrary_types_allowed=True)
     """Default parameters for AWSEM energy calculations."""
     k_contact: float = Field(4.184, description="Coefficient for contact potential. (kJ/mol)")
     
@@ -30,37 +31,27 @@ class AWSEMParameters(BaseModel):
     r_max: float = Field(6.5, description="Maximum distance for direct contact potential. (Angstrom)")
     
     #Mediated contacts
+    gamma: Union[Path,Gamma] = Field(_path/'data'/'AWSEM_2015.json', description="File or Gamma object containing the Gamma values")
     r_minII: float = Field(6.5, description="Minimum distance for mediated contact potential. (Angstrom)")
     r_maxII: float = Field(9.5, description="Maximum distance for mediated contact potential. (Angstrom)")
     eta_sigma: float = Field(7.0, description="Sharpness of the density-based switching function between protein-mediated and water-mediated contacts.")
-
-    #Gamma files
-    burial_gamma_file: Path = Field(_path/'data'/'burial_gamma', description="File containing the burial gamma values.")
-    direct_gamma_file: Path = Field(_path/'data'/'gamma_ijm', description="File containing the gamma_ijm values.")
-    water_gamma_file: Path = Field(_path/'data'/'water_gamma_ijm', description="File containing the water gamma_ijm values.")
-    protein_gamma_file: Path = Field(_path/'data'/'protein_gamma_ijm', description="File containing the protein gamma_ijm values.")
     
-    #Membrane
-    eta_switching: int = Field(10, description="Switching distance for the membrane switching function")
 
-    #Membrane gamma files
-    membrane_burial_file: Path = Field(_path/'data'/'membrane_gamma_ijm', description="File containing the membrane gamma_ijm values.")
-    membrane_direct_gamma_file: Path = Field(_path/'data'/'membrane_gamma_ijm', description="File containing the membrane gamma_ijm values.")
-    membrane_water_gamma_file: Path = Field(_path/'data'/'membrane_gamma_ijm_water', description="File containing the membrane gamma_ijm water values.")
-    membrane_protein_gamma_file: Path = Field(_path/'data'/'membrane_gamma_ijm_protein', description="File containing the membrane gamma_ijm protein values.")
+    #Membrane
+    membrane_gamma: Union[Path,Gamma] = Field(_path/'data'/'AWSEM_membrane_2015.json', description="File or Gamma object containing the membrane Gamma values (for membrane proteins)")
+    eta_switching: int = Field(10, description="Switching distance for the membrane switching function")
 
     #Electrostatics
     min_sequence_separation_electrostatics: Optional[int] = Field(1, description="Minimum sequence separation for electrostatics calculation.")
     k_electrostatics: float = Field(17.3636, description="Coefficient for electrostatic interactions. (kJ/mol)")
     electrostatics_screening_length: float = Field(10, description="Screening length for electrostatic interactions. (Angstrom)")
 
-
 class AWSEM(Frustratometer):
     #Mapping to DCA
     q = 20
-    aa_map_awsem_list = [0, 0, 4, 3, 6, 13, 7, 8, 9, 11, 10, 12, 2, 14, 5, 1, 15, 16, 19, 17, 18] #A gap is equivalent to Alanine
+    aa_map_awsem_list = [0, 0, 4, 3, 6, 13, 7, 8, 9, 11, 10, 12, 2, 14, 5, 1, 15, 16, 19, 17, 18] #A gap has no energy
     aa_map_awsem_x, aa_map_awsem_y = np.meshgrid(aa_map_awsem_list, aa_map_awsem_list, indexing='ij')
-
+    
     def __init__(self, 
                  pdb_structure: object,
                  sequence: str =None,
@@ -95,11 +86,19 @@ class AWSEM(Frustratometer):
         for field, value in p:
             setattr(self, field, value)
         
-        #Gamma files
-        self.burial_gamma = np.fromfile(p.burial_gamma_file).reshape(20, 3)
-        self.direct_gamma = np.fromfile(p.direct_gamma_file).reshape(2, 20, 20)
-        self.water_gamma = np.fromfile(p.water_gamma_file).reshape(2, 20, 20)
-        self.protein_gamma = np.fromfile(p.protein_gamma_file).reshape(2, 20, 20)
+        #Gamma parameters
+        if isinstance(p.gamma, Gamma):
+            gamma = p.gamma
+        elif isinstance(p.gamma, Path):
+            gamma = Gamma(p.gamma)
+        else:
+            raise ValueError("Gamma parameter must be a path or a Gamma object.")
+                
+        self.gamma=gamma
+        self.burial_gamma = gamma['Burial'].T
+        self.direct_gamma = gamma['Direct'][0]
+        self.protein_gamma = gamma['Protein'][0]
+        self.water_gamma = gamma['Water'][0]
 
         #Structure details
         self.full_to_aligned_index_dict=pdb_structure.full_to_aligned_index_dict
@@ -155,24 +154,48 @@ class AWSEM(Frustratometer):
         protein_indicator = thetaII[:, :, np.newaxis, np.newaxis] * sigma_protein[:, :, np.newaxis, np.newaxis]
         
         if expose_indicator_functions:
+            self.indicators=[]
+            self.indicators.append(burial_indicator[:,0])
+            self.indicators.append(burial_indicator[:,1])
+            self.indicators.append(burial_indicator[:,2])
+            
+            self.indicators.append(direct_indicator[:,:,0,0]*sequence_mask_contact)
+            self.indicators.append(protein_indicator[:,:,0,0]*sequence_mask_contact)
+            self.indicators.append(water_indicator[:,:,0,0]*sequence_mask_contact)
+            
+            self.gamma_array=[]
+            temp_burial_gamma=self.burial_gamma[self.aa_map_awsem_list]
+            temp_burial_gamma[0]=0
+            temp_burial_gamma *= -0.5 * p.k_contact
+            self.gamma_array.append(temp_burial_gamma[:,0])
+            self.gamma_array.append(temp_burial_gamma[:,1])
+            self.gamma_array.append(temp_burial_gamma[:,2])
+
+            for contact_gamma in [self.direct_gamma, self.protein_gamma, self.water_gamma]:
+                temp_gamma = contact_gamma[self.aa_map_awsem_x, self.aa_map_awsem_y].copy()
+                temp_gamma[0, :] = 0
+                temp_gamma[:, 0] = 0
+                temp_gamma *= -0.5 * self.k_contact
+                self.gamma_array.append(temp_gamma)
+
             self.burial_indicator = burial_indicator
             self.direct_indicator = direct_indicator
             self.water_indicator = water_indicator
             self.protein_indicator = protein_indicator
-
+            
 
         J_index = np.meshgrid(range(self.N), range(self.N), range(self.q), range(self.q), indexing='ij', sparse=False)
         h_index = np.meshgrid(range(self.N), range(self.q), indexing='ij', sparse=False)
 
         #Burial energy
-        burial_energy = -0.5 * p.k_contact * self.burial_gamma[h_index[1]] * burial_indicator[:, np.newaxis, :]
-        self.burial_energy=burial_energy
+        burial_energy = 0.5 * p.k_contact * self.burial_gamma[h_index[1]] * burial_indicator[:, np.newaxis, :]
+        self.burial_energy = burial_energy
 
         #Contact energy
-        direct = direct_indicator * self.direct_gamma[0, J_index[2], J_index[3]]
-        water_mediated = water_indicator * self.water_gamma[0, J_index[2], J_index[3]]
-        protein_mediated = protein_indicator  * self.protein_gamma[0, J_index[2], J_index[3]]
-        contact_energy = -p.k_contact * np.array([direct, water_mediated, protein_mediated]) * sequence_mask_contact[np.newaxis, :, :, np.newaxis, np.newaxis]
+        direct = direct_indicator * self.direct_gamma[J_index[2], J_index[3]]
+        water_mediated = water_indicator * self.water_gamma[J_index[2], J_index[3]]
+        protein_mediated = protein_indicator  * self.protein_gamma[J_index[2], J_index[3]]
+        contact_energy = p.k_contact * np.array([direct, water_mediated, protein_mediated]) * sequence_mask_contact[np.newaxis, :, :, np.newaxis, np.newaxis]
 
         # Compute electrostatics
         if p.k_electrostatics!=0:
@@ -185,10 +208,16 @@ class AWSEM(Frustratometer):
             charges = np.array([0, 1, 0, -1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
             charges2 = charges[:,np.newaxis]*charges[np.newaxis,:]
 
-            electrostatics_indicator = p.k_electrostatics / (self.distance_matrix + 1E-6) * np.exp(-self.distance_matrix / p.electrostatics_screening_length) * electrostatics_mask
-            electrostatics_energy = (charges2[np.newaxis,np.newaxis,:,:]*electrostatics_indicator[:,:,np.newaxis,np.newaxis])
+            electrostatics_indicator = 1 / (self.distance_matrix + 1E-6) * np.exp(-self.distance_matrix / p.electrostatics_screening_length) * electrostatics_mask
+            electrostatics_energy = -p.k_electrostatics * (charges2[np.newaxis,np.newaxis,:,:]*electrostatics_indicator[:,:,np.newaxis,np.newaxis])
 
             contact_energy = np.append(contact_energy, electrostatics_energy[np.newaxis,:,:,:,:], axis=0)
+            if expose_indicator_functions:
+                self.indicators.append(electrostatics_indicator)
+                temp_gamma=0.5 * p.k_electrostatics * charges2[self.aa_map_awsem_x, self.aa_map_awsem_y]
+                temp_gamma[0,:]=0
+                temp_gamma[:,0]=0
+                self.gamma_array.append(temp_gamma)
         else:
             self.sequence_cutoff=p.min_sequence_separation_contact
             self.distance_cutoff=p.distance_cutoff_contact
@@ -200,8 +229,13 @@ class AWSEM(Frustratometer):
         self.aa_freq = frustration.compute_aa_freq(self.sequence)
         self.contact_freq = frustration.compute_contact_freq(self.sequence)
         self.potts_model = {}
-        self.potts_model['h'] = -burial_energy.sum(axis=-1)[:, self.aa_map_awsem_list]
-        self.potts_model['J'] = -contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
+        self.potts_model['h'] = burial_energy.sum(axis=-1)[:, self.aa_map_awsem_list]
+        self.potts_model['J'] = contact_energy.sum(axis=0)[:, :, self.aa_map_awsem_x, self.aa_map_awsem_y]
+        
+        # Set the gap energy to zero
+        self.potts_model['h'][:, 0] = 0
+        self.potts_model['J'][:, :, 0, :] = 0
+        self.potts_model['J'][:, :, :, 0] = 0
         self._native_energy=None
 
     def compute_configurational_decoy_statistics(self, n_decoys=4000,aa_freq=None):
@@ -250,9 +284,9 @@ class AWSEM(Frustratometer):
             burial_energy1 = (-0.5 * self.k_contact * self.burial_gamma[q1] * burial_indicator[n1]).sum(axis=0)
             burial_energy2 = (-0.5 * self.k_contact * self.burial_gamma[q2] * burial_indicator[n2]).sum(axis=0)
             
-            direct = theta[c] * self.direct_gamma[0, q1, q2]
-            water_mediated = sigma_water[n1,n2] * thetaII[c] * self.water_gamma[0,q1,q2]
-            protein_mediated = sigma_protein[n1,n2] * thetaII[c] * self.protein_gamma[0,q1,q2]
+            direct = theta[c] * self.direct_gamma[q1, q2]
+            water_mediated = sigma_water[n1,n2] * thetaII[c] * self.water_gamma[q1,q2]
+            protein_mediated = sigma_protein[n1,n2] * thetaII[c] * self.protein_gamma[q1,q2]
             contact_energy = -self.k_contact * (direct+water_mediated+protein_mediated)
             electrostatics_energy = self.k_electrostatics * electrostatics_indicator[c]*charges[q1]*charges[q2]
 
@@ -306,9 +340,9 @@ class AWSEM(Frustratometer):
             burial_energy1 = (-0.5 * self.k_contact * self.burial_gamma[q1] * burial_indicator[n1]).sum(axis=0)
             burial_energy2 = (-0.5 * self.k_contact * self.burial_gamma[q2] * burial_indicator[n2]).sum(axis=0)
             
-            direct = theta[c] * self.direct_gamma[0, q1, q2]
-            water_mediated = sigma_water[n1,n2] * thetaII[c] * self.water_gamma[0,q1,q2]
-            protein_mediated = sigma_protein[n1,n2] * thetaII[c] * self.protein_gamma[0,q1,q2]
+            direct = theta[c] * self.direct_gamma[q1, q2]
+            water_mediated = sigma_water[n1,n2] * thetaII[c] * self.water_gamma[q1,q2]
+            protein_mediated = sigma_protein[n1,n2] * thetaII[c] * self.protein_gamma[q1,q2]
             contact_energy = -self.k_contact * (direct+water_mediated+protein_mediated)
             electrostatics_energy = self.k_electrostatics * electrostatics_indicator[c]*charges[q1]*charges[q2]
 

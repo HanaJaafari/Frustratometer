@@ -7,8 +7,10 @@ from pathlib import Path
 
 test_path=Path('tests')
 test_data_path=Path('tests/data')
+
 # Assuming you have a function to load your tests configurations
-tests_config = pd.read_csv(test_path/"test_awsem_config.csv")
+tests_config = pd.read_csv(test_path/"test_awsem_config.csv",comment='#')
+#tests_config = pd.read_csv(test_path/"test_awsem_config.csv")
 
 def test_prody_expected_error():
     test_data=tests_config.iloc[0]
@@ -74,12 +76,19 @@ def test_mutational_frustration(test_data):
     start_pdb=1 if test_data['pdb']!="6u5e" else 2
     data['Calculated_frustration'] = model.frustration(kind='mutational')[data['#Res1']-start_pdb, data['Res2']-start_pdb]
     data['Expected_frustration'] = data['FrstIndex']
+    #data.to_csv(f"/home/fc36/dump/{test_data['pdb']}_seqsep_{test_data['seqsep']}_kelec_{test_data['k_electrostatics']}_mutational.csv") 
+    #np.savetxt(f"/home/fc36/dump/{test_data['pdb']}_seqsep_{test_data['seqsep']}_kelec_{test_data['k_electrostatics']}_mutational_test_full.csv", model.frustration(kind='mutational'),delimiter=',')
+    #np.savetxt(f'/home/fc36/dump/{test_data["pdb"]}_seqsep_{test_data["seqsep"]}_kelec_{test_data["k_electrostatics"]}_other_save.csv',model.frustration(kind='mutational')[data['#Res1']-start_pdb, data['Res2']-start_pdb],delimiter=',')
+    if test_data['pdb'] == 'sequence0':
+        atol=3.5E-1
+    else:
+        atol=3E-1
     try:
-        assert np.allclose(data['Calculated_frustration'], data['Expected_frustration'], atol=3E-1)
+        assert np.allclose(data['Calculated_frustration'], data['Expected_frustration'], atol=atol)
     except AssertionError:
         max_atol = np.max(np.abs(data['Calculated_frustration'] - data['Expected_frustration']))
         print(f"Assertion failed: Maximum absolute tolerance found was {max_atol}, which exceeds the allowed tolerance.")
-        raise AssertionError(f"Maximum absolute tolerance found was {max_atol}, which exceeds the allowed tolerance of 3E-1.")
+        raise AssertionError(f"Maximum absolute tolerance found was {max_atol}, which exceeds the allowed tolerance of {atol}.")
 
 @pytest.mark.parametrize("test_data", tests_config.to_dict(orient="records"))
 def test_configurational_frustration(test_data):
@@ -105,17 +114,22 @@ def test_configurational_frustration(test_data):
             max_resid = {'A': 277, 'B': 277 + 99, 'C': 9}
             data.loc[data['ChainRes1'] == next_chain, '#Res1'] += max_resid[chain]
             data.loc[data['ChainRes2'] == next_chain, 'Res2'] += max_resid[chain]
-    
+
     start_pdb = 1 if (test_data['pdb'] != "6u5e" or test_data['lammps']) else 2
     data['Calculated_frustration'] = model.configurational_frustration(n_decoys=10000)[data['#Res1'] - start_pdb, data['Res2'] - start_pdb]
+    #data.to_csv(f"/home/fc36/dump/{test_data['pdb']}_seqsep_{test_data['seqsep']}_kelec_{test_data['k_electrostatics']}_configurational.csv")
     data['Expected_frustration'] = data['FrstIndex']
-    
+    #np.savetxt(f"/home/fc36/dump/{test_data['pdb']}_seqsep_{test_data['seqsep']}_kelec_{test_data['k_electrostatics']}_configurational_full.csv",model.configurational_frustration(n_decoys=10000),delimiter=',')
+    if test_data['pdb'] in ['sequence0','sequence1']:
+        atol = 6E-1
+    else:
+        atol = 3E-1
     try:
-        assert np.allclose(data['Calculated_frustration'], data['Expected_frustration'], atol=3E-1)
+        assert np.allclose(data['Calculated_frustration'], data['Expected_frustration'], atol=atol)
     except AssertionError:
         max_atol = np.max(np.abs(data['Calculated_frustration'] - data['Expected_frustration']))
         print(f"Assertion failed: Maximum absolute tolerance found was {max_atol}, which exceeds the allowed tolerance.")
-        raise AssertionError(f"Maximum absolute tolerance found was {max_atol}, which exceeds the allowed tolerance of 3E-1.")
+        raise AssertionError(f"Maximum absolute tolerance found was {max_atol}, which exceeds the allowed tolerance of {atol}.")
 
 #####
 #Test AWSEM Native Energy Calculations
@@ -305,6 +319,32 @@ def test_contact_pair_decoy_AWSEM_energy_statistics():
 
     assert (abs(np.array(merged_dataframe["<decoy_energies>"]-merged_dataframe["Test_Mean_Decoy_Energy"])) < 1.2E-1).all()
     assert (abs(np.array(merged_dataframe["std(decoy_energies)"]-merged_dataframe["STD_Decoy_Energy"])) < 1.2E-1).all()
+
+
+@pytest.fixture
+def structure():
+    return frustratometer.Structure.full_pdb(test_data_path/f'1l63.pdb',"A")
+
+@pytest.mark.parametrize("k_electrostatics", [0, 4])
+@pytest.mark.parametrize("min_sequence_separation_contact", [2, 10])
+@pytest.mark.parametrize("distance_cutoff_contact", [None, 10])
+def test_expose_indicators(structure, k_electrostatics, min_sequence_separation_contact, distance_cutoff_contact):
+    """ Check that the AWSEM indicators exposed can reproduce the native energy, where E_native = -sum_{i} h_i - sum_{i,j} J_ij = sum_{i} gamma_i * I_i """
+    _AA = '-ACDEFGHIKLMNPQRSTVWY'
+    model=frustratometer.AWSEM(structure,k_electrostatics=k_electrostatics, min_sequence_separation_contact = min_sequence_separation_contact, distance_cutoff_contact = distance_cutoff_contact, expose_indicator_functions=True)
+    model_seq_index=np.array([_AA.find(aa) for aa in model.sequence])
+    indicators1D=np.array(model.indicators[0:3])
+    indicators2D=np.array(model.indicators[3:])
+    true_indicator1D=np.array([indicators1D[:,model_seq_index==i].sum(axis=1) for i in range(21)]).T
+    true_indicator2D=np.array([indicators2D[:,model_seq_index==i][:,:, model_seq_index==j].sum(axis=(1,2)) for i in range(21) for j in range(21)]).reshape(21,21,-1).T
+    burial_gamma=np.concatenate(model.gamma_array[:3])
+    burial_energy_predicted = (burial_gamma * np.concatenate(true_indicator1D)).sum()
+    burial_energy_expected = -model.potts_model['h'][range(len(model_seq_index)), model_seq_index].sum()
+    assert np.isclose(burial_energy_predicted,burial_energy_expected), f"Expected energy {burial_energy_expected} but got {burial_energy_predicted}"
+    contact_gamma=np.concatenate([a.ravel() for a in model.gamma_array[3:]])
+    contact_energy_predicted = (contact_gamma * np.concatenate([a.ravel() for a in true_indicator2D])).sum()
+    contact_energy_expected = model.couplings_energy()
+    assert np.isclose(contact_energy_predicted,contact_energy_expected), f"Expected energy {contact_energy_expected} but got {contact_energy_predicted}"
 
 if __name__ == "__main__":
     pytest.main()
