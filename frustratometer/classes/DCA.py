@@ -255,7 +255,7 @@ class DCA(Frustratometer):
         PFAM_ID :  str
             PFAM ID associated with structure object
         DCA_format : str
-            Current option is "plmDCA"
+            Options are "plmDCA" and "mfDCA"
         sequence_cutoff : float
             Sequence seperation cutoff; the couplings terms of contacts that are separated by more than this cutoff will be ignored.
         distance_cutoff : float
@@ -293,8 +293,11 @@ class DCA(Frustratometer):
 
         self.alignment_file=pfam.download_aligment(self.PFAM_ID,self.alignment_output_file_name)
         self.filtered_alignment_file=filter.filter_alignment(self.alignment_output_file_name,self.filtered_alignment_output_file_name)
-
-        self.potts_model=dca.pydca.plmdca(str(self.filtered_alignment_file))
+        
+        if self.DCA_format=="plmDCA":
+            self.potts_model=dca.pydca.plmdca(str(self.filtered_alignment_file))
+        else:
+            self.potts_model=dca.pydca.mfdca(str(self.filtered_alignment_file))
 
         self.aa_freq = None
         self.contact_freq = None 
