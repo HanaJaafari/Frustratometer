@@ -271,15 +271,14 @@ class DCA(Frustratometer):
         self._chain=pdb_structure.chain
         self._sequence=pdb_structure.sequence
         self._pdb_file=pdb_structure.pdb_file
-        self._potts_model=potts_model
         self._sequence_cutoff=sequence_cutoff
         self._distance_cutoff=distance_cutoff
         self._distance_matrix_method=None
 
-        self._alignment_output_file_name = alignment_output_file_name
-        self._filtered_alignment_output_file_name = filtered_alignment_output_file_name
+        self.alignment_output_file_name = alignment_output_file_name
+        self.filtered_alignment_output_file_name = filtered_alignment_output_file_name
 
-        self._DCA_format=DCA_format
+        self.DCA_format=DCA_format
         
         self.mapped_distance_matrix=pdb_structure.mapped_distance_matrix
         self.distance_matrix=self.mapped_distance_matrix
@@ -288,12 +287,14 @@ class DCA(Frustratometer):
         self.minimally_frustrated_threshold=1
 
         if PFAM_ID==None:
-            self._PFAM_ID=map.get_pfamID(self.pdb_file,self.chain)
+            self.PFAM_ID=map.get_pfamID(self.pdb_file,self.chain)
+        else:
+            self.PFAM_ID=PFAM_ID
 
-        self._alignment_file=pfam.download_aligment(self.PFAM_ID,self.alignment_output_file_name)
-        self._filtered_alignment_file=filter.filter_alignment(self.alignment_output_file_name,self.filtered_alignment_output_file_name)
+        self.alignment_file=pfam.download_aligment(self.PFAM_ID,self.alignment_output_file_name)
+        self.filtered_alignment_file=filter.filter_alignment(self.alignment_output_file_name,self.filtered_alignment_output_file_name)
 
-        self._potts_model=dca.pydca.plmdca(self.filtered_alignment_file)
+        self.potts_model=dca.pydca.plmdca(str(self.filtered_alignment_file))
 
         self.aa_freq = None
         self.contact_freq = None 
