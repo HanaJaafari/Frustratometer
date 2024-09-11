@@ -123,5 +123,6 @@ def download_aligment(pfamid: str, output_file: Union[Path,str],
 
     zipped_alignment = urllib.request.urlopen(url).read()
     alignment = gzip.decompress(zipped_alignment)
+    output_file=Path(output_file)
     output_file.write_bytes(alignment)
     return output_file
