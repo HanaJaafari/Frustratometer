@@ -323,6 +323,18 @@ def test_structure_class():
     assert structure.sequence==test_sequence
     assert structure.distance_matrix.shape==(len(test_sequence),len(test_sequence))
 
+def test_structure_cif_compatibility():
+    structure=frustratometer.Structure.full_pdb(f'{_path}/../tests/data/6u5e.cif',"A")
+    test_sequence="VNPTVFFDIAVDGEPLGRVSFELFADKVPKTAENFRALSTGEKGFGYKGSCFHRIIPGFMCQGGDFTRHNGTGGKSIYGEKFEDENFILKHTGPGILSMANAGPNTNGSQFFICTAKTEWLDGKHVVFGKVKEGMNIVEAMERFGSRNGKTSKKITIADCGQL"
+    assert structure.sequence==test_sequence
+    assert structure.distance_matrix.shape==(len(test_sequence),len(test_sequence))  
+
+def test_substructure_cif_compatibility():
+    structure=frustratometer.Structure.spliced_pdb(f'{_path}/../tests/data/6u5e.cif',chain="A",seq_selection="resindex `2to5`")
+    test_sequence="PTVF"
+    assert structure.sequence==test_sequence
+    assert structure.distance_matrix.shape==(len(test_sequence),len(test_sequence))  
+
 @pytest.mark.skip
 def test_structure_segment_class_original_indices():
     #PDB has cofactors and ions

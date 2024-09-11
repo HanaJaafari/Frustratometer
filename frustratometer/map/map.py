@@ -31,15 +31,15 @@ def get_pfamID(pdb_file, chain):
     return pfamID
 
 
-def get_pfam_map(pdbID, chain):
-    # TODO fix function
-    import pandas as pd
-    df = pd.read_table('%s/pdb_pfam_map.txt' % basedir, header=0)
-    if sum((df['PDB_ID'] == pdbID.upper()) & (df['CHAIN_ID'] == chain.upper())) != 0:
-        start = df.loc[(df['PDB_ID'] == pdbID.upper()) & (df['CHAIN_ID'] == chain.upper())]["PdbResNumStart"].values[0]
-        end = df.loc[(df['PDB_ID'] == pdbID.upper()) & (df['CHAIN_ID'] == chain.upper())]["PdbResNumEnd"].values[0]
-    else:
-        print('data not found')
-        pfamID = 'null'
-    return int(start), int(end)
+# def get_pfam_map(pdbID, chain):
+#     # TODO fix function
+#     import pandas as pd
+#     df = pd.read_table('%s/pdb_pfam_map.txt' % basedir, header=0)
+#     if sum((df['PDB_ID'] == pdbID.upper()) & (df['CHAIN_ID'] == chain.upper())) != 0:
+#         start = df.loc[(df['PDB_ID'] == pdbID.upper()) & (df['CHAIN_ID'] == chain.upper())]["PdbResNumStart"].values[0]
+#         end = df.loc[(df['PDB_ID'] == pdbID.upper()) & (df['CHAIN_ID'] == chain.upper())]["PdbResNumEnd"].values[0]
+#     else:
+#         print('data not found')
+#         pfamID = 'null'
+#     return int(start), int(end)
 

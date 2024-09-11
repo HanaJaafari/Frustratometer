@@ -1,4 +1,11 @@
-"""Frustration functions"""
+"""frustration: Frustration functions
+
+This module includes functions related to frustration index, as well as native and decoy energy calculations.
+This module also features functions such as "write_tcl_script" and "call_vmd," which 
+can be used to visualize frustration patterns onto a PDB structure. 
+
+
+"""
 from .frustration import *
 
 __all__ = ['compute_mask', 'compute_native_energy', 'compute_fields_energy', 'compute_couplings_energy',

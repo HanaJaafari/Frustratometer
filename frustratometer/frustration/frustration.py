@@ -1,13 +1,14 @@
 import prody
 import scipy.spatial.distance as sdist
 import numpy as np
-import typing
+from typing import Union
+from pathlib import Path
 
 _AA = '-ACDEFGHIKLMNPQRSTVWY'
 
 def compute_mask(distance_matrix: np.array,
-                 maximum_contact_distance: typing.Union[float, None] = None,
-                 minimum_sequence_separation: typing.Union[int, None] = None) -> np.array:
+                 maximum_contact_distance: Union[float, None] = None,
+                 minimum_sequence_separation: Union[int, None] = None) -> np.array:
     """
     Computes a 2D Boolean mask from a given distance matrix based on a distance cutoff and a sequence separation cutoff.
 
@@ -685,7 +686,7 @@ def compute_single_frustration(decoy_fluctuation,
 
 
 def compute_pair_frustration(decoy_fluctuation,
-                             contact_freq: typing.Union[None, np.array],
+                             contact_freq: Union[None, np.array],
                              correction=0) -> np.array:
     """
     Calculates pair residue frustration indices
@@ -853,8 +854,42 @@ def plot_singleresidue_decoy_energy(decoy_energy, native_energy, method='cluster
     return g
 
 
-def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, single_frustration, pair_frustration, tcl_script='frustration.tcl',
-                     max_connections=None, movie_name=None, still_image_name=None):
+def write_tcl_script(pdb_file: Union[Path,str], chain: str, mask: np.array, distance_matrix: np.array, distance_cutoff: float, single_frustration: np.array,
+                    pair_frustration: np.array, tcl_script: Union[Path, str] ='frustration.tcl',max_connections: int =None, movie_name: Union[Path, str] =None, still_image_name: Union[Path, str] =None) -> Union[Path, str]:
+    """
+    Writes a tcl script that can be run with VMD to superimpose the frustration patterns onto the corresponding PDB structure. 
+
+    Parameters
+    ----------
+    pdb_file :  Path or str
+        pdb file name
+    chain : str
+        Select chain from pdb
+    mask : np.array
+        A 2D Boolean array that determines which residue pairs should be considered in the energy computation. The mask should have dimensions (L, L), where L is the length of the sequence.
+    distance_matrix : np.array
+        LxL array for sequence of length L, describing distances between contacts
+    distance_cutoff : float
+        Maximum distance at which a contact occurs
+    single_frustration : np.array
+        Array containing single residue frustration index values
+    pair_frustration : np.array
+        Array containing pair (ex. configurational, mutational, contact) frustration index values
+    tcl_script : Path or str
+        Output tcl script file with static structure
+    max_connections : int
+        Maximum number of pair frustration values visualized in tcl file
+    movie_name : Path or str
+        Output movie file with rotating structure
+    still_image_name : Path or str
+        Output image file with still image
+    
+
+    Returns
+    -------
+    tcl_script : Path or str
+        tcl script file
+    """
     fo = open(tcl_script, 'w+')
     single_frustration = np.nan_to_num(single_frustration,nan=0,posinf=0,neginf=0)
     pair_frustration = np.nan_to_num(pair_frustration,nan=0,posinf=0,neginf=0)
@@ -998,7 +1033,17 @@ def write_tcl_script(pdb_file, chain, mask, distance_matrix, distance_cutoff, si
     return tcl_script
 
 
-def call_vmd(pdb_file, tcl_script):
+def call_vmd(pdb_file: Union[Path,str], tcl_script: Union[Path,str]):
+    """
+    Calls VMD program with given pdb file and tcl script to visualize frustration patterns
+
+    Parameters
+    ----------
+    pdb_file :  Path or str
+        pdb file name
+    tcl_script : Path or str
+        Output tcl script file with static structure
+    """
     import subprocess
     return subprocess.Popen(['vmd', '-e', tcl_script, pdb_file], stdin=subprocess.PIPE)
 

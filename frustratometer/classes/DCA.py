@@ -1,5 +1,5 @@
 """Provide the primary functions."""
-import typing
+from typing import Union
 import numpy as np
 from pathlib import Path
 
@@ -23,14 +23,20 @@ __all__=['DCA']
 
 # Class wrapper
 class DCA(Frustratometer):
+    """
+    The DCA class contains many class methods that can be used, depending on whether they have already calculated the DCA couplings and fields parameters.
 
+    If the user already has calculated these parameters, the "from_potts_model_file" or "from_pottsmodel" methods can be used. Otherwise, the user can 
+    locally generate these parameters using the pyDCA package. In this case, the user can try using the "from_distance_matrix," "from_pfam_alignment,"
+    or "from_hmmer_alignment" methods.
+    """
     @classmethod
     def from_distance_matrix(cls,
                  potts_model: dict,
                  distance_matrix : np.array,
                  sequence: str,
-                 sequence_cutoff: typing.Union[float, None] = None,
-                 distance_cutoff: typing.Union[float, None] = None):
+                 sequence_cutoff: Union[float, None] = None,
+                 distance_cutoff: Union[float, None] = None):
         
         self = cls()
         # Set initialization variables
@@ -55,11 +61,11 @@ class DCA(Frustratometer):
         return self
 
     @classmethod
-    def from_potts_model_file(cls,pdb_structure,
+    def from_potts_model_file(cls,pdb_structure: object,
                               potts_model_file: str,
                               reformat_potts_model: bool = False,
-                              sequence_cutoff: typing.Union[float, None] = None,
-                              distance_cutoff: typing.Union[float, None] = None):
+                              sequence_cutoff: Union[float, None] = None,
+                              distance_cutoff: Union[float, None] = None)->object:
         self = cls()
 
         # Set initialization variables
@@ -110,10 +116,10 @@ class DCA(Frustratometer):
         return self
 
     @classmethod
-    def from_pottsmodel(cls,pdb_structure,
+    def from_pottsmodel(cls,pdb_structure : object,
                         potts_model: dict,
-                        sequence_cutoff: typing.Union[float, None] = None,
-                        distance_cutoff: typing.Union[float, None] = None):
+                        sequence_cutoff: Union[float, None] = None,
+                        distance_cutoff: Union[float, None] = None)->object:
         self = cls()
 
         # Set initialization variables
@@ -169,8 +175,8 @@ class DCA(Frustratometer):
                             pdb_chain:  str,
                             download_all_alignment_files: bool,
                             alignment_files_directory: str,
-                            sequence_cutoff: typing.Union[float, None] = None,
-                            distance_cutoff: typing.Union[float, None] = None,
+                            sequence_cutoff: Union[float, None] = None,
+                            distance_cutoff: Union[float, None] = None,
                             distance_matrix_method='minimum'):
         self = cls()
 
@@ -222,8 +228,8 @@ class DCA(Frustratometer):
                              alignment_files_directory: str,
                              alignment_output_file:  bool,
                              alignment_sequence_database:    str,
-                             sequence_cutoff: typing.Union[float, None] = None,
-                             distance_cutoff: typing.Union[float, None] = None,
+                             sequence_cutoff: Union[float, None] = None,
+                             distance_cutoff: Union[float, None] = None,
                              distance_matrix_method='minimum'):
         self = cls()
 
@@ -266,8 +272,8 @@ class DCA(Frustratometer):
                        alignment: str,
                        pdb_file: str,
                        chain: str,
-                       sequence_cutoff: typing.Union[float, None] = None,
-                       distance_cutoff: typing.Union[float, None] = None,
+                       sequence_cutoff: Union[float, None] = None,
+                       distance_cutoff: Union[float, None] = None,
                        distance_matrix_method='minimum'):
         
         # Compute dca
