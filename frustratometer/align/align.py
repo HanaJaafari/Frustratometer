@@ -7,7 +7,7 @@ def jackhmmer(sequence,
               database,
               log=subprocess.DEVNULL,
               dry_run: bool = False,
-              **kwargs):
+              **kwargs)->Path:
     """
     Generates alignment using jackhmmer
 

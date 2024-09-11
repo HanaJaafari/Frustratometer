@@ -13,6 +13,7 @@ Welcome to Frustratometer's documentation!
    frustratometer
    installation
    examples_awsem
+   examples_dca
    api_classes
    api_modules
 
