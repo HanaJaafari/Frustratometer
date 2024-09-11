@@ -1,6 +1,7 @@
 import subprocess
 from pathlib import Path
 import tempfile
+from typing import Union
 
 def jackhmmer(sequence,
               output_file,
