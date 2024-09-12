@@ -5,6 +5,6 @@ pandas
 biopython
 prody
 pyparsing<=3.1.1 #avoids errors when using prody
-pydantic
+pydantic>=2
 numba
 #importlib-metadata; python_version < '3.9'
