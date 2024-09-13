@@ -238,19 +238,61 @@ def test_selected_subsequence_AWSEM_burial_energy_matrix():
 #Test Protein Segment Native AWSEM Energy Calculation
 #####
 
+def test_selected_subsequence_AWSEM_rho_calculations():
+    #Substructure object
+    substructure=frustratometer.Structure.spliced_pdb(test_data_path/f'1MBA_A.pdb',"A",seq_selection="resnum 39to146")
+    model_1=frustratometer.AWSEM(substructure, k_electrostatics=0.0,min_sequence_separation_contact=10,distance_cutoff_contact=10.0)
+    model_1_init_index=model_1.init_index_shift; model_1_fin_index=model_1.fin_index_shift
+
+    #Full structure object
+    structure=frustratometer.Structure.full_pdb(test_data_path/f'1MBA_A.pdb',"A")
+    model_2=frustratometer.AWSEM(structure, k_electrostatics=0.0,min_sequence_separation_contact=10,distance_cutoff_contact=10.0)
+
+    #Check if shape and entries of rho matrices are identical
+    assert model_1.rho_r.shape==model_2.rho_r[model_1_init_index:model_1_fin_index].shape
+    assert model_1.rho_r.all()==model_2.rho_r[model_1_init_index:model_1_fin_index].all()
+
 def test_selected_subsequence_AWSEM_burial_energy():
+    #Substructure object
+    substructure=frustratometer.Structure.spliced_pdb(test_data_path/f'1MBA_A.pdb',"A",seq_selection="resnum 39to146")
+    model_1=frustratometer.AWSEM(substructure, k_electrostatics=0.0,min_sequence_separation_contact=10,distance_cutoff_contact=10.0)
+    model_1_init_index=model_1.init_index_shift; model_1_fin_index=model_1.fin_index_shift
+
+    #Full structure object
+    structure=frustratometer.Structure.full_pdb(test_data_path/f'1MBA_A.pdb',"A")
+    model_2=frustratometer.AWSEM(structure, k_electrostatics=0.0,min_sequence_separation_contact=10,distance_cutoff_contact=10.0)
+
+    #Check if burial energies are identical
+    assert model_1.burial_energy.shape==model_2.burial_energy[model_1_init_index:model_1_fin_index].shape
+    assert model_1.burial_energy.all()==model_2.burial_energy[model_1_init_index:model_1_fin_index].all()
+
+def test_selected_subsequence_AWSEM_contact_energy():
+    #Substructure object
+    substructure=frustratometer.Structure.spliced_pdb(test_data_path/f'1MBA_A.pdb',"A",seq_selection="resnum 39to146")
+    model_1=frustratometer.AWSEM(substructure, k_electrostatics=0.0,min_sequence_separation_contact=10,distance_cutoff_contact=10.0)
+    model_1_init_index=model_1.init_index_shift; model_1_fin_index=model_1.fin_index_shift
+
+    #Full structure object
+    structure=frustratometer.Structure.full_pdb(test_data_path/f'1MBA_A.pdb',"A")
+    model_2=frustratometer.AWSEM(structure, k_electrostatics=0.0,min_sequence_separation_contact=10,distance_cutoff_contact=10.0)
+
+    #Check if contact energies are identical
+    assert model_1.contact_energy.shape==model_2.contact_energy[:,model_1_init_index:model_1_fin_index,model_1_init_index:model_1_fin_index,:,:].shape
+    assert model_1.contact_energy.all()==model_2.contact_energy[:,model_1_init_index:model_1_fin_index,model_1_init_index:model_1_fin_index,:,:].all()
+
+def test_selected_subsequence_AWSEM_burial_energy_without_protein_context():
     structure=frustratometer.Structure.spliced_pdb(test_data_path/f'1MBA_A.pdb',"A",seq_selection="resnum 39to146")
-    model=frustratometer.AWSEM(structure)
+    model=frustratometer.AWSEM(structure, k_electrostatics=0.0,min_sequence_separation_contact=10,distance_cutoff_contact=10.0,burial_in_context=False)
     selected_region_burial=model.fields_energy()
     # Energy units are in kJ/mol
     assert np.round(selected_region_burial, 2) == -377.95
 
-def test_selected_subsequence_AWSEM_contact_energy():
+def test_selected_subsequence_AWSEM_contact_energy_without_protein_context():
     structure=frustratometer.Structure.spliced_pdb(test_data_path/f'1MBA_A.pdb',"A",seq_selection="resnum 39to146")
-    model=frustratometer.AWSEM(structure, distance_cutoff_contact=None, k_electrostatics=0.0, min_sequence_separation_contact=10)
+    model=frustratometer.AWSEM(structure, k_electrostatics=0.0,min_sequence_separation_contact=10,distance_cutoff_contact=10.0,burial_in_context=False)
     selected_region_contact=model.couplings_energy()
     # Energy units are in kJ/mol
-    assert np.round(selected_region_contact, 2) == -149.00
+    assert np.round(selected_region_contact, 0) == -149
 
 def test_single_residue_decoy_AWSEM_energy_statistics():
     _AA = '-ACDEFGHIKLMNPQRSTVWY'

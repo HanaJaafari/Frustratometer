@@ -84,6 +84,7 @@ class Structure:
         self.sequence=pdb.get_sequence(self.pdb_file,self.chain)
         self.distance_matrix=pdb.get_distance_matrix(pdb_file=self.pdb_file,chain=self.chain,
                                                      method=self.distance_matrix_method)
+        self.full_pdb_distance_matrix=self.distance_matrix
 
         if self.aligned_sequence is not None:
             self.full_to_aligned_index_dict=pdb.full_to_filtered_aligned_mapping(self.aligned_sequence,self.filtered_aligned_sequence)
@@ -233,7 +234,7 @@ class Structure:
 
         self.distance_matrix=pdb.get_distance_matrix(pdb_file=self.pdb_file,chain=self.chain,
                                                      method=self.distance_matrix_method)
-
+        self.full_pdb_distance_matrix=self.distance_matrix
         self.distance_matrix=self.distance_matrix[self.init_index_shift:self.fin_index_shift,
                                                   self.init_index_shift:self.fin_index_shift]
         self.sequence=self.sequence[self.init_index_shift:self.fin_index_shift]

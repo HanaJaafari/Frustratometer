@@ -20,6 +20,7 @@ class AWSEMParameters(BaseModel):
     min_sequence_separation_rho: Optional[int] = Field(2, description="Minimum sequence separation for density calculation.")
 
     #Burial potential
+    burial_in_context: Optional[bool] = Field(True, description="For substructure objects, this may include interactions from remainder of protein in burial term.")
     burial_kappa: float = Field(4.0, description="Sharpness of the density-based switching function for the burial potential wells")
     burial_ro_min: List[float] = Field([0.0, 3.0, 6.0], description="Minimum radii for burial potential wells. (Angstrom)")
     burial_ro_max: List[float] = Field([3.0, 6.0, 9.0], description="Maximum radii for burial potential wells. (Angstrom)")
@@ -99,6 +100,7 @@ class AWSEM(Frustratometer):
         self.direct_gamma = gamma['Direct'][0]
         self.protein_gamma = gamma['Protein'][0]
         self.water_gamma = gamma['Water'][0]
+        self.burial_in_context=p.burial_in_context
 
         #Structure details
         self.full_to_aligned_index_dict=pdb_structure.full_to_aligned_index_dict
@@ -111,6 +113,7 @@ class AWSEM(Frustratometer):
         self.pdb_file=pdb_structure.pdb_file
         self.init_index_shift=pdb_structure.init_index_shift
         self.distance_matrix=pdb_structure.distance_matrix
+        self.full_pdb_distance_matrix=pdb_structure.full_pdb_distance_matrix
         selection_CB = self.structure.select('name CB or (resname GLY IGL and name CA)')
 
         resid = selection_CB.getResindices()
@@ -118,8 +121,11 @@ class AWSEM(Frustratometer):
         self.N=len(self.resid)
         assert self.N == len(self.sequence), "The pdb is incomplete. Try setting 'repair_pdb=True' when constructing the Structure object."
 
-
-        sequence_mask_rho = frustration.compute_mask(self.distance_matrix, 
+        if self.burial_in_context==True:
+            selected_matrix=self.full_pdb_distance_matrix
+        else:
+            selected_matrix=self.distance_matrix
+        sequence_mask_rho = frustration.compute_mask(selected_matrix, 
                                                      maximum_contact_distance=None, 
                                                      minimum_sequence_separation = p.min_sequence_separation_rho)
         sequence_mask_contact = frustration.compute_mask(self.distance_matrix, 
@@ -131,13 +137,18 @@ class AWSEM(Frustratometer):
 
         # Calculate rho
         rho = 0.25 
-        rho *= (1 + np.tanh(p.eta * (self.distance_matrix- p.r_min)))
-        rho *= (1 + np.tanh(p.eta * (p.r_max - self.distance_matrix)))
+        rho *= (1 + np.tanh(p.eta * (selected_matrix- p.r_min)))
+        rho *= (1 + np.tanh(p.eta * (p.r_max - selected_matrix)))
         rho *= sequence_mask_rho
         self.rho=rho
         
         #Calculate sigma water
         rho_r = (rho).sum(axis=1)
+        if self.full_pdb_distance_matrix.shape!=self.distance_matrix.shape:
+            if self.burial_in_context==True:
+                self.init_index_shift=pdb_structure.init_index_shift
+                self.fin_index_shift=pdb_structure.fin_index_shift
+                rho_r=rho_r[self.init_index_shift:self.fin_index_shift]
         self.rho_r=rho_r
         rho_b = np.expand_dims(rho_r, 1)
         rho1 = np.expand_dims(rho_r, 0)
