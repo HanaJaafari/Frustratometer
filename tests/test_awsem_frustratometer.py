@@ -292,7 +292,7 @@ def test_selected_subsequence_AWSEM_contact_energy_without_protein_context():
     model=frustratometer.AWSEM(structure, k_electrostatics=0.0,min_sequence_separation_contact=10,distance_cutoff_contact=10.0,burial_in_context=False)
     selected_region_contact=model.couplings_energy()
     # Energy units are in kJ/mol
-    assert np.round(selected_region_contact, 0) == -149
+    assert np.round(selected_region_contact, 2) == -148.92
 
 def test_single_residue_decoy_AWSEM_energy_statistics():
     _AA = '-ACDEFGHIKLMNPQRSTVWY'
