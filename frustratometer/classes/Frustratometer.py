@@ -403,13 +403,13 @@ class Frustratometer:
         view.setStyle({'cartoon':{'color':'white'}})
         
         for i,f in frustrated:
-            view.setStyle({'model': -1, 'resi': i+1}, {"cartoon": {'color': 'red'}})
+            view.setStyle({'model': -1, 'resi': i+shift}, {"cartoon": {'color': 'red'}})
             # view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':self.chain,'resi':[str(j+shift)]},
             #             'color':'red', 'dashed':False,'linewidth':3})
 
         if only_frustrated_contacts==False:
             for i,f in minimally_frustrated:
-                view.setStyle({'model': -1, 'resi': i+1}, {"cartoon": {'color': 'green'}})
+                view.setStyle({'model': -1, 'resi': i+shift}, {"cartoon": {'color': 'green'}})
                 # view.addLine({'start':{'chain':self.chain,'resi':[str(i+shift)]},'end':{'chain':self.chain,'resi':[str(j+shift)]},
                 #             'color':'green', 'dashed':False,'linewidth':3})
 
