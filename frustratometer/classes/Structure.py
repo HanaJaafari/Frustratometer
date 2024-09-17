@@ -155,6 +155,8 @@ class Structure:
                                                      method=self.distance_matrix_method)
         self.full_pdb_distance_matrix=self.distance_matrix
 
+        self.z_coordinates=self.structure.select('((name CB) or (resname GLY and name CA))').getCoords()
+
         if self.seq_selection!=None:
             self.distance_matrix=self.distance_matrix[self.init_index_shift:self.fin_index_shift,
                                                     self.init_index_shift:self.fin_index_shift]
