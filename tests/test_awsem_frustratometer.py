@@ -15,7 +15,7 @@ tests_config = pd.read_csv(test_path/"test_awsem_config.csv",comment='#')
 def test_prody_expected_error():
     test_data=tests_config.iloc[0]
     try:
-        structure = frustratometer.Structure.full_pdb(test_data_path/f"{test_data['pdb']}.pdb")
+        structure = frustratometer.Structure(test_data_path/f"{test_data['pdb']}.pdb")
         assert True
     except TypeError as e:
         if "can't multiply sequence by non-int of type 'Forward'" in str(e):
@@ -26,7 +26,7 @@ def test_prody_expected_error():
 
 @pytest.mark.parametrize("test_data", tests_config.to_dict(orient="records"))
 def test_density_residues(test_data):
-    structure = frustratometer.Structure.full_pdb(test_data_path/f"{test_data['pdb']}.pdb")
+    structure = frustratometer.Structure(test_data_path/f"{test_data['pdb']}.pdb")
     sequence_separation = 2 if test_data['seqsep'] == 3 else 13
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=9.5, min_sequence_separation_rho=sequence_separation, k_electrostatics=0)
     data = pd.read_csv(test_data['singleresidue'], delim_whitespace=True)
@@ -43,7 +43,7 @@ def test_density_residues(test_data):
 
 @pytest.mark.parametrize("test_data", tests_config.to_dict(orient="records"))
 def test_single_residue_frustration(test_data):
-    structure = frustratometer.Structure.full_pdb(test_data_path/f"{test_data['pdb']}.pdb")
+    structure = frustratometer.Structure(test_data_path/f"{test_data['pdb']}.pdb")
     sequence_separation = 2 if test_data['seqsep'] == 3 else 13
     model = frustratometer.AWSEM(structure, distance_cutoff_contact=9.5, min_sequence_separation_rho=sequence_separation, min_sequence_separation_contact=2, k_electrostatics=test_data['k_electrostatics'] * 4.184, min_sequence_separation_electrostatics=1)
     data = pd.read_csv(test_data['singleresidue'], delim_whitespace=True)
@@ -58,7 +58,7 @@ def test_single_residue_frustration(test_data):
 
 @pytest.mark.parametrize("test_data", tests_config.to_dict(orient="records"))
 def test_mutational_frustration(test_data):
-    structure = frustratometer.Structure.full_pdb(test_data_path/f"{test_data['pdb']}.pdb")
+    structure = frustratometer.Structure(test_data_path/f"{test_data['pdb']}.pdb")
     sequence_separation = 2 if test_data['seqsep'] == 3 else 13
     if test_data['k_electrostatics']==1000:
         assert True
@@ -93,7 +93,7 @@ def test_mutational_frustration(test_data):
 @pytest.mark.parametrize("test_data", tests_config.to_dict(orient="records"))
 def test_configurational_frustration(test_data):
     #This test may fail due to the randomness of the decoy generation
-    structure = frustratometer.Structure.full_pdb(test_data_path/f"{test_data['pdb']}.pdb")
+    structure = frustratometer.Structure(test_data_path/f"{test_data['pdb']}.pdb")
     sequence_separation = 2 if test_data['seqsep'] == 3 else 13
     
     if test_data['k_electrostatics'] == 1000:
@@ -140,34 +140,34 @@ def test_residue_density_calculation():
     lammps_single_frustration_dataframe["i"]=lammps_single_frustration_dataframe["i"]-1
     expected_rho_values=lammps_single_frustration_dataframe["rho_i"]
 
-    structure=frustratometer.Structure.full_pdb(test_data_path/f'6u5e.pdb',"A")
+    structure=frustratometer.Structure(test_data_path/f'6u5e.pdb',"A")
     model=frustratometer.AWSEM(structure,distance_cutoff_contact=9.499,
                                                   min_sequence_separation_contact=2)
     assert np.round(model.rho_r,2).all()==np.round(expected_rho_values,2).all()
 
 def test_AWSEM_native_energy():
-    structure=frustratometer.Structure.full_pdb(test_data_path/f'1l63.pdb',"A")
+    structure=frustratometer.Structure(test_data_path/f'1l63.pdb',"A")
     model=frustratometer.AWSEM(structure,k_electrostatics=0, min_sequence_separation_contact = 10, distance_cutoff_contact = None)
     e = model.native_energy()
     print(e)
     assert np.round(e, 0) == -915
 
 def test_AWSEM_fields_energy():
-    structure=frustratometer.Structure.full_pdb(test_data_path/f'6u5e.pdb',"A")
+    structure=frustratometer.Structure(test_data_path/f'6u5e.pdb',"A")
     model=frustratometer.AWSEM(structure,k_electrostatics=0, min_sequence_separation_contact = 10, distance_cutoff_contact = None)
     e = model.fields_energy()
     print(e)
     assert np.round(e, 0) == -555
 
 def test_AWSEM_couplings_energy():
-    structure=frustratometer.Structure.full_pdb(test_data_path/f'6u5e.pdb',"A")
+    structure=frustratometer.Structure(test_data_path/f'6u5e.pdb',"A")
     model=frustratometer.AWSEM(structure,k_electrostatics=0, min_sequence_separation_contact = 10, distance_cutoff_contact = None)
     e = model.couplings_energy()
     print(e)
     assert np.round(e, 0) == -362
 
 def test_fields_couplings_AWSEM_energy():
-    structure=frustratometer.Structure.full_pdb(test_data_path/f'6u5e.pdb',"A")
+    structure=frustratometer.Structure(test_data_path/f'6u5e.pdb',"A")
     model = frustratometer.AWSEM(structure)
     assert model.fields_energy() + model.couplings_energy() - model.native_energy()  < 1E-6
 
@@ -176,7 +176,7 @@ def test_single_residue_AWSEM_energy():
     #Import Lammps AWSEM Frustratometer single residue frustration values
     lammps_single_frustration_dataframe=pd.read_csv(test_data_path/f"6U5E_A_tertiary_frustration_singleresidue_1E8decoys_AWSEM_Frustratometer_LAMMPS_Carlos.dat",header=0,sep="\s+")
     ###
-    structure=frustratometer.Structure.full_pdb(test_data_path/f'6u5e.pdb',"A")
+    structure=frustratometer.Structure(test_data_path/f'6u5e.pdb',"A")
     model=frustratometer.AWSEM(structure,distance_cutoff_contact=9.499,
                                                   min_sequence_separation_contact=2,
                                                   k_electrostatics=0)
@@ -203,7 +203,7 @@ def test_contact_pair_AWSEM_energy():
     lammps_mutational_frustration_dataframe["i"]=lammps_mutational_frustration_dataframe["i"]-1
     lammps_mutational_frustration_dataframe["j"]=lammps_mutational_frustration_dataframe["j"]-1
     ###
-    structure=frustratometer.Structure.full_pdb(test_data_path/f'6u5e.pdb',"A")
+    structure=frustratometer.Structure(test_data_path/f'6u5e.pdb',"A")
     model=frustratometer.AWSEM(structure,distance_cutoff_contact=9.499,
                                                   min_sequence_separation_contact=0,
                                                   k_electrostatics=0)
@@ -225,12 +225,12 @@ def test_contact_pair_AWSEM_energy():
     assert (abs(np.array(lammps_mutational_frustration_dataframe["native_energy"])-np.array(lammps_mutational_frustration_dataframe["Test_Native_Energy"])) < 1E-1).all()
 
 def test_selected_subsequence_AWSEM_contact_energy_matrix():
-    structure=frustratometer.Structure.spliced_pdb(test_data_path/f'4wnc.pdb',"A",seq_selection="resnum 3to26")
+    structure=frustratometer.Structure(test_data_path/f'4wnc.pdb',"A",seq_selection="resnum 3to26")
     model=frustratometer.AWSEM(structure)
     assert model.potts_model['h'].shape==(24,21)
 
 def test_selected_subsequence_AWSEM_burial_energy_matrix():
-    structure=frustratometer.Structure.spliced_pdb(test_data_path/f'4wnc.pdb',"A",seq_selection="resnum 150to315")
+    structure=frustratometer.Structure(test_data_path/f'4wnc.pdb',"A",seq_selection="resnum 150to315")
     model=frustratometer.AWSEM(structure)
     assert model.potts_model['J'].shape==(166,166,21,21)
 
@@ -240,12 +240,12 @@ def test_selected_subsequence_AWSEM_burial_energy_matrix():
 
 def test_selected_subsequence_AWSEM_rho_calculations():
     #Substructure object
-    substructure=frustratometer.Structure.spliced_pdb(test_data_path/f'1MBA_A.pdb',"A",seq_selection="resnum 39to146")
+    substructure=frustratometer.Structure(test_data_path/f'1MBA_A.pdb',"A",seq_selection="resnum 39to146")
     model_1=frustratometer.AWSEM(substructure, k_electrostatics=0.0,min_sequence_separation_contact=10,distance_cutoff_contact=10.0)
     model_1_init_index=model_1.init_index_shift; model_1_fin_index=model_1.fin_index_shift
 
     #Full structure object
-    structure=frustratometer.Structure.full_pdb(test_data_path/f'1MBA_A.pdb',"A")
+    structure=frustratometer.Structure(test_data_path/f'1MBA_A.pdb',"A")
     model_2=frustratometer.AWSEM(structure, k_electrostatics=0.0,min_sequence_separation_contact=10,distance_cutoff_contact=10.0)
 
     #Check if shape and entries of rho matrices are identical
@@ -254,12 +254,12 @@ def test_selected_subsequence_AWSEM_rho_calculations():
 
 def test_selected_subsequence_AWSEM_burial_energy():
     #Substructure object
-    substructure=frustratometer.Structure.spliced_pdb(test_data_path/f'1MBA_A.pdb',"A",seq_selection="resnum 39to146")
+    substructure=frustratometer.Structure(test_data_path/f'1MBA_A.pdb',"A",seq_selection="resnum 39to146")
     model_1=frustratometer.AWSEM(substructure, k_electrostatics=0.0,min_sequence_separation_contact=10,distance_cutoff_contact=10.0)
     model_1_init_index=model_1.init_index_shift; model_1_fin_index=model_1.fin_index_shift
 
     #Full structure object
-    structure=frustratometer.Structure.full_pdb(test_data_path/f'1MBA_A.pdb',"A")
+    structure=frustratometer.Structure(test_data_path/f'1MBA_A.pdb',"A")
     model_2=frustratometer.AWSEM(structure, k_electrostatics=0.0,min_sequence_separation_contact=10,distance_cutoff_contact=10.0)
 
     #Check if burial energies are identical
@@ -268,12 +268,12 @@ def test_selected_subsequence_AWSEM_burial_energy():
 
 def test_selected_subsequence_AWSEM_contact_energy():
     #Substructure object
-    substructure=frustratometer.Structure.spliced_pdb(test_data_path/f'1MBA_A.pdb',"A",seq_selection="resnum 39to146")
+    substructure=frustratometer.Structure(test_data_path/f'1MBA_A.pdb',"A",seq_selection="resnum 39to146")
     model_1=frustratometer.AWSEM(substructure, k_electrostatics=0.0,min_sequence_separation_contact=10,distance_cutoff_contact=10.0)
     model_1_init_index=model_1.init_index_shift; model_1_fin_index=model_1.fin_index_shift
 
     #Full structure object
-    structure=frustratometer.Structure.full_pdb(test_data_path/f'1MBA_A.pdb',"A")
+    structure=frustratometer.Structure(test_data_path/f'1MBA_A.pdb',"A")
     model_2=frustratometer.AWSEM(structure, k_electrostatics=0.0,min_sequence_separation_contact=10,distance_cutoff_contact=10.0)
 
     #Check if contact energies are identical
@@ -281,14 +281,14 @@ def test_selected_subsequence_AWSEM_contact_energy():
     assert model_1.contact_energy.all()==model_2.contact_energy[:,model_1_init_index:model_1_fin_index,model_1_init_index:model_1_fin_index,:,:].all()
 
 def test_selected_subsequence_AWSEM_burial_energy_without_protein_context():
-    structure=frustratometer.Structure.spliced_pdb(test_data_path/f'1MBA_A.pdb',"A",seq_selection="resnum 39to146")
+    structure=frustratometer.Structure(test_data_path/f'1MBA_A.pdb',"A",seq_selection="resnum 39to146")
     model=frustratometer.AWSEM(structure, k_electrostatics=0.0,min_sequence_separation_contact=10,distance_cutoff_contact=10.0,burial_in_context=False)
     selected_region_burial=model.fields_energy()
     # Energy units are in kJ/mol
     assert np.round(selected_region_burial, 2) == -377.95
 
 def test_selected_subsequence_AWSEM_contact_energy_without_protein_context():
-    structure=frustratometer.Structure.spliced_pdb(test_data_path/f'1MBA_A.pdb',"A",seq_selection="resnum 39to146")
+    structure=frustratometer.Structure(test_data_path/f'1MBA_A.pdb',"A",seq_selection="resnum 39to146")
     model=frustratometer.AWSEM(structure, k_electrostatics=0.0,min_sequence_separation_contact=10,distance_cutoff_contact=10.0,burial_in_context=False)
     selected_region_contact=model.couplings_energy()
     # Energy units are in kJ/mol
@@ -299,7 +299,7 @@ def test_single_residue_decoy_AWSEM_energy_statistics():
     #Import Lammps AWSEM Frustratometer single residue frustration values
     lammps_single_frustration_dataframe=pd.read_csv(test_data_path/f"6U5E_A_tertiary_frustration_singleresidue_1E8decoys_AWSEM_Frustratometer_LAMMPS_Carlos.dat",header=0,sep="\s+")
     ###
-    structure=frustratometer.Structure.full_pdb(test_data_path/f'6u5e.pdb',"A")
+    structure=frustratometer.Structure(test_data_path/f'6u5e.pdb',"A")
     model=frustratometer.AWSEM(structure,distance_cutoff_contact=9.499, min_sequence_separation_contact=2, k_electrostatics=0)
     #Calculate fields
     seq_index = np.array([_AA.find(aa) for aa in structure.sequence])
@@ -330,7 +330,7 @@ def test_contact_pair_decoy_AWSEM_energy_statistics():
     lammps_mutational_frustration_dataframe["i"]=lammps_mutational_frustration_dataframe["i"]-1
     lammps_mutational_frustration_dataframe["j"]=lammps_mutational_frustration_dataframe["j"]-1
     ###
-    structure=frustratometer.Structure.full_pdb(test_data_path/f'6u5e.pdb',"A")
+    structure=frustratometer.Structure(test_data_path/f'6u5e.pdb',"A")
     model=frustratometer.AWSEM(structure,distance_cutoff_contact=9.5, min_sequence_separation_contact=None, k_electrostatics=0)
     #Calculate fields
     seq_index = np.array([_AA.find(aa) for aa in structure.sequence])
@@ -365,7 +365,7 @@ def test_contact_pair_decoy_AWSEM_energy_statistics():
 
 @pytest.fixture
 def structure():
-    return frustratometer.Structure.full_pdb(test_data_path/f'1l63.pdb',"A")
+    return frustratometer.Structure(test_data_path/f'1l63.pdb',"A")
 
 @pytest.mark.parametrize("k_electrostatics", [0, 4])
 @pytest.mark.parametrize("min_sequence_separation_contact", [2, 10])
