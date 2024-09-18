@@ -5,6 +5,7 @@ import Bio.PDB.Polypeptide as poly
 import numpy as np
 from typing import Union
 from pathlib import Path
+import warnings
 
 __all__ = ['Structure']
 
@@ -180,7 +181,16 @@ class Structure:
                 self.full_to_aligned_index_dict=dict(zip(range(self.init_index_shift,self.fin_index_shift+1), range(len(self.sequence))))
                 self.mapped_distance_matrix=self.distance_matrix
 
-    
+    @classmethod
+    def full_pdb(cls,pdb_file: Union[Path,str], chain: Union[str,None]=None, aligned_sequence: str = None, filtered_aligned_sequence: str = None,
+                distance_matrix_method:str = 'CB', pdb_directory: Path = Path.cwd(), repair_pdb:bool = True):
+        warnings.warn("The class method 'full_pdb' is now depreciated. You can now simply call the Structure class to create a full pdb or spliced pdb object.")
+
+
+    @classmethod
+    def spliced_pdb(cls,pdb_file: Union[Path,str], chain: Union[str,None]=None, seq_selection: str = None, aligned_sequence: str = None, filtered_aligned_sequence: str = None,
+                distance_matrix_method:str = 'CB', pdb_directory: Path = Path.cwd(), repair_pdb:bool = True):
+        warnings.warn("The class method 'spliced_pdb' is now depreciated. You can now simply call the Structure class to create a full pdb or spliced pdb object.")
     # @property
     # def sequence(self):
     #     return self._sequence
