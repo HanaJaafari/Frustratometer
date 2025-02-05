@@ -1071,3 +1071,182 @@ def canvas(with_attribution=True):
     return quote
 
 
+###
+
+def make_decoy_seqs(seq, ndecoys=1000):
+    """
+    Creates decoy sequences using a given sequence residue composition and length.
+    """
+    seq_array = np.array(list(seq))
+    decoy_seqs = [''.join(np.random.permutation(seq_array)) for _ in range(ndecoys)]
+    return decoy_seqs
+
+
+def compute_fragment_mask(mask: np.array,
+                  fragment_pos: np.array)-> np.array:
+    '''
+    masks i,j such that:
+        i belongs to the fragment, all j
+        j belongs to the fragment, all i
+        
+    '''
+    custom_mask=np.zeros((mask.shape[0],mask.shape[0]),dtype=bool)
+    custom_mask[fragment_pos]=True
+    custom_mask[:,fragment_pos]=True
+    return custom_mask*mask
+
+
+
+def compute_fragment_total_native_energy(seq: str,
+                                         potts_model: dict,
+                                         mask: np.array,
+                                         fragment_pos : Union[None, np.array] = None,
+                                         fragment_in_context = False ) -> float:
+    
+    '''
+    for fragments in context, masks i,j such that:
+        i belongs to the fragment, all j
+        j belongs to the fragment, all i
+    
+    else:
+        consider all i, j (total energy)
+        
+    '''
+    
+    seq_index = np.array([_AA.find(aa) for aa in seq])
+    seq_len = len(seq_index)
+
+    pos1, pos2 = np.meshgrid(np.arange(seq_len), np.arange(seq_len), indexing='ij', sparse=True)
+    aa1, aa2 = np.meshgrid(seq_index, seq_index, indexing='ij', sparse=True)
+    if len(potts_model['J'].shape)==4:
+      #  print('potts')
+        h = -potts_model['h'][range(seq_len), seq_index]
+        j = -potts_model['J'][pos1, pos2, aa1, aa2]
+    else:
+        #MJ 
+       # print('MJ')
+        h = 0
+        j = -potts_model['J'][aa1, aa2]
+    
+    if fragment_in_context:
+        h_mask=np.zeros(seq_len,dtype=int)    
+        h_mask[fragment_pos]=1
+        j_mask=compute_fragment_mask(mask,fragment_pos)
+    else:
+        h_mask = 1
+        j_mask = 1
+    
+    h_prime= h*h_mask
+    j_prime = j * j_mask
+
+    energy = h_prime.sum() + j_prime.sum() / 2
+    return energy
+
+def compute_fragment_total_decoy_energy(decoy_seqs: list,
+                                        potts_model: dict,
+                                        mask: np.array,
+                                        fragment_pos : Union[None, np.array] = None,
+                                        fragment_in_context = False, 
+                                        split_couplings_and_fields = False,
+                                        config_decoys = False,
+                                        msa_mask = 1) -> np.array:
+    '''
+    for fragments in context, masks i,j such that:
+        i belongs to the fragment, all j
+        j belongs to the fragment, all i
+    
+    else:
+        consider all i, j (total energy)
+        
+    '''
+    
+    seq_index = np.array([[_AA.find(aa) for aa in seq] for seq in decoy_seqs])
+    N_seqs, seq_len = seq_index.shape
+    pos_index=np.repeat([np.arange(seq_len)], N_seqs,axis=0)
+    
+    if config_decoys:
+        '''
+        shuffle index positions for configurational decoys energy calculation
+        decoy_seqs must be a list of shuffled versions of the native one
+        mask MUST BE the original model.mask, not the msa adapted version
+        '''
+        pos_index=np.array([np.random.choice(pos_index[0],
+                                             size=len(pos_index[0]),
+                                             replace=False) for x in range(pos_index.shape[0])])
+        mask=np.ones(mask.shape)*mask.mean()
+
+    mask=mask*msa_mask    
+       
+    pos1=np.array([np.meshgrid(p, p, indexing='ij', sparse=True)[0] for p in pos_index])
+    pos2=np.array([np.meshgrid(p, p, indexing='ij', sparse=True)[1] for p in pos_index])
+    aa1=np.array([np.meshgrid(s, s, indexing='ij', sparse=True)[0] for s in seq_index])
+    aa2=np.array([np.meshgrid(s, s, indexing='ij', sparse=True)[1] for s in seq_index])
+    if len(potts_model['J'].shape)==4:
+        h = -potts_model['h'][pos_index,seq_index]
+        j = -potts_model['J'][pos1, pos2, aa1, aa2]
+    else:
+        #MJ 
+        h = 0
+        j = -potts_model['J'][aa1, aa2]
+    
+    if fragment_in_context:
+        h_mask=np.zeros(seq_len,dtype=int)    
+        h_mask[fragment_pos]=1
+        j_mask=compute_fragment_mask(mask,fragment_pos)
+    else:
+        h_mask = 1
+        j_mask = 1
+        
+    h_prime= h*h_mask
+    j_prime = j * j_mask  
+    
+    if split_couplings_and_fields:
+        return np.array([h_prime.sum(axis=-1),j_prime.sum(axis=-1).sum(axis=-1) / 2])
+    else:
+        energy = h_prime.sum(axis=-1) + j_prime.sum(axis=-1).sum(axis=-1) / 2
+        return energy
+    
+    
+def compute_total_frustration(seq,
+                              potts_model,
+                              mask, 
+                              ndecoys = 1000,
+                              config_decoys = False,
+                              msa_mask = 1,
+                              fragment_pos = None,
+                              fragment_in_context = False,
+                              output_kind = 'frustration'):
+    
+    '''
+    for fragments in context, masks i,j such that:
+        i belongs to the fragment, all j
+        j belongs to the fragment, all i
+    
+    else:
+        consider all i, j (total energy)
+        
+    '''
+    
+    native_energy = compute_fragment_total_native_energy(seq,
+                                                         potts_model,
+                                                         mask,
+                                                         fragment_pos,
+                                                         fragment_in_context)
+    decoy_seqs = make_decoy_seqs(seq,ndecoys=ndecoys)
+
+    decoy_energies = compute_fragment_total_decoy_energy(decoy_seqs,
+                                                        potts_model,
+                                                        mask,
+                                                        fragment_pos,
+                                                        fragment_in_context,
+                                                        config_decoys = config_decoys,
+                                                        msa_mask = msa_mask)
+    decoy_energy_average = decoy_energies.mean()
+    decoy_energy_std = decoy_energies.std()
+
+    total_frustration = (native_energy - decoy_energy_average)/ decoy_energy_std
+    if output_kind == 'frustration':
+    
+        return total_frustration
+    else:
+        return native_energy, decoy_energy_average, decoy_energy_std

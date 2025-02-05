@@ -499,5 +499,54 @@ class Frustratometer:
         neutral_gr=np.divide(neutral_hist,(shell_vol*neutral_density))
         
         return minimally_frustrated_gr,frustrated_gr,neutral_gr,r_m
+   
+
+    def total_frustration(self,
+                      n_decoys: int = 1000,
+                      config_decoys: bool = False,
+                      msa_mask: Union[int, np.array] = 1,
+                      fragment_pos: Union[None, np.array] = None,
+                      fragment_in_context: bool = False,
+                      output_kind: str = 'frustration') -> Union[float, np.array] :
+
+        """
+        Calculates the total frustration of a protein fragment.
+
+        Parameters
+        ----------
+        n_decoys: int
+            Number of sequence decoys to create
+        config_decoys: bool
+            To use configurational frustration approximation
+        msa_mask: np.array
+            Extra mask to use a Multiple Sequence Alignment that do not cover completely the reference PDB
+        fragment_pos: np.array
+            Fragment positions. If None, use the complete model
+        fragment_in_context: bool
+            If True, the energetics calculations take into account the interactions between the fragment and other sequence positions
+        output_kind: str
+            If 'frustration', returns frustration. If not, returns native energy, decoy energy average and decoy energy standard deviation.
+        Return
+        -------
+        total_frustration : float
+            Total frustration of the fragment or complete protein
+        native_energy: float
+            Native energy of the given sequence
+        decoy_energy_average: float
+            Average of the decoy energy distribution
+        decoy_energy_std: float
+            Standard deviation of the decoy energy distribution
+        """
+
+        return frustration.compute_total_frustration(self.sequence,
+                                                     self.potts_model,
+                                                     self.mask,
+                                                     n_decoys,
+                                                     config_decoys,
+                                                     msa_mask,
+                                                     fragment_pos,
+                                                     fragment_in_context,
+                                                     output_kind)
+
 
 
