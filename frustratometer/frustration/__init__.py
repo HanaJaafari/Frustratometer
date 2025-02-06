@@ -15,4 +15,9 @@ __all__ = ['compute_mask', 'compute_native_energy', 'compute_fields_energy', 'co
            'compute_contact_freq', 'compute_single_frustration', 'compute_pair_frustration', 'compute_scores',
            'compute_roc', 'compute_auc', 'plot_roc', 'plot_singleresidue_decoy_energy', 'write_tcl_script',
            'call_vmd', 'canvas', 'make_decoy_seqs','compute_fragment_mask', 'compute_fragment_total_native_energy', 'compute_fragment_total_decoy_energy',
-          'compute_total_frustration']
+          'compute_total_frustration',
+          'compute_native_h_J',
+          'compute_decoy_h_J',
+          'compute_native_fragment_energy_from_h_j',
+          'compute_decoy_fragment_energy_from_h_j',
+          'compute_energy_sliding_window']

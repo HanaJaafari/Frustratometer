@@ -517,7 +517,7 @@ class Frustratometer:
         n_decoys: int
             Number of sequence decoys to create
         config_decoys: bool
-            To use configurational frustration approximation
+            If True, use the configurational decoys approximation, shuffling index positions for configurational decoys energy calculation. If False, mutational decoys.
         msa_mask: np.array
             Extra mask to use a Multiple Sequence Alignment that do not cover completely the reference PDB
         fragment_pos: np.array
@@ -549,4 +549,39 @@ class Frustratometer:
                                                      output_kind)
 
 
+    def sliding_window(self,
+                       win_size: int = 5,
+                       ndecoys: int = 1000,
+                       config_decoys: bool = False) -> dict:
 
+        """
+        Computes the total frustration, the native energy, the decoy average energy and the decoy standard deviation for fragments on a sliding window
+
+        Parameters
+        ----------
+        win_size: int
+            Size of the sliding window
+        ndecoys: int
+            Number of decoy sequences to use
+        config_decoys: bool
+            If True, use the configurational decoys approximation, shuffling index positions for configurational decoys energy calculation. If False, mutational decoys.
+
+        Returns
+        -------
+        results: dict
+            Dictionary with the results, containing
+            'fragment_center': center position of each window 
+            'win_size': size of the sliding windows
+            'native_energy': native energy for each window
+            'decoy_energy_av': decoy energy average for each window
+            'decoy_energy_std': decoy energy standard deviation for each window
+            'frustration': total frustration index for each window
+
+        """
+
+        return frustration.compute_energy_sliding_window(self.sequence,
+                                                         self.potts_model,
+                                                         self.mask,
+                                                         win_size,
+                                                         ndecoys,
+                                                         config_decoys)
