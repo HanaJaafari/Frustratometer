@@ -185,12 +185,27 @@ class Structure:
     def full_pdb(cls,pdb_file: Union[Path,str], chain: Union[str,None]=None, aligned_sequence: str = None, filtered_aligned_sequence: str = None,
                 distance_matrix_method:str = 'CB', pdb_directory: Path = Path.cwd(), repair_pdb:bool = True):
         warnings.warn("The class method 'full_pdb' is now depreciated. You can now simply call the Structure class to create a full pdb or spliced pdb object.")
+        return cls(pdb_file=pdb_file,
+                   chain=chain,
+                   aligned_sequence=aligned_sequence,
+                   filtered_aligned_sequence=filtered_aligned_sequence,
+                   distance_matrix_method=distance_matrix_method,
+                   pdb_directory=pdb_directory,
+                   repair_pdb=repair_pdb)
 
 
     @classmethod
     def spliced_pdb(cls,pdb_file: Union[Path,str], chain: Union[str,None]=None, seq_selection: str = None, aligned_sequence: str = None, filtered_aligned_sequence: str = None,
                 distance_matrix_method:str = 'CB', pdb_directory: Path = Path.cwd(), repair_pdb:bool = True):
         warnings.warn("The class method 'spliced_pdb' is now depreciated. You can now simply call the Structure class to create a full pdb or spliced pdb object.")
+        return cls(pdb_file=pdb_file,
+                    chain=chain,
+                    seq_selection=seq_selection,
+                    aligned_sequence=aligned_sequence,
+                    filtered_aligned_sequence=filtered_aligned_sequence,
+                    distance_matrix_method=distance_matrix_method,
+                    pdb_directory=pdb_directory,
+                    repair_pdb=repair_pdb,)
     # @property
     # def sequence(self):
     #     return self._sequence
