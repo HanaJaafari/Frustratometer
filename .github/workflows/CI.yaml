@@ -109,6 +109,9 @@ jobs:
         conda list
         cd ..
         pwd
+        python -c "import sys; print(sys.executable); print('\n'.join(sys.path))"
+        python -c "import pydca; print('pydca is installed and importable')"
+        pip freeze | grep pydca
     
     - name: Install package
 
