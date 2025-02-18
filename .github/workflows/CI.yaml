@@ -92,7 +92,7 @@ jobs:
     
     #Install numpy first
     - name: Install numpy
-    - run: |
+      run: |
         conda activate test
         conda install "numpy<2"
 
