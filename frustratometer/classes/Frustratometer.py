@@ -453,19 +453,19 @@ class Frustratometer:
             sequence=self.sequence
         frustration_values=self.frustration(sequence=sequence,kind=kind)
         
-        residue_ca_coordinates=(self.structure.select('(protein and (name CB) or (resname GLY and name CA))').getCoords())
+        residue_cb_coordinates=(self.structure.select('(protein and (name CB) or (resname GLY and name CA))').getCoords())
         
         if "-" in sequence:
-            original_residue_ca_coordinates=residue_ca_coordinates
+            original_residue_cb_coordinates=residue_cb_coordinates
             mapped_residues=list(self.structure.full_to_aligned_index_dict.values())
-            residue_ca_coordinates=original_residue_ca_coordinates[mapped_residues,:]
+            residue_cb_coordinates=original_residue_cb_coordinates[mapped_residues,:]
 
         if kind=="singleresidue":
-            sel_frustration = np.column_stack((residue_ca_coordinates,np.expand_dims(frustration_values, axis=1)))
+            sel_frustration = np.column_stack((residue_cb_coordinates,np.expand_dims(frustration_values, axis=1)))
             
         elif kind in ["configurational","mutational"]:
             i,j=np.meshgrid(range(0,len(self.sequence)),range(0,len(self.sequence)))
-            midpoint_coordinates=(residue_ca_coordinates[i.flatten(),:]+ residue_ca_coordinates[j.flatten(),:])/2
+            midpoint_coordinates=(residue_cb_coordinates[i.flatten(),:]+ residue_cb_coordinates[j.flatten(),:])/2
             sel_frustration = np.column_stack((midpoint_coordinates, frustration_values.ravel()))
 
         r=np.linspace(1,maximum_shell_radius,bins)
