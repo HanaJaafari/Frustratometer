@@ -93,7 +93,6 @@ jobs:
     #Install numpy first
     - name: Install numpy
       run: |
-        conda activate test
         conda install "numpy<2"
 
     #Install pydca
@@ -104,24 +103,22 @@ jobs:
         path: pydca_dir
     - name: Install pydca
       run: |
-        conda activate test
         cd pydca_dir
         echo "numpy<2" > constraints.txt
-        pip install -r requirements.txt -c constraints.txt
-        python -m pip install . --no-deps
+        conda run -n test pip install -r requirements.txt -c constraints.txt
+        conda run -n test python -m pip install . --no-deps
         conda list
         cd ..
         pwd
-        python -c "import sys; print(sys.executable); print('\n'.join(sys.path))"
-        python -c "import pydca; print('pydca is installed and importable')"
-        pip freeze | grep pydca
+        conda run -n test python -c "import sys; print(sys.executable); print('\n'.join(sys.path))"
+        conda run -n test python -c "import pydca; print('pydca is installed and importable')"
+        conda run -n test pip freeze | grep pydca
     
     - name: Install package
 
       # conda setup requires this special shell
       shell: bash -l {0}
       run: |
-        conda activate test
         conda install -c conda-forge --file requirements.txt
         python -m pip install . --no-deps
         conda list
@@ -131,7 +128,6 @@ jobs:
       # conda setup requires this special shell
       shell: bash -l {0}
       run: |
-        conda activate test
         conda install -c conda-forge pdbfixer
 
     - name: Run tests
@@ -140,7 +136,6 @@ jobs:
       shell: bash -l {0}
 
       run: |
-        conda activate test
         python -c "import sys; print(sys.executable); print('\n'.join(sys.path))"
         python -c "import pydca; print('pydca is installed and importable')"
         pip freeze | grep pydca
