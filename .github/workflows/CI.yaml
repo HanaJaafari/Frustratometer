@@ -92,7 +92,9 @@ jobs:
     
     #Install numpy first
     - name: Install numpy
-      run: conda install "numpy<2"
+    - run: |
+        conda activate test
+        conda install "numpy<2"
 
     #Install pydca
     - name: Check out pydca
@@ -102,6 +104,7 @@ jobs:
         path: pydca_dir
     - name: Install pydca
       run: |
+        conda activate test
         cd pydca_dir
         echo "numpy<2" > constraints.txt
         pip install -r requirements.txt -c constraints.txt
@@ -118,6 +121,7 @@ jobs:
       # conda setup requires this special shell
       shell: bash -l {0}
       run: |
+        conda activate test
         conda install -c conda-forge --file requirements.txt
         python -m pip install . --no-deps
         conda list
@@ -127,6 +131,7 @@ jobs:
       # conda setup requires this special shell
       shell: bash -l {0}
       run: |
+        conda activate test
         conda install -c conda-forge pdbfixer
 
     - name: Run tests
@@ -135,6 +140,10 @@ jobs:
       shell: bash -l {0}
 
       run: |
+        conda activate test
+        python -c "import sys; print(sys.executable); print('\n'.join(sys.path))"
+        python -c "import pydca; print('pydca is installed and importable')"
+        pip freeze | grep pydca
         pytest -v --cov=frustratometer --cov-report=xml --color=yes tests/
 
     - name: CodeCov
