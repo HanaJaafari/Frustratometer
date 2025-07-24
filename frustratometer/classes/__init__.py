@@ -11,7 +11,8 @@ from .AWSEM import AWSEM
 from .Structure import Structure
 from .Map import Map
 from .Gamma import Gamma
+from .DarkEnergy import DarkEnergy
 
-__all__ = ['DCA', 'AWSEM', 'Structure', 'Map', 'Gamma']
+__all__ = ['DCA', 'AWSEM', 'Structure', 'Map', 'Gamma','DarkEnergy']
 # __all__.extend(DCA.__all__)
 # __all__.extend(AWSEM.__all__)
