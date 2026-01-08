@@ -32,9 +32,12 @@ def download(pdbID: str,directory: Union[Path,str]=Path.cwd()) -> Path:
     """
 
     import urllib.request
-    pdb_file=Path(directory) / f'{pdbID}.pdb'
-    urllib.request.urlretrieve('http://www.rcsb.org/pdb/files/%s.pdb' % pdbID, pdb_file)
-    return pdb_file
+
+    pdbID = pdbID.lower()
+    url = f"https://files.rcsb.org/download/{pdbID}.pdb"
+    out_path = Path(directory) / f"{pdbID}.pdb"
+    urllib.request.urlretrieve(url, out_path)
+    return out_path
 
 def get_sequence(pdb_file: str, 
                  chain: str
